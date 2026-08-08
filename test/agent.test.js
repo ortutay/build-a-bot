@@ -40,7 +40,7 @@ test('agent executes a tool call and stores an OpenAI-compatible tool result', a
       })
     );
   vi.stubGlobal('fetch', fetchMock);
-  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key' });
+  const agent = new Agent('test-model', toolkit);
 
   expect((await agent.step()).stop).toBe(false);
   expect(agent.messages.at(-1)).toMatchObject({
@@ -54,7 +54,7 @@ test('agent executes a tool call and stores an OpenAI-compatible tool result', a
 });
 
 test('agent converts malformed tool arguments into a tool result', async () => {
-  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key' });
+  const agent = new Agent('test-model', toolkit);
   const result = await agent.useTool({
     id: 'call_bad',
     function: { name: 'echo', arguments: '{not json}' },
@@ -62,13 +62,4 @@ test('agent converts malformed tool arguments into a tool result', async () => {
 
   expect(result).toMatchObject({ role: 'tool', tool_call_id: 'call_bad', name: 'echo' });
   expect(result.content).toContain('Tool use gave error:');
-});
-
-test('agent reports missing credentials before requesting OpenRouter', async () => {
-  const fetchMock = vi.fn();
-  vi.stubGlobal('fetch', fetchMock);
-  const agent = new Agent('test-model', toolkit, { apiKey: '' });
-
-  await expect(agent.step()).rejects.toThrow('OPENROUTER_API_KEY is required');
-  expect(fetchMock).not.toHaveBeenCalled();
 });

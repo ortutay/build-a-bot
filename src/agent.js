@@ -3,13 +3,13 @@ const clip = (value, max = 100) => {
   return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
 };
 
-const ask = async ({ model, messages, tools, apiKey }) => {
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY is required.');
+const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
+const ask = async ({ model, messages, tools }) => {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${openrouterApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ model, messages, tools }),
@@ -27,10 +27,9 @@ const ask = async ({ model, messages, tools, apiKey }) => {
 };
 
 export class Agent {
-  constructor(model, toolkit, { apiKey = process.env.OPENROUTER_API_KEY } = {}) {
+  constructor(model, toolkit) {
     this.model = model;
     this.toolkit = toolkit;
-    this.apiKey = apiKey;
     this.messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
     this.usage = { promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
   }
@@ -86,7 +85,6 @@ export class Agent {
       model: this.model,
       messages: this.messages,
       tools: this.toolkit.tools,
-      apiKey: this.apiKey,
     });
 
     this.usage.promptTokens += data.usage?.prompt_tokens || 0;
