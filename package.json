@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "scripts": {
     "test": "vitest run",
@@ -14,7 +14,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "dotenv": "^17.2.4",
     "happy-dom": "^20.8.4",
     "node-html-parser": "^7.0.1",
     "playwright": "^1.58.2",

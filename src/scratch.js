@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { runAccess } from "./run.js";
 
 // Edit this target freely while experimenting with the agent.

@@ -64,10 +64,10 @@ const nodeFetch = new Tool(
     },
   },
   async (_agent, { url, proxy }) => {
-    const response = await proxyFetch(url, proxy);
+    const resp = await proxyFetch(url, proxy);
     return {
-      status: response.status,
-      html: slimHtml({ html: await response.text(), url }),
+      status: resp.status,
+      html: slimHtml({ html: await resp.text(), url }),
     };
   },
 );
@@ -93,15 +93,15 @@ const jsFetch = new Tool(
         fetch: {
           interceptor: {
             beforeAsyncRequest: async ({ request, window }) => {
-              const response = await proxyFetch(
+              const resp = await proxyFetch(
                 request.url,
                 proxy,
                 request.headers,
               );
-              return new window.Response(await response.text(), {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers,
+              return new window.Response(await resp.text(), {
+                status: resp.status,
+                statusText: resp.statusText,
+                headers: resp.headers,
               });
             },
           },
@@ -109,10 +109,10 @@ const jsFetch = new Tool(
       },
     });
     const page = browser.newPage();
-    const response = await page.goto(url);
+    const resp = await page.goto(url);
     await page.waitUntilComplete();
     return {
-      status: response.status,
+      status: resp.status,
       html: slimHtml({
         html: page.mainFrame.document.documentElement.outerHTML,
         url,
@@ -178,8 +178,8 @@ const goto = new Tool(
     },
   },
   async (agent, { url }) => {
-    const response = await ensurePage(agent).goto(url);
-    return { url: agent.page.url(), status: response?.status() };
+    const resp = await ensurePage(agent).goto(url);
+    return { url: agent.page.url(), status: resp?.status() };
   },
 );
 

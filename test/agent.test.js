@@ -8,7 +8,7 @@ const toolkit = {
   },
 };
 
-const response = (body, status = 200) => ({
+const resp = (body, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
   json: async () => body,
@@ -20,7 +20,7 @@ test("agent executes a tool call and stores an OpenAI-compatible tool result", a
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce(
-      response({
+      resp({
         choices: [
           {
             finish_reason: "tool_calls",
@@ -38,7 +38,7 @@ test("agent executes a tool call and stores an OpenAI-compatible tool result", a
       }),
     )
     .mockResolvedValueOnce(
-      response({
+      resp({
         choices: [
           {
             finish_reason: "stop",
