@@ -12,7 +12,7 @@ runAccess(target)
     console.log('Output:', plan);
     console.log('Usage:', usage);
   })
-  .catch((error) => {
-    console.error(error);
+  .catch((e) => {
+    console.error(e);
     process.exitCode = 1;
   });

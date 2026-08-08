@@ -66,8 +66,8 @@ export class Agent {
       if (!fn) throw new Error(`Unknown tool: ${name || '(missing name)'}`);
       const args = JSON.parse(toolCall.function.arguments || '{}');
       output = await fn(this, args);
-    } catch (error) {
-      output = `Tool use gave error: ${error instanceof Error ? error.message : String(error)}`;
+    } catch (e) {
+      output = `Tool use gave error: ${e}`;
     }
 
     const content = typeof output === 'string' ? output : JSON.stringify(output);
