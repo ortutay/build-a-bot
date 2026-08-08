@@ -6,6 +6,7 @@ const clip = (value, max = 500) => {
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
 const ask = async ({ model, messages, tools }) => {
+  console.log("Asking AI...");
   const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
