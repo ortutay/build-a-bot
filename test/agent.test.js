@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { Agent } from '../src/agent.js';
 
 const toolkit = {
@@ -14,8 +14,10 @@ const response = (body, status = 200) => ({
   json: async () => body,
 });
 
+afterEach(() => vi.unstubAllGlobals());
+
 test('agent executes a tool call and stores an OpenAI-compatible tool result', async () => {
-  const fetchFn = vi
+  const fetchMock = vi
     .fn()
     .mockResolvedValueOnce(
       response({
@@ -37,7 +39,8 @@ test('agent executes a tool call and stores an OpenAI-compatible tool result', a
         choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'Done.' } }],
       })
     );
-  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key', fetchFn });
+  vi.stubGlobal('fetch', fetchMock);
+  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key' });
 
   expect((await agent.step()).stop).toBe(false);
   expect(agent.messages.at(-1)).toMatchObject({
@@ -51,7 +54,7 @@ test('agent executes a tool call and stores an OpenAI-compatible tool result', a
 });
 
 test('agent converts malformed tool arguments into a tool result', async () => {
-  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key', fetchFn: vi.fn() });
+  const agent = new Agent('test-model', toolkit, { apiKey: 'test-key' });
   const result = await agent.useTool({
     id: 'call_bad',
     function: { name: 'echo', arguments: '{not json}' },
@@ -62,9 +65,10 @@ test('agent converts malformed tool arguments into a tool result', async () => {
 });
 
 test('agent reports missing credentials before requesting OpenRouter', async () => {
-  const fetchFn = vi.fn();
-  const agent = new Agent('test-model', toolkit, { apiKey: '', fetchFn });
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  const agent = new Agent('test-model', toolkit, { apiKey: '' });
 
   await expect(agent.step()).rejects.toThrow('OPENROUTER_API_KEY is required');
-  expect(fetchFn).not.toHaveBeenCalled();
+  expect(fetchMock).not.toHaveBeenCalled();
 });
