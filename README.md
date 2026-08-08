@@ -21,14 +21,18 @@ npm run scratch
 ```
 
 ```js
-import { runAccess } from './src/run.js';
+import { runAccess } from "./src/run.js";
 
 const result = await runAccess({
-  url: 'https://example.com',
-  prompt: 'Describe the content available on this page.',
+  url: "https://example.com",
+  prompt: "Describe the content available on this page.",
 });
 ```
 
 ## Browser behavior
 
-`launchBrowser()` starts a standard headless Playwright Chromium instance. No FetchFox stealth, proxy, CAPTCHA, storage, or worker code is included.
+`launchBrowser()` starts a standard headless Playwright Chromium instance. No FetchFox stealth, CAPTCHA, storage, or worker code is included.
+
+## Proxies
+
+Copy `.env.example` to `.env` and configure only the proxy tiers you intend to use. The available tool values are `none`, `datacenter`, `residential`, `residentialCdp`, and `unblock`.
