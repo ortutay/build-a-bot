@@ -1,0 +1,23 @@
+{
+  "name": "builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node --check src/agent.js && node --check src/html.js && node --check src/prompts.js && node --check src/run.js && node --check src/tools.js"
+  },
+  "dependencies": {
+    "happy-dom": "^20.8.4",
+    "node-html-parser": "^7.0.1",
+    "playwright": "^1.58.2",
+    "pretty": "^2.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}
