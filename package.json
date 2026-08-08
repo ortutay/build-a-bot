@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "scratch": "node src/scratch.js"
+    "scratch": "node src/scratch.js",
+    "prepare": "husky"
   },
   "dependencies": {
     "happy-dom": "^20.8.4",
@@ -20,6 +21,12 @@
   },
   "devDependencies": {
     "eslint": "^10.8.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.6",
     "vitest": "^4.1.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,css,md}": "prettier --write"
   }
 }
