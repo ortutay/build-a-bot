@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "node --check src/agent.js && node --check src/html.js && node --check src/prompts.js && node --check src/run.js && node --check src/tools.js"
+    "lint": "eslint .",
+    "scratch": "node src/scratch.js"
   },
   "dependencies": {
     "happy-dom": "^20.8.4",
@@ -18,6 +19,7 @@
     "pretty": "^2.0.0"
   },
   "devDependencies": {
+    "eslint": "^10.8.1",
     "vitest": "^4.1.4"
   }
 }

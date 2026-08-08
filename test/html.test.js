@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { collapseHtml, inspect, slimHtml } from '../src/html.js';
 
 test('collapseHtml removes noise and caps collapsed text previews', () => {

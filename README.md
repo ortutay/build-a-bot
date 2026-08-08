@@ -14,6 +14,12 @@ npm run lint
 
 Set `OPENROUTER_API_KEY` before calling `runAccess()` from `src/run.js`.
 
+For manual experimentation, edit `src/scratch.js` and run:
+
+```bash
+npm run scratch
+```
+
 ```js
 import { runAccess } from './src/run.js';
 
