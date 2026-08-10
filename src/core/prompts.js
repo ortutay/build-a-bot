@@ -91,6 +91,28 @@ You may use the following dependencies:
 
 Follow the input and output schema guidelines in the general plan. The function parameters should be based on the input schema, and the return value should be based on the output schema.
 
+Guidelines for input and output:
+- If you are returning a list of results:
+  - Include the following inputs, in addition to domain specific ones:
+    - limit: Max number of results, default 1000
+    - offset: Starting offset, combines with limit
+  - Use the following output format:
+    - results: Array of results items
+    - total: total number of results
+    - count: number of results in the current result set
+
+# Structure
+
+Your code must be structured in the following way:
+
+  export const inputSchema = { /* ... zod schema ...*/ };
+  export const outputSchema = { /* ... zod schema ...*/ };
+  export const run = async (input) => {
+    return { ... }
+  }
+
+The process that loads your code expects this format, with these exact names.a
+
 ${reports}
 
 ${setup({ agent, url, prompt })}`;
