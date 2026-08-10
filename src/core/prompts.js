@@ -1,13 +1,27 @@
+import { names } from './proxy';
+
+const shared = `The following are the valid proxy options: ${JSON.stringify(names)}
+`;
+
 const setup = ({ agent, url, prompt }) => `Here is the user input:
-== START user input ==
+<user-input>
 URL: ${url}
 Prompt: ${prompt}
-== END user input ==
+</user-input>
 
+${browserState({ agent })}
+
+<shared>
+Keep in mind this global shared context:
+${shared}
+</shared>
+`;
+
+export const browserState = ({ agent }) => `<browser-state>
 Here is the current browser state:
-== START browser state ==
 ${JSON.stringify(agent.state())}
-== END browser state ==`;
+</browser-state>
+`;
 
 export const access = ({
   agent,
@@ -65,13 +79,32 @@ Include specifics in your report, including:
 
 Define an input and output schema for this function. It should be a reusable, paramaterized function. It will be part of HTTP API endpoint, so the input should be a JSON object, mostly strings or numbers as values.
 
+The schemas should follow JSON schema conventions. A full valid example is below:
+
+  const outputSchema = {
+    type: "object",
+    properties: {
+      results: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            number: { type: "string" }
+          }
+        }
+      }
+    }
+  }
+
 Guidelines for input schema:
 - It should more resemble an HTTP API, rather than a scraping endpoint. That means the parameters may not be URLs
 - Base the input on the user prompt, and also on the general site layout. For example, if you have something like https://www.example.com/category/product, perhaps "category" can be a parameters
+- Make it permissive. Unless necessary, make inputs optional.
 
 Guidelines for output schema:
 - Follow the user prompt
 - Beyond that, give a nicely structured output with the key data
+- Make it resilient. Unless absolutely necessary, make outputs optional.
 
 ${setup({ agent, url, prompt })}`;
 
@@ -82,14 +115,62 @@ export const code = ({
   prompt,
 }) => `You are writing a JavaScript web scraping script. You have various reports from sub-agents. Use these to write reports.
 
-If necessary, load pages and inspect the site further to generate the script.
+If necessary, use tools load pages and inspect the site further to generate the script.
 
-You may use the following dependencies:
+# VM context
+
+## Library of functions: lib
+
+You are given the following library of functions. They are available in the VM context under "lib".
+
+- lib.nodeFetch(url, options, proxy):
+  Description: Runs node's native fetch(). Same signature, with addition of "proxy".
+  Arguments:
+  - "url": String: URL to act on.
+  - "options": Object: Typical nodejs fetch options, which includes options.method and options.header.
+  - "proxy": String: Proxy argument based on the allowed options.
+
+- lib.jsFetch(url, proxy):
+  Description: Gets a URL using JavaScript execution via JSDom package.
+  Arguments:
+  - "url": String: URL to act on.
+  - "proxy": String: Proxy argument based on the allowed options.
+
+## Modules: availableModules
+
+You may use the following dependencies. Do not import them. Instead, use the context global "availableModules".
+
 - playwright
+- cheerio
+- node-html-parser
+- zod
+- Any native nodejs libraries, including node "fetch()"
+
+The availableModules dictionary is built using this pattern:
+
+  import * as cheerio from 'cheerio';
+  import * as nodeHtmlParser from 'node-html-parser';
+
+  const availableModules = {
+    cheerio,
+    'node-html-parser': nodeHtmlParser,
+    // ... etc.
+  };
+
+Therefore, you can access modules using availableModules[name];
+
+Do not use any other dependencies. Pick the best option between cheerio and node-html-parser.
+
+Example usage:
+
+  const { cheerio } = availableModules;
+  const $ = cheerio.load(html);
 
 # Input and ouput schema
 
 Follow the input and output schema guidelines in the general plan. The function parameters should be based on the input schema, and the return value should be based on the output schema.
+
+The input and ouput schemas follow JSON schema conventions. You may use z.fromJSONSchema() in zod if necessary.
 
 Guidelines for input and output:
 - If you are returning a list of results:
@@ -100,18 +181,26 @@ Guidelines for input and output:
     - results: Array of results items
     - total: total number of results
     - count: number of results in the current result set
+- Input schema:
+  - Make it permissive. Unless necessary, make inputs optional.
+- Output schema:
+  - Make it resilient. Unless absolutely necessary, make outputs optional.
 
 # Structure
 
 Your code must be structured in the following way:
 
-  export const inputSchema = { /* ... zod schema ...*/ };
-  export const outputSchema = { /* ... zod schema ...*/ };
+  export const inputSchema = { /* ... JSON schema ...*/ };
+  export const outputSchema = { /* ... JSON schema ...*/ };
   export const run = async (input) => {
     return { ... }
   }
 
-The process that loads your code expects this format, with these exact names.a
+The process that loads your code expects this format, with these exact names.
+
+# Guidelines
+
+- Because you have availableModules, do not write any "import" lines.
 
 ${reports}
 

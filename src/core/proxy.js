@@ -35,6 +35,8 @@ const proxies = {
   },
 };
 
+export const names = Object.keys(proxies);
+
 export const getProxySpec = (proxy = 'none') => {
   const spec = proxies[proxy];
   if (!spec) {

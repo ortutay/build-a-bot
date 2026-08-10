@@ -1,5 +1,12 @@
+import { readFile } from 'node:fs/promises';
+import { clip, hash } from './util';
+import { DiskCache } from './cache/DiskCache';
+import * as prompts from './prompts';
+
+const cache = new DiskCache('/tmp');
+
+const text = await readFile(new URL('./prompts.js', import.meta.url), 'utf8');
 import { ask } from './ai';
-import { clip } from './util';
 
 export class Agent {
   constructor(model, toolkit) {
@@ -66,6 +73,37 @@ export class Agent {
       name,
       content,
     };
+  }
+
+  async run(content) {
+    const key = hash({ content, text });
+    const cached = await cache.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      this.push({ role: 'user', content });
+
+      for (let index = 0; index < 20; index++) {
+        const reply = await this.step();
+        if (reply.stop) break;
+
+        this.push({
+          role: 'user',
+          content: prompts.browserState({ agent: this }),
+        });
+      }
+
+      const out = {
+        content: this.lastReply()?.content || '',
+        usage: this.usage,
+      };
+      cache.set(key, out).catch((e) => console.warn(`Cache error: ${e}`));
+      return out;
+    } finally {
+      await this.closeBrowser();
+    }
   }
 
   async step() {
