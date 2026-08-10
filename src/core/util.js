@@ -9,3 +9,32 @@ export const clip = (value, max = 500) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
   return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
 };
+
+export const retry = async (fn, retries = 8, pauseMs = 100) => {
+  let attempt = 0;
+  let resp;
+  while (true) {
+    try {
+      resp = await fn();
+      if (
+        resp.status == 403 &&
+        resp.url.match(/https:\/\/\w+\.s3\.amazonaws\.com/)
+      ) {
+        throw new Error('S3 403');
+      }
+      return resp;
+    } catch (err) {
+      attempt++;
+      if (attempt >= retries) {
+        throw err;
+      }
+      const msec = Math.round(
+        attempt * pauseMs + 0.1 * Math.random() * pauseMs
+      );
+      console.log(
+        `Pause ${msec} msec and retry fetch on ${resp?.url}, attempt #${attempt}`
+      );
+      await new Promise((ok) => setTimeout(ok, msec));
+    }
+  }
+};

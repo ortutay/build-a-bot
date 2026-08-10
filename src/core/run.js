@@ -1,9 +1,10 @@
-import { Agent } from './agent.js';
-import * as prompts from './prompts.js';
-import { general } from './tools.js';
+import { Agent } from './agent';
+import * as prompts from './prompts';
+import { general } from './tools';
+import { availableContext } from './execute';
 
-export const defaultModel = 'google/gemini-3-flash-preview';
-const model = defaultModel;
+// const model = 'google/gemini-3-flash-preview';
+const model = 'openai/gpt-5.6-luna';
 
 export const runAccess = async ({ url, prompt }) => {
   const agent = new Agent(model, general);
@@ -17,7 +18,15 @@ export const runPlan = async ({ url, prompt }) => {
 
 export const runCode = async ({ url, prompt, reports }) => {
   const agent = new Agent(model, general);
-  return agent.run(prompts.code({ agent, url, prompt, reports }));
+  return agent.run(
+    prompts.code({
+      agent,
+      url,
+      prompt,
+      reports,
+      availableContext: JSON.stringify(Object.keys(availableContext), null, 2),
+    })
+  );
 };
 
 export const runFull = async ({ url, prompt }) => {

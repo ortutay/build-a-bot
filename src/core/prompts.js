@@ -41,9 +41,9 @@ export const access = ({
 - "datacenter": configured datacenter proxy.
 - "residential": configured residential proxy.
 - "residentialCdp": configured residential browser connection. Use only with launchBrowser().
-- "unblock": configured unblocking fetch API. Use only with nodeFetch() or jsFetch().
+- "unblock": Configured unblocking fetch API. Use only with nodeFetch() or jsFetch().
 
-Use the least expensive option that successfully accesses the required data.
+Use the lightest, least expensive option that successfully accesses the required data.
 
 # Empirical approach
 
@@ -112,6 +112,7 @@ export const code = ({
   agent,
   url,
   reports,
+  availableContext,
   prompt,
 }) => `You are writing a JavaScript web scraping script. You have various reports from sub-agents. Use these to write reports.
 
@@ -119,7 +120,13 @@ If necessary, use tools load pages and inspect the site further to generate the 
 
 # VM context
 
-## Library of functions: lib
+## Standard context
+
+You have the following nodejs globals available in the context. No others area available:
+
+${availableContext}
+
+## Extra context: Library of functions: lib
 
 You are given the following library of functions. They are available in the VM context under "lib".
 
@@ -136,7 +143,7 @@ You are given the following library of functions. They are available in the VM c
   - "url": String: URL to act on.
   - "proxy": String: Proxy argument based on the allowed options.
 
-## Modules: availableModules
+## Extra context: Modules: availableModules
 
 You may use the following dependencies. Do not import them. Instead, use the context global "availableModules".
 
@@ -144,7 +151,6 @@ You may use the following dependencies. Do not import them. Instead, use the con
 - cheerio
 - node-html-parser
 - zod
-- Any native nodejs libraries, including node "fetch()"
 
 The availableModules dictionary is built using this pattern:
 
@@ -201,6 +207,7 @@ The process that loads your code expects this format, with these exact names.
 # Guidelines
 
 - Because you have availableModules, do not write any "import" lines.
+- Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
 
 ${reports}
 

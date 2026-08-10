@@ -1,5 +1,8 @@
 import { Browser, BrowserErrorCaptureEnum } from 'happy-dom';
+import { retry } from './util.js';
 import { proxyFetch } from './proxy.js';
+
+export const retryFetch = (...args) => retry(() => fetch(...args));
 
 export const nodeFetch = (url, options = {}, proxy = 'none') => {
   console.log('nodeFetch:', url, options, proxy);

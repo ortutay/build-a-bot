@@ -5,6 +5,28 @@ import * as playwright from 'playwright';
 import * as zod from 'zod';
 import { nodeFetch, jsFetch } from './fetchers';
 
+export const availableContext = {
+  URL,
+  URLSearchParams,
+  AbortController,
+  AbortSignal,
+  TextEncoder,
+  TextDecoder,
+
+  // Useful general utilities
+  structuredClone,
+  queueMicrotask,
+  performance,
+  atob,
+  btoa,
+  Buffer,
+  DOMException,
+
+  setTimeout,
+  clearTimeout,
+  console,
+};
+
 const compile = (code) => {
   if (typeof code !== 'string') {
     throw new TypeError('Code must be a string.');
@@ -53,6 +75,7 @@ export const execute = async (code, input) => {
   console.log('Execute:', input, code);
 
   const context = vm.createContext({
+    ...availableContext,
     lib: {
       nodeFetch,
       jsFetch,

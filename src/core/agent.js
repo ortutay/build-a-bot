@@ -76,7 +76,7 @@ export class Agent {
   }
 
   async run(content) {
-    const key = hash({ content, text });
+    const key = hash({ model: this.model, content, text });
     const cached = await cache.get(key);
     if (cached) {
       return cached;
