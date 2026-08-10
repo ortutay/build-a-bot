@@ -1,5 +1,5 @@
-import { Browser, BrowserErrorCaptureEnum } from "happy-dom";
-import { chromium } from "playwright";
+import { Browser, BrowserErrorCaptureEnum } from 'happy-dom';
+import { chromium } from 'playwright';
 import {
   collapseHtml,
   defaultRemoveAttributes,
@@ -8,8 +8,8 @@ import {
   inspect,
   remove,
   slimHtml,
-} from "./html.js";
-import { getProxySpec, proxyFetch } from "./proxy.js";
+} from './html.js';
+import { getProxySpec, proxyFetch } from './proxy.js';
 
 export class Tool {
   constructor(schema, fn) {
@@ -22,44 +22,44 @@ export class ToolKit {
   constructor(tools) {
     this.tools = tools.map((tool) => tool.schema);
     this.mapping = Object.fromEntries(
-      tools.map((tool) => [tool.schema.function.name, tool.fn]),
+      tools.map((tool) => [tool.schema.function.name, tool.fn])
     );
   }
 }
 
 const shared = {
   url: {
-    type: "string",
+    type: 'string',
     description:
-      "URL to navigate to. Include the scheme, for example https://.",
+      'URL to navigate to. Include the scheme, for example https://.',
   },
   proxy: {
-    type: "string",
-    enum: ["none", "datacenter", "residential", "residentialCdp", "unblock"],
+    type: 'string',
+    enum: ['none', 'datacenter', 'residential', 'residentialCdp', 'unblock'],
     description:
       'One of: "none", "datacenter", "residential", "residentialCdp", or "unblock".',
   },
 };
 
-const noParameters = { type: "object", properties: {}, required: [] };
+const noParameters = { type: 'object', properties: {}, required: [] };
 
 const ensurePage = (agent) => {
   if (!agent.page) {
-    throw new Error("No browser page is available. Call launchBrowser first.");
+    throw new Error('No browser page is available. Call launchBrowser first.');
   }
   return agent.page;
 };
 
 const nodeFetch = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "nodeFetch",
-      description: "Execute an HTTP GET using Node.js fetch.",
+      name: 'nodeFetch',
+      description: 'Execute an HTTP GET using Node.js fetch.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: { url: shared.url, proxy: shared.proxy },
-        required: ["url", "proxy"],
+        required: ['url', 'proxy'],
       },
     },
   },
@@ -69,20 +69,20 @@ const nodeFetch = new Tool(
       status: resp.status,
       html: slimHtml({ html: await resp.text(), url }),
     };
-  },
+  }
 );
 
 const jsFetch = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "jsFetch",
+      name: 'jsFetch',
       description:
-        "Execute an HTTP GET with JavaScript execution using happy-dom.",
+        'Execute an HTTP GET with JavaScript execution using happy-dom.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: { url: shared.url, proxy: shared.proxy },
-        required: ["url", "proxy"],
+        required: ['url', 'proxy'],
       },
     },
   },
@@ -96,7 +96,7 @@ const jsFetch = new Tool(
               const resp = await proxyFetch(
                 request.url,
                 proxy,
-                request.headers,
+                request.headers
               );
               return new window.Response(await resp.text(), {
                 status: resp.status,
@@ -118,20 +118,20 @@ const jsFetch = new Tool(
         url,
       }),
     };
-  },
+  }
 );
 
 const launchBrowser = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "launchBrowser",
+      name: 'launchBrowser',
       description:
-        "Launch a plain Playwright browser. Required before browser page tools.",
+        'Launch a plain Playwright browser. Required before browser page tools.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: { proxy: shared.proxy },
-        required: ["proxy"],
+        required: ['proxy'],
       },
     },
   },
@@ -141,7 +141,7 @@ const launchBrowser = new Tool(
 
     if (spec.fetch) {
       throw new Error(
-        'Proxy tier "unblock" is only available to nodeFetch and jsFetch.',
+        'Proxy tier "unblock" is only available to nodeFetch and jsFetch.'
       );
     }
 
@@ -161,47 +161,47 @@ const launchBrowser = new Tool(
 
     agent.page = await agent.context.newPage();
     return { url: agent.page.url() };
-  },
+  }
 );
 
 const goto = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "goto",
-      description: "Navigate the Playwright page to a URL.",
+      name: 'goto',
+      description: 'Navigate the Playwright page to a URL.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: { url: shared.url },
-        required: ["url"],
+        required: ['url'],
       },
     },
   },
   async (agent, { url }) => {
     const resp = await ensurePage(agent).goto(url);
     return { url: agent.page.url(), status: resp?.status() };
-  },
+  }
 );
 
 const fullContent = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "fullContent",
-      description: "Get the full HTML contents of the page.",
+      name: 'fullContent',
+      description: 'Get the full HTML contents of the page.',
       parameters: noParameters,
     },
   },
-  async (agent) => ensurePage(agent).content(),
+  async (agent) => ensurePage(agent).content()
 );
 
 const slimContent = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "slimContent",
+      name: 'slimContent',
       description:
-        "Get cleaned HTML contents of the page for efficient inspection.",
+        'Get cleaned HTML contents of the page for efficient inspection.',
       parameters: noParameters,
     },
   },
@@ -211,22 +211,22 @@ const slimContent = new Tool(
       status: page.url() ? undefined : undefined,
       html: slimHtml({ html: await page.content(), url: page.url() }),
     };
-  },
+  }
 );
 
 const collapsedContent = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "content",
+      name: 'content',
       description:
-        "Get collapsed page HTML. Expand only required collapse IDs with shouldExpand, or use inspect for one region.",
+        'Get collapsed page HTML. Expand only required collapse IDs with shouldExpand, or use inspect for one region.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           shouldExpand: {
-            type: "object",
-            description: "Optional map of collapse IDs to expand.",
+            type: 'object',
+            description: 'Optional map of collapse IDs to expand.',
             additionalProperties: true,
           },
         },
@@ -238,31 +238,31 @@ const collapsedContent = new Tool(
     const html = await ensurePage(agent).content();
     return collapseHtml(
       remove(drop(html, 2, 8), defaultRemoveTags, defaultRemoveAttributes),
-      shouldExpand,
+      shouldExpand
     );
-  },
+  }
 );
 
 const inspectContent = new Tool(
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "inspect",
-      description: "Get formatted HTML for one collapsed region.",
+      name: 'inspect',
+      description: 'Get formatted HTML for one collapsed region.',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           collapseId: {
-            type: "string",
-            description: "A collapse ID, such as d2.",
+            type: 'string',
+            description: 'A collapse ID, such as d2.',
           },
         },
-        required: ["collapseId"],
+        required: ['collapseId'],
       },
     },
   },
   async (agent, { collapseId }) =>
-    inspect(await ensurePage(agent).content(), collapseId),
+    inspect(await ensurePage(agent).content(), collapseId)
 );
 
 export const general = new ToolKit([

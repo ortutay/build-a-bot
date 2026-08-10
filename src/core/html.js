@@ -148,7 +148,9 @@ export const collapseHtml = (html, shouldExpand = []) => {
       : Object.entries(shouldExpand || {})
   );
   const divs = root.querySelectorAll('div');
-  const refs = new Map(divs.map((div, index) => [div, `d${index.toString(36)}`]));
+  const refs = new Map(
+    divs.map((div, index) => [div, `d${index.toString(36)}`])
+  );
   const open = new Set();
 
   for (const div of divs) {
@@ -207,9 +209,10 @@ export const slimHtml = ({ html, url }) => {
 
     const tagName = (node.tagName || '').toLowerCase();
     const attributes = Object.entries(node.attrs || {})
-      .filter(([key, value]) =>
-        ['class', 'id'].includes(key) ||
-        (key.startsWith('data-') && value && value.length < 500)
+      .filter(
+        ([key, value]) =>
+          ['class', 'id'].includes(key) ||
+          (key.startsWith('data-') && value && value.length < 500)
       )
       .map(([key, value]) => ` ${key}="${String(value).slice(0, 400)}"`)
       .join('');
@@ -217,9 +220,14 @@ export const slimHtml = ({ html, url }) => {
     const href = (node.getAttribute?.('href') || '').slice(0, 1000);
     const src = (node.getAttribute?.('src') || '').slice(0, 1000);
 
-    if (tagName === 'a' && href) return `<a href="${href}"${attributes}>${inner}</a>`;
+    if (tagName === 'a' && href)
+      return `<a href="${href}"${attributes}>${inner}</a>`;
     if (tagName === 'meta') return node.toString();
-    if (['img', 'source', 'video', 'audio'].includes(tagName) && src && !src.startsWith('data:')) {
+    if (
+      ['img', 'source', 'video', 'audio'].includes(tagName) &&
+      src &&
+      !src.startsWith('data:')
+    ) {
       return `<${tagName} src="${src}"${attributes}/>`;
     }
     if (tagName) return `<${tagName}${attributes}>${inner}</${tagName}>`;

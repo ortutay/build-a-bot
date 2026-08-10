@@ -1,3 +1,6 @@
+import { ask } from './ai';
+import { clip } from './util';
+
 export class Agent {
   constructor(model, toolkit) {
     this.model = model;

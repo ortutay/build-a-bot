@@ -1,6 +1,4 @@
-import * as run from './run.js';
-
-import { Builder } from './core/builder.ts';
+import * as run from './core/run.js';
 
 // Edit this target freely while experimenting with the agent.
 const target = {
