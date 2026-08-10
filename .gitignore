@@ -5,3 +5,6 @@ coverage/
 !.env.example
 test-results/
 playwright-report/
+.log/
+bak/
+dist/

@@ -13,7 +13,7 @@ export const access = ({
   agent,
   url,
   prompt,
-}) => `You are part of a team of agents building a web scraper using JavaScript. Your specific task is to determine the best way to access a website for a user request. Optimize for cost, speed, and coverage of the data relevant to the user.
+}) => `You are part of a team of agents building an API based on a URL and user prompt using JavaScript. Your specific task is to determine the best way surface data on this website. You need to figure out cost/speed/data coverage optimizations, as well as a nice input/output schema.
 
 # Rendering options
 
@@ -45,10 +45,52 @@ export const plan = ({
   agent,
   url,
   prompt,
-}) => `You are writing a JavaScript web scraping script. Explore and gather information until you can write the script.
+}) => `You are writing a JavaScript web scraping script. Explore and gather information necessary to write this script.
+
+Do not write code yet, simple generate a written report about how to run the script once you have enough information.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
 - If the task is impossible, explain why and stop.
+- If necessary, navigate around the site to find the right target page(s) for extraction.
+
+# Specifics and evidence
+
+Include specifics in your report, including:
+- Sample URLs
+- Sample HTML snippets from those URLs
+- Any other specifics that will be helpful for the coding agent
+
+# Input and ouput schema
+
+Define an input and output schema for this function. It should be a reusable, paramaterized function. It will be part of HTTP API endpoint, so the input should be a JSON object, mostly strings or numbers as values.
+
+Guidelines for input schema:
+- It should more resemble an HTTP API, rather than a scraping endpoint. That means the parameters may not be URLs
+- Base the input on the user prompt, and also on the general site layout. For example, if you have something like https://www.example.com/category/product, perhaps "category" can be a parameters
+
+Guidelines for output schema:
+- Follow the user prompt
+- Beyond that, give a nicely structured output with the key data
+
+${setup({ agent, url, prompt })}`;
+
+export const code = ({
+  agent,
+  url,
+  reports,
+  prompt,
+}) => `You are writing a JavaScript web scraping script. You have various reports from sub-agents. Use these to write reports.
+
+If necessary, load pages and inspect the site further to generate the script.
+
+You may use the following dependencies:
+- playwright
+
+# Input and ouput schema
+
+Follow the input and output schema guidelines in the general plan. The function parameters should be based on the input schema, and the return value should be based on the output schema.
+
+${reports}
 
 ${setup({ agent, url, prompt })}`;
