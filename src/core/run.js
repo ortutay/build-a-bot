@@ -1,7 +1,7 @@
 import { Agent } from './agent';
 import * as prompts from './prompts';
 import { general } from './tools';
-import { availableContext } from './execute';
+import { availableContext } from './compile';
 
 // const model = 'google/gemini-3-flash-preview';
 const model = 'openai/gpt-5.6-luna';

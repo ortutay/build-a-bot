@@ -1,5 +1,4 @@
-import * as run from './core/run.js';
-import { execute } from './core/execute';
+import { build } from './index';
 
 // Edit this target freely while experimenting with the agent.
 const target = {
@@ -14,12 +13,15 @@ const target = {
 // };
 
 const main = async () => {
-  const { content, usage } = await run.runFull(target);
-  console.log('Content:', content);
+  const { fn, code, usage } = await build(target);
+  const out = await fn({});
+  console.log('Code:', code);
   console.log('Usage:', usage);
-
-  const out = await execute(content, {});
   console.log('Out:', out);
+
+  // const { content, usage } = await run.runFull(target);
+  // const out = await execute(content, {});
+  // console.log('Out:', out);
 };
 
 main()
