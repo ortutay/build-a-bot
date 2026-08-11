@@ -187,8 +187,15 @@ Guidelines for input and output:
     - results: Array of results items
     - total: total number of results
     - count: number of results in the current result set
+- If you are returning a single result:
+  - Simply return the object itself
 - Input schema:
   - Make it permissive. Unless necessary, make inputs optional.
+  - Avoid putting the input URL as one of the fields in input schema. You can instead hardcode it, with the option to override if necessary.
+  - Do not put default values on filter fields, or most other fields.
+    - For example, a list endpoint should, by default, return everything, and filters should not have pre-defined defaults
+  - For detail getter endpoints, the idenitifer can be required
+    - For example, for https://example.com/products/:id, the :id field should be required
 - Output schema:
   - Make it resilient. Unless absolutely necessary, make outputs optional.
 

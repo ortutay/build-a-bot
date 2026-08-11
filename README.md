@@ -23,7 +23,7 @@ npm run scratch
 ```js
 import { build } from '@fetchfox/builder';
 
-const { fn, code, usage } = await build({
+const { fn, code, inputSchema, outputSchema, usage } = await build({
   url: 'https://example.com',
   prompt: 'Describe the content available on this page.',
 });

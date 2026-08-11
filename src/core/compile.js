@@ -88,7 +88,7 @@ export const compile = async (code) => {
     throw new TypeError('run must be an exported function.');
   }
 
-  return async (input) => {
+  const fn = async (input) => {
     const parsedInput = await parseWithSchema(inputSchema, input);
     const result = await run(parsedInput);
     let out;
@@ -100,4 +100,6 @@ export const compile = async (code) => {
     }
     return out;
   };
+
+  return { fn, inputSchema, outputSchema };
 };
