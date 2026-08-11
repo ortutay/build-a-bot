@@ -1,4 +1,4 @@
-import { names } from './proxy';
+import { names } from './proxy.js';
 
 const shared = `The following are the valid proxy options: ${JSON.stringify(names)}
 `;

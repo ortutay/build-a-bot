@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
-import { nodeFetch, jsFetch } from './fetchers';
+import { nodeFetch, jsFetch } from './fetchers.js';
 
 export const availableContext = {
   URL,

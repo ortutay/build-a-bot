@@ -1,8 +1,24 @@
 {
-  "name": "builder",
+  "name": "@fetchfox/builder",
   "version": "0.1.0",
-  "private": true,
+  "description": "An agent that builds web-data extraction functions.",
+  "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/index.js",
+    "src/core/**/*.js"
+  ],
+  "keywords": [
+    "web",
+    "scraping",
+    "agent"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20.12"
   },

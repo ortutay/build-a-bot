@@ -1,4 +1,4 @@
-import { build } from './index';
+import { build } from './index.js';
 
 // Edit this target freely while experimenting with the agent.
 const target = {

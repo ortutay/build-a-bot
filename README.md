@@ -1,6 +1,6 @@
 # builder
 
-An experimental, local web-access agent built around direct OpenRouter tool calls and plain Playwright.
+An experimental web-access agent built around direct OpenRouter tool calls and plain Playwright.
 
 The project is a library-style runner for now. It intentionally has no CLI, MCP server, proxy tiers, CAPTCHA solver, browser stealth layer, or agent-orchestration framework.
 
@@ -12,7 +12,7 @@ npm test
 npm run lint
 ```
 
-Set `OPENROUTER_API_KEY` before calling `runAccess()` from `src/run.js`.
+Set `OPENROUTER_API_KEY` before calling `build()`.
 
 For manual experimentation, edit `src/scratch.js` and run:
 
@@ -21,12 +21,14 @@ npm run scratch
 ```
 
 ```js
-import { runAccess } from "./src/run.js";
+import { build } from '@fetchfox/builder';
 
-const result = await runAccess({
-  url: "https://example.com",
-  prompt: "Describe the content available on this page.",
+const { fn, code, usage } = await build({
+  url: 'https://example.com',
+  prompt: 'Describe the content available on this page.',
 });
+
+const result = await fn({});
 ```
 
 ## Browser behavior

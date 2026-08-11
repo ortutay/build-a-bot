@@ -1,5 +1,5 @@
-import { retryFetch } from './fetchers';
-import { openaiApiKey, openrouterApiKey } from './constants';
+import { retryFetch } from './fetchers.js';
+import { openaiApiKey, openrouterApiKey } from './constants.js';
 
 export const ask = async ({ model, messages, tools }) => {
   console.log('Asking AI...');

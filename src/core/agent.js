@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { clip, hash } from './util';
-import { DiskCache } from './cache/DiskCache';
-import * as prompts from './prompts';
+import { clip, hash } from './util.js';
+import { DiskCache } from './cache/DiskCache.js';
+import * as prompts from './prompts.js';
 
 const cache = new DiskCache('/tmp');
 
 const text = await readFile(new URL('./prompts.js', import.meta.url), 'utf8');
-import { ask } from './ai';
+import { ask } from './ai.js';
 
 export class Agent {
   constructor(model, toolkit) {
