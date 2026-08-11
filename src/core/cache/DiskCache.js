@@ -14,7 +14,7 @@ export const DiskCache = class {
     return key.replaceAll('/', '-');
   }
 
-  async set(key, val, label) {
+  async set(key, val) {
     if (this.readOnly) {
       return;
     }
@@ -35,7 +35,7 @@ export const DiskCache = class {
     try {
       await fs.promises.writeFile(tmpFilepath, ser, 'utf8');
       await fs.promises.rename(tmpFilepath, filepath);
-    } catch (e) {
+    } catch {
       fs.promises.unlink(tmpFilepath).catch(() => {
         /* ignore */
       });

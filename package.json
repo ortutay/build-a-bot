@@ -9,7 +9,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "eslint src/ test/ --fix",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "scratch": "tsx src/scratch.js",
@@ -25,7 +25,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "eslint": "^10.8.1",
+    "@eslint/js": "^9.27.0",
+    "eslint": "^9.27.0",
+    "eslint-plugin-promise": "^7.2.1",
+    "globals": "^14.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",

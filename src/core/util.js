@@ -23,10 +23,10 @@ export const retry = async (fn, retries = 8, pauseMs = 100) => {
         throw new Error('S3 403');
       }
       return resp;
-    } catch (err) {
+    } catch (e) {
       attempt++;
       if (attempt >= retries) {
-        throw err;
+        throw e;
       }
       const msec = Math.round(
         attempt * pauseMs + 0.1 * Math.random() * pauseMs

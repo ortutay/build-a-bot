@@ -27,7 +27,7 @@ export const availableContext = {
   console,
 };
 
-const parseWithSchema = async (schema, value, name) => {
+const parseWithSchema = async (schema, value) => {
   return zod.fromJSONSchema(schema).parseAsync(value);
 };
 
@@ -89,15 +89,11 @@ export const compile = async (code) => {
   }
 
   return async (input) => {
-    const parsedInput = await parseWithSchema(
-      inputSchema,
-      input,
-      'inputSchema'
-    );
+    const parsedInput = await parseWithSchema(inputSchema, input);
     const result = await run(parsedInput);
     let out;
     try {
-      out = await parseWithSchema(outputSchema, result, 'outputSchema');
+      out = await parseWithSchema(outputSchema, result);
     } catch (e) {
       console.warn('Got output validation error:', e);
       out = result;
