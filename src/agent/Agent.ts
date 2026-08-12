@@ -72,7 +72,6 @@ export class Agent {
       model: this.model,
       content,
       promptsText,
-      // cb: 1
     });
     const cached = await this.cache.get(key);
     if (false && cached) {
