@@ -8,10 +8,9 @@ import * as prompts from './prompts.js';
 
 // Read text of prompts for cache busting
 // TODO: More fine grained caching
-const promptsText = await readFile(
-  new URL('./prompts.ts', import.meta.url),
-  'utf8'
-);
+const promptsText =
+  (await readFile(new URL('./prompts.ts', import.meta.url), 'utf8')) +
+  (await readFile(new URL('../workshop/prompts.ts', import.meta.url), 'utf8'));
 
 export type AgentOptions = {
   readonly model?: string;

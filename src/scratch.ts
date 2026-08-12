@@ -1,4 +1,4 @@
-// import { Workshop } from './index.js';
+import { Workshop } from './index.js';
 import { fetchTool } from './tools/FetchTool.js';
 import { Agent } from './agent/Agent.js';
 // import { build } from './index.js';
@@ -21,14 +21,20 @@ const main = async () => {
   // const out = await fetchTool.run({ url: 'https://example.com' });
   // console.log('Out gave:', out);
 
-  const agent = new Agent({
-    model: 'google/gemini-3.5-flash-lite',
-    tools: [fetchTool],
-  });
+  // const agent = new Agent({
+  //   model: 'google/gemini-3.5-flash-lite',
+  //   tools: [fetchTool],
+  // });
   // const out = await agent.run('get example.com html');
 
-  const ws = new Workshop(agent);
-  const bot = await ws.build(target);
+  const ws = new Workshop();
+  const bot = await ws.build({
+    ...target,
+    agentOptions: {
+      model: 'google/gemini-3.5-flash-lite',
+      tools: [fetchTool],
+    },
+  });
 
   return;
 
