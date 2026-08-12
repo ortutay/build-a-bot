@@ -1,7 +1,7 @@
 import { log } from './logger.js';
-// import { retryFetch } from './fetchers.js';
 import { openrouterApiKey } from './constants.js';
 import type { JSONSchema } from 'json-schema-to-ts';
+import { retry } from 'radash';
 
 export type AskRequest = {
   model: string;
@@ -86,12 +86,13 @@ export const ask = async (req: AskRequest): Promise<AskResponse> => {
     'Content-Type': 'application/json',
   };
 
-  // const resp = await retryFetch(url, {
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(params),
-  });
+  const resp = await retry({ times: 5, backoff: (i) => 1000 * i }, () =>
+    fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(params),
+    })
+  );
   const data: ApiResponse = await resp.json();
   log.info(`AI responded, OK=${resp.ok}`);
 

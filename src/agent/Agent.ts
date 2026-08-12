@@ -95,10 +95,14 @@ export class Agent {
       .filter((message) => message.role === 'assistant')
       .at(-1);
 
-    return {
+    const result = {
       content: last?.content || '',
       usage: this.usage,
     };
+
+    await this.cache.set(key, result);
+
+    return result;
   }
 
   async step(): Promise<StepResult> {

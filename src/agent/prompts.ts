@@ -1,6 +1,4 @@
-export type PromptOptions = {
+export const agentState = (options: {
   agentState: string;
-};
-
-export const agentState = (options: PromptOptions) => `Current agent state is:
+}) => `Current agent state is:
 ${options.agentState}`;
