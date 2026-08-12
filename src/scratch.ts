@@ -23,22 +23,15 @@ const main = async () => {
 
   const agent = new Agent({
     model: 'google/gemini-3.5-flash-lite',
-    // tools: [fetchTool],
     tools: [fetchTool],
   });
+  // const out = await agent.run('get example.com html');
 
-  console.log('Agent:', agent);
-
-  const out = await agent.run('get example.com html');
-
-  console.log('Agent out:', out);
+  const ws = new Workshop(agent);
+  const bot = await ws.build(target);
 
   return;
 
-  // const ws = new Workshop();
-  // const bot = await ws.build({
-  //   ...target
-  // });
   // console.log('got bot:', bot);
 
   // const { fn, code, usage } = await build(target);
