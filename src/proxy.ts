@@ -91,8 +91,20 @@ export const proxyFetch = async (
     return fetch(url, { headers });
   }
 
+  if (!spec.username || !spec.password) {
+    throw new Error(`Proxy tier "${proxy}" requires a username and password.`);
+  }
+
   const dispatcher = new ProxyAgent(
     `http://${encodeURIComponent(spec.username)}:${encodeURIComponent(spec.password)}@${spec.server}`
   );
-  return undiciFetch(url, { headers, dispatcher });
+  const resp = await undiciFetch(url, {
+    headers: Object.fromEntries(new Headers(headers)),
+    dispatcher,
+  });
+  return new Response(await resp.arrayBuffer(), {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: Object.fromEntries(resp.headers),
+  });
 };

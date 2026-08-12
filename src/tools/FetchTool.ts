@@ -1,4 +1,4 @@
-import { FromSchema } from 'json-schema-to-ts';
+import type { FromSchema } from 'json-schema-to-ts';
 import { Tool } from './Tool.js';
 
 const inputSchema = {
@@ -27,7 +27,7 @@ const outputSchema = {
     },
     body: { type: 'string' },
   },
-  required: ['url', 'ok', 'status', 'statusText', 'headers', 'text'],
+  required: ['url', 'ok', 'status', 'statusText', 'headers', 'body'],
   additionalProperties: false,
 } as const;
 

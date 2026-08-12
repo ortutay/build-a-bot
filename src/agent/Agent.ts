@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
 import { log } from '../logger.js';
 import { DiskCache } from '../cache/DiskCache.js';
-import { Tool } from '../tools/Tool.js';
+import type { Tool } from '../tools/Tool.js';
 import { ask, type Message, type Usage, type ToolCall } from '../ai.js';
 import { clip, hash } from '../util.js';
 import * as prompts from './prompts.js';
@@ -9,13 +9,13 @@ import * as prompts from './prompts.js';
 // Read text of prompts for cache busting
 // TODO: More fine grained caching
 const promptsText = await readFile(
-  new URL('./prompts.js', import.meta.url),
+  new URL('./prompts.ts', import.meta.url),
   'utf8'
 );
 
 export type AgentOptions = {
   readonly model?: string;
-  readonly tools?: Tool<any, any>[];
+  readonly tools?: Tool[];
 };
 
 export type RunResult = {
@@ -24,7 +24,7 @@ export type RunResult = {
 };
 
 type StepResult = {
-  readonly message: string;
+  readonly message: Message;
   readonly stop: boolean;
 };
 
@@ -35,7 +35,7 @@ export const defaultOptions: AgentOptions = {
 
 export class Agent {
   model: string;
-  tools: Tool<any, any>[] = [];
+  tools: Tool[] = [];
   cache: DiskCache = new DiskCache('/tmp');
   messages: Message[] = [
     { role: 'system', content: 'You are a helpful assistant.' },
@@ -56,7 +56,11 @@ export class Agent {
     return this.#usage;
   }
 
-  tool(name: string): Tool<any, any> | undefined {
+  state(): { tools: string[] } {
+    return { tools: this.tools.map((tool) => tool.name) };
+  }
+
+  tool(name: string): Tool | undefined {
     return this.tools.find((it) => it.name === name);
   }
 
@@ -102,7 +106,14 @@ export class Agent {
     const data = await ask({
       model: this.model,
       messages: this.messages,
-      tools: this.tools,
+      tools: this.tools.map((tool) => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      })),
     });
 
     this.#usage.promptTokens += data.usage?.promptTokens || 0;
@@ -122,14 +133,14 @@ export class Agent {
 
   async useTool(toolCall: ToolCall): Promise<Message> {
     const name = toolCall?.function?.name;
-    const fn = this.tool(name)?.fn;
 
     const args = JSON.parse(toolCall.function.arguments);
 
     let output;
     try {
-      if (!fn) throw new Error(`Unknown tool: ${name || '(missing name)'}`);
-      output = await fn(this, args);
+      const tool = this.tool(name);
+      if (!tool) throw new Error(`Unknown tool: ${name || '(missing name)'}`);
+      output = await tool.run(args);
     } catch (e) {
       output = `Tool use gave error: ${e}`;
     }

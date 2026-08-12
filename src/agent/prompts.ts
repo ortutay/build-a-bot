@@ -12,7 +12,7 @@ type CodePromptOptions = PromptOptions & {
 };
 
 export const agentState = (
-  options: PromptOptions
+  options: Pick<PromptOptions, 'agentState'>
 ): string => `Current agent state:
 ${options.agentState}`;
 

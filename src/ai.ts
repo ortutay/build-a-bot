@@ -1,18 +1,29 @@
-import { pick } from 'radash';
 import { log } from './logger.js';
 // import { retryFetch } from './fetchers.js';
 import { openrouterApiKey } from './constants.js';
-import { Tool } from './tools/Tool.js';
+import type { JSONSchema } from 'json-schema-to-ts';
 
 export type AskRequest = {
   model: string;
   messages: Message[];
-  tools: Tool[];
+  tools: Array<{
+    type: 'function';
+    function: {
+      name: string;
+      description: string;
+      parameters: JSONSchema;
+    };
+  }>;
 };
 
 export type AskResponse = {
-  readonly choices: Message[];
+  readonly choices: Choice[];
   readonly usage?: Usage;
+};
+
+export type Choice = {
+  readonly finishReason?: string;
+  readonly message: Message;
 };
 
 export type Message = {
@@ -20,6 +31,7 @@ export type Message = {
   readonly finishReason?: string;
   readonly content: string;
   readonly toolCallId?: string;
+  readonly name?: string;
   readonly toolCalls?: ToolCall[];
 };
 
@@ -38,6 +50,23 @@ export type Usage = {
   cost: number;
 };
 
+type ApiResponse = {
+  choices?: Array<{
+    finish_reason?: string;
+    message: {
+      role?: string;
+      content?: string | null;
+      tool_calls?: ToolCall[];
+    };
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+    cost?: number;
+  };
+};
+
 export const ask = async (req: AskRequest): Promise<AskResponse> => {
   const { model, messages, tools } = req;
   log.info('Asking AI...');
@@ -48,7 +77,7 @@ export const ask = async (req: AskRequest): Promise<AskResponse> => {
   const params = {
     model,
     messages,
-    tools: tools.map((it) => it.asParameter),
+    tools,
     // TODO: more intelligent compression
     plugins: [{ id: 'context-compression' }],
   };
@@ -63,7 +92,7 @@ export const ask = async (req: AskRequest): Promise<AskResponse> => {
     headers,
     body: JSON.stringify(params),
   });
-  const data = await resp.json();
+  const data: ApiResponse = await resp.json();
   log.info(`AI responded, OK=${resp.ok}`);
 
   if (!resp.ok) {
@@ -82,7 +111,7 @@ export const ask = async (req: AskRequest): Promise<AskResponse> => {
       finishReason: choice.finish_reason,
       message: {
         role: choice.message.role,
-        content: choice.message.content,
+        content: choice.message.content ?? '',
         toolCalls: (choice.message.tool_calls ?? []).map((toolCall) => ({
           id: toolCall.id,
           function: toolCall.function,
