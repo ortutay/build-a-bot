@@ -64,11 +64,18 @@ export class Agent {
   }
 
   async run(content: string): Promise<RunResult> {
-    log.info(`Run agent on prompt: ${clip(content)}`);
+    log.info(
+      `Run agent on prompt: ${clip(content, 100).replaceAll(/\n/g, ' ')}`
+    );
 
-    const key: string = hash({ model: this.model, content, promptsText });
+    const key: string = hash({
+      model: this.model,
+      content,
+      promptsText,
+      // cb: 1
+    });
     const cached = await this.cache.get(key);
-    if (cached) {
+    if (false && cached) {
       log.info(`Cache hit for key=${key}`);
       return cached as RunResult;
     }
@@ -77,10 +84,9 @@ export class Agent {
 
     this.messages.push({ role: 'user', content });
 
-    for (let index = 0; index < 10; index++) {
+    for (let i = 0; i < 10; i++) {
+      log.info(`Step ${i + 1} of agent run`);
       const reply = await this.step();
-
-      console.log('Got step reply:', reply);
       if (reply.stop) break;
 
       this.messages.push({

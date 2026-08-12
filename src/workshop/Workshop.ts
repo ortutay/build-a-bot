@@ -13,7 +13,7 @@ export class Workshop {
   constructor() {}
 
   async build(options: BuildOptions): Promise<Bot> {
-    log.info('Build a bot:', options);
+    log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
 
     const agent = new Agent(options.agentOptions);
     const planPrompt = prompts.plan({

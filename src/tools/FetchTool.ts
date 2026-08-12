@@ -1,14 +1,11 @@
 import type { FromSchema } from 'json-schema-to-ts';
 import { Tool } from './Tool.js';
+import * as shared from './parameters.js';
 
 const inputSchema = {
   type: 'object',
   properties: {
-    url: {
-      type: 'string',
-      description:
-        'URL to navigate to. Include the scheme, for example https://.',
-    },
+    url: shared.url,
   },
   required: ['url'],
   additionalProperties: false,

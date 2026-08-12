@@ -1,9 +1,7 @@
 import { Workshop } from './index.js';
-import { fetchTool } from './tools/FetchTool.js';
 import { Agent } from './agent/Agent.js';
-// import { build } from './index.js';
+import { fetchTool, jsFetchTool } from './tools/index.js';
 
-// Edit this target freely while experimenting with the agent.
 const target = {
   url: 'https://pokemondb.net/pokedex/national',
   prompt: ' pokemon: name, number, and basic stats including HP',
@@ -17,22 +15,15 @@ const target = {
 
 const main = async () => {
   console.log('main', target);
-  // console.log('ft', fetchTool);
-  // const out = await fetchTool.run({ url: 'https://example.com' });
-  // console.log('Out gave:', out);
-
-  // const agent = new Agent({
-  //   model: 'google/gemini-3.5-flash-lite',
-  //   tools: [fetchTool],
-  // });
-  // const out = await agent.run('get example.com html');
-
   const ws = new Workshop();
   const bot = await ws.build({
     ...target,
     agentOptions: {
       model: 'google/gemini-3.5-flash-lite',
-      tools: [fetchTool],
+      tools: [
+        // fetchTool,
+        jsFetchTool,
+      ],
     },
   });
 
