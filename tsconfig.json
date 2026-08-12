@@ -5,8 +5,10 @@
     "moduleResolution": "NodeNext",
     "allowJs": true,
     "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src"
   },
-  "include": ["src/**/*.js"]
+  "include": ["src/**/*"]
 }
