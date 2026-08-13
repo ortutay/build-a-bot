@@ -7,31 +7,26 @@ import { MastraServerCache } from '@mastra/core/cache';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
-import {
-  ResponseCache,
-  type ResponseCacheKeyInputs,
-} from '@mastra/core/processors';
+import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
-import {
-  brightdataApiKey,
-  firecrawlApiKey,
-  scrapingbeeApiKey,
-} from './constants.js';
+import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 
-export const defaultMastra = async (): Promise<Mastra> => {
+export const defaultMastra = async (): Promise<{
+  mastra: Mastra;
+  cleanup: () => Promise<void>;
+}> => {
+  const redisClient = new Redis('redis://localhost:54321');
   const cache = new RedisServerCache({
-    client: new Redis('redis://localhost:54321'),
+    client: redisClient,
   });
 
   const mcpClient = new MCPClient({
     id: 'mcp-client',
     servers: {
       brightdata: {
-        url: new URL(
-          `https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`
-        ),
+        url: new URL(`https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`),
       },
       // firecrawl: {
       //   url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
@@ -60,16 +55,10 @@ export const defaultMastra = async (): Promise<Mastra> => {
       new ResponseCache({
         cache,
         ttl: 3600,
-        key: ({
-          agentId,
-          scope,
-          model,
-          prompt,
-          stepNumber,
-        }: ResponseCacheKeyInputs) => {
+        key: ({ agentId, scope, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
           const h = hashPrompt(prompt);
           const key = `${agentId}:${stepNumber}:${model}:${h}`;
-          console.log('key', key);
+          log.info(`Cache key: ${key}`);
           return key;
         },
       }),
@@ -92,7 +81,7 @@ export const defaultMastra = async (): Promise<Mastra> => {
 
   const storage = new LibSQLStore({
     id: 'libsql-storage',
-    url: 'file:./mastra-storage.db',
+    url: 'file:./db/mastra-storage.db',
   });
 
   const mastra = new Mastra({
@@ -101,11 +90,20 @@ export const defaultMastra = async (): Promise<Mastra> => {
     storage,
     logger: new ConsoleLogger({
       level: 'debug',
-      // filter: ({ component }) => ['AGENT', 'TOOL', 'MCP'].includes(component as string)
+      filter: ({ level, message }) => {
+        // if (level in log) {
+        //   log[level](message)
+        // }
+        return false;
+      },
     }),
   });
 
-  return mastra;
+  const cleanup = async () => {
+    await Promise.all([mcpClient.disconnect(), mastra.shutdown(), redisClient.disconnect()]);
+  };
+
+  return { mastra, cleanup };
 };
 
 const hashPrompt = (prompt: any) => {

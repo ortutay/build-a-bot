@@ -3,17 +3,17 @@ import * as vm from 'node:vm';
 import * as cheerio from 'cheerio';
 import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
-import * as z from 'zod';
+import * as zod from 'zod';
 import type { JSONSchema } from 'json-schema-to-ts';
 
 import { toContextTools } from './tool-fns.js';
 
-type ZodJSONSchema = Parameters<typeof z.fromJSONSchema>[0];
+type ZodJSONSchema = Parameters<typeof zod.fromJSONSchema>[0];
 
 export type CompileResult = {
   fn: (input: unknown) => Promise<unknown>;
-  inputSchema: JSONSchema | undefined;
-  outputSchema: JSONSchema | undefined;
+  inputSchema: JSONSchema;
+  outputSchema: JSONSchema;
   exampleInput: unknown;
 };
 
@@ -39,11 +39,8 @@ export const availableContext = {
   console,
 };
 
-const parseWithSchema = async (
-  schema: JSONSchema,
-  value: unknown
-): Promise<unknown> => {
-  return z.fromJSONSchema(schema as unknown as ZodJSONSchema).parseAsync(value);
+const parseWithSchema = async (schema: JSONSchema, value: unknown): Promise<unknown> => {
+  return zod.fromJSONSchema(schema as unknown as ZodJSONSchema).parseAsync(value);
 };
 
 export class Compiler {
@@ -57,19 +54,14 @@ export class Compiler {
         cheerio,
         'node-html-parser': nodeHtmlParser,
         playwright,
-        zod: z,
+        zod,
       },
     });
-
-    console.log('Context:', context);
 
     const cleaned = code
       .replace(/^```[a-z]*/, '')
       .replace(/```$/, '')
-      .replace(
-        /\bexport\s+(?=(?:const|let|var|async\s+function|function|class)\b)/g,
-        ''
-      );
+      .replace(/\bexport\s+(?=(?:const|let|var|async\s+function|function|class)\b)/g, '');
 
     const source = `
       (async () => {
@@ -85,10 +77,9 @@ export class Compiler {
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { inputSchema, outputSchema, exampleInput, run } =
-      await script.runInContext(context, {
-        timeout: 1000,
-      });
+    const { inputSchema, outputSchema, exampleInput, run } = await script.runInContext(context, {
+      timeout: 1000,
+    });
 
     const fn = async (input: unknown) => {
       const parsedInput = await parseWithSchema(inputSchema!, input);

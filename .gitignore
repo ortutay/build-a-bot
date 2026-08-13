@@ -8,4 +8,4 @@ playwright-report/
 .log/
 bak/
 dist/
-*.db
+db/*
