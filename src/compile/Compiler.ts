@@ -72,18 +72,17 @@ export class Compiler {
       return {
       inputSchema: typeof inputSchema === 'undefined' ? undefined : inputSchema,
       outputSchema: typeof outputSchema === 'undefined' ? undefined : outputSchema,
+      exampleInput: typeof exampleInput === 'undefined' ? undefined : exampleInput,
       run: typeof run === 'undefined' ? undefined : run,
       };
       })()
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { inputSchema, outputSchema, run } = await script.runInContext(
-      context,
-      {
+    const { inputSchema, outputSchema, exampleInput, run } =
+      await script.runInContext(context, {
         timeout: 1000,
-      }
-    );
+      });
 
     const fn = async (input) => {
       const parsedInput = await parseWithSchema(inputSchema, input);
@@ -98,6 +97,6 @@ export class Compiler {
       return out;
     };
 
-    return { fn, inputSchema, outputSchema };
+    return { fn, inputSchema, outputSchema, exampleInput };
   }
 }

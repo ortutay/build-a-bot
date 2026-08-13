@@ -8,10 +8,16 @@ import { ConsoleLogger } from '@mastra/core/logger';
 import { Mastra } from '@mastra/core';
 import { ResponseCache } from '@mastra/core/processors';
 import { RedisServerCache } from '@mastra/redis';
+import { MCPClient } from '@mastra/mcp';
 
 import { hash } from './util.js';
 import { Compiler } from './compile/Compiler.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
+import {
+  brightdataApiKey,
+  firecrawlApiKey,
+  scrapingbeeApiKey,
+} from './constants.js';
 
 // import { Workshop } from './index.js';
 // import { Agent } from './agent/Agent.js';
@@ -33,12 +39,37 @@ const main = async () => {
     client: new Redis('redis://localhost:54321'),
   });
 
+  const mcpClient = new MCPClient({
+    id: 'mcp-client',
+    servers: {
+      brightdata: {
+        url: new URL(
+          `https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`
+        ),
+      },
+      // firecrawl: {
+      //   url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
+      // },
+      scrapingbee: {
+        url: new URL(
+          `https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`
+        ),
+      },
+    },
+  });
+  const mcpTools = await mcpClient.listTools();
+  console.log('mcpTools:', mcpTools);
+
   const testAgent = new Agent({
     id: 'test-agent',
     name: 'Test Agent',
     instructions: 'You are a helpful assistant.',
     model: 'openai/gpt-5.6-luna',
-    tools: { fetchTool, viewDocumentTool },
+    tools: {
+      fetchTool,
+      viewDocumentTool,
+      ...mcpTools,
+    },
     inputProcessors: [
       new ResponseCache({
         cache,
@@ -256,6 +287,7 @@ Your code must be structured in the following way:
 
   export const inputSchema = { /* ... JSON schema ...*/ };
   export const outputSchema = { /* ... JSON schema ...*/ };
+  export const exampleInput = { /* ... JSON object that fits the input schema ...*/ };
   export const run = async (input) => {
     return { ... }
   }
@@ -331,10 +363,11 @@ ${reportPrompt({ report })}
   console.log('Got result:', code);
   const out = await compiler.compile(code, mastra.getAgentById('test-agent'));
 
-  console.log('Compiled:', out);
+  console.log('Compiled input schema:', out.inputSchema);
+  console.log('Compiled output schema:', out.outputSchema);
+  console.log('Compiled example input:', out.exampleInput);
 
-  const out2 = await out.fn({});
-
+  const out2 = await out.fn(out.exampleInput);
   console.log('out2:', out2);
 
   // const response = await agent.generate('Get HTML for example.com');
@@ -369,7 +402,7 @@ ${reportPrompt({ report })}
 
 main()
   .then(() => {
-    process.exit(0);
+    // process.exit(0);
   })
   .catch((e) => {
     console.error(e);
