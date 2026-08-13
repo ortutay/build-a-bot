@@ -52,7 +52,7 @@ Guidelines:
 
 If available, compare runtimes of various tools. Include this information in your report. When possible, your goal is to minimize runtime, while also considering data accessibility and reliability.
 
-Try different tools to gather evidence for fastest runtime.
+Try the different providers and various tools to gather evidence for fastest runtime.
 
 # Specifics and evidence
 

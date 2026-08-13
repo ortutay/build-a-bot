@@ -10,9 +10,14 @@ import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/process
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
-import { brightdataApiKey, firecrawlApiKey } from './constants.js';
+import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 
-console.log('firecrawlApiKey', firecrawlApiKey);
+const firecrawlToolNames = new Set([
+  'firecrawl_firecrawl_scrape',
+  'firecrawl_firecrawl_map',
+  'firecrawl_firecrawl_crawl',
+  'firecrawl_firecrawl_check_crawl_status',
+]);
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -32,18 +37,21 @@ export const defaultMastra = async (): Promise<{
       firecrawl: {
         url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
       },
-      // scrapingbee: {
-      //   url: new URL(
-      //     `https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`
-      //   ),
-      // },
+      scrapingbee: {
+        url: new URL(`https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`),
+      },
     },
   });
 
+  const mcpTools = await mcpClient.listTools();
   const rawTools = {
     fetchTool,
     viewDocumentTool,
-    ...(await mcpClient.listTools()),
+    ...Object.fromEntries(
+      Object.entries(mcpTools).filter(
+        ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
+      )
+    ),
   };
   const tools = {};
   for (const [name, tool] of Object.entries(rawTools)) {
