@@ -1,7 +1,7 @@
 import { Mastra } from '@mastra/core';
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { log } from '../logger.js';
-import { type AgentOptions, Agent } from '../agent/Agent.js';
+import { type AgentOptions } from '../agent/Agent.js';
 import { Bot } from '../bot/Bot.js';
 import { z } from 'zod';
 import * as templates from '../prompts/templates.js';

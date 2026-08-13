@@ -3,7 +3,6 @@ import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ConsoleLogger } from '@mastra/core/logger';
-import { MastraServerCache } from '@mastra/core/cache';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
@@ -11,7 +10,7 @@ import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/process
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
-import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
+import { brightdataApiKey } from './constants.js';
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -55,7 +54,7 @@ export const defaultMastra = async (): Promise<{
       new ResponseCache({
         cache,
         ttl: 3600,
-        key: ({ agentId, scope, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
+        key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
           const h = hashPrompt(prompt);
           const key = `${agentId}:${stepNumber}:${model}:${h}`;
           log.info(`Cache key: ${key}`);
@@ -69,7 +68,7 @@ export const defaultMastra = async (): Promise<{
         log.info(`Tool start: ${toolName}(${JSON.stringify(input)})`);
       },
 
-      afterToolCall: ({ toolName, output, error }) => {
+      afterToolCall: ({ toolName, error }) => {
         if (error) {
           log.error(`Tool error: ${toolName}: ${error}`);
         } else {
@@ -90,12 +89,7 @@ export const defaultMastra = async (): Promise<{
     storage,
     logger: new ConsoleLogger({
       level: 'debug',
-      filter: ({ level, message }) => {
-        // if (level in log) {
-        //   log[level](message)
-        // }
-        return false;
-      },
+      filter: () => false,
     }),
   });
 

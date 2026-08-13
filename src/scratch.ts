@@ -1,25 +1,4 @@
-import { pick } from 'radash';
-import { Redis } from 'ioredis';
-import { z } from 'zod';
-import { Agent } from '@mastra/core/agent';
-import { createTool } from '@mastra/core/tools';
-import { createWorkflow, createStep } from '@mastra/core/workflows';
-import { ConsoleLogger } from '@mastra/core/logger';
-import { Mastra } from '@mastra/core';
-import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/processors';
-import { RedisServerCache } from '@mastra/redis';
-import { MCPClient } from '@mastra/mcp';
-
-import { hash } from './util.js';
-import { Compiler } from './compile/Compiler.js';
-import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
-import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
-import * as templates from './prompts/templates.js';
-
 import { Workshop } from './index.js';
-
-// import { Agent } from './agent/Agent.js';
-// import { fetchTool, jsFetchTool } from './tools/index.js';
 
 const target = {
   url: 'https://pokemondb.net/pokedex/national',
