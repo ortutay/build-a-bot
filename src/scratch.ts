@@ -19,7 +19,8 @@ import {
   scrapingbeeApiKey,
 } from './constants.js';
 
-// import { Workshop } from './index.js';
+import { Workshop } from './index.js';
+
 // import { Agent } from './agent/Agent.js';
 // import { fetchTool, jsFetchTool } from './tools/index.js';
 
@@ -35,6 +36,15 @@ const target = {
 // };
 
 const main = async () => {
+  console.log('main');
+
+  const ws = new Workshop();
+  const bot = await ws.build(target);
+
+  console.log('Got bot:', bot);
+};
+
+const main0 = async () => {
   const cache = new RedisServerCache({
     client: new Redis('redis://localhost:54321'),
   });
@@ -402,7 +412,7 @@ ${reportPrompt({ report })}
 
 main()
   .then(() => {
-    // process.exit(0);
+    process.exit(0);
   })
   .catch((e) => {
     console.error(e);
