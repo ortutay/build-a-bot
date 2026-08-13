@@ -1,12 +1,15 @@
 import { pick } from 'radash';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { z } from 'zod';
 import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { Mastra } from '@mastra/core';
-import { ResponseCache } from '@mastra/core/processors';
+import {
+  ResponseCache,
+  type ResponseCacheKeyInputs,
+} from '@mastra/core/processors';
 import { RedisServerCache } from '@mastra/redis';
 import { MCPClient } from '@mastra/mcp';
 
@@ -39,7 +42,7 @@ const main = async () => {
   console.log('main');
 
   const ws = new Workshop();
-  const bot = await ws.build(target);
+  const bot = await ws.build({ ...target, agentOptions: {} });
 
   console.log('Got bot:', bot);
 };
@@ -84,7 +87,13 @@ const main0 = async () => {
       new ResponseCache({
         cache,
         ttl: 3600,
-        key: ({ agentId, scope, model, prompt, stepNumber }) => {
+        key: ({
+          agentId,
+          scope,
+          model,
+          prompt,
+          stepNumber,
+        }: ResponseCacheKeyInputs) => {
           const asText = prompt
             .map((message) => {
               try {
@@ -94,7 +103,13 @@ const main0 = async () => {
                   val = content;
                 } else if (Array.isArray(content)) {
                   val = content.map((c) =>
-                    pick(c, ['toolName', 'input', 'output', 'type', 'text'])
+                    pick(c as unknown as Record<string, unknown>, [
+                      'toolName',
+                      'input',
+                      'output',
+                      'type',
+                      'text',
+                    ])
                   );
                 } else {
                   val = hash('' + Math.random());
@@ -141,20 +156,30 @@ const main0 = async () => {
     logger: new ConsoleLogger({
       level: 'debug',
       filter: ({ component }) =>
-        component === 'AGENT' || component === 'TOOL' || component === 'MCP',
+        ['AGENT', 'TOOL', 'MCP'].includes(component as string),
     }),
   });
 
-  const userInputPrompt = ({ url, goal }) => `<user-input>
+  const userInputPrompt = ({
+    url,
+    goal,
+  }: {
+    url: string;
+    goal: string;
+  }) => `<user-input>
   <user-url>${url}</user-url>
   <user-goal>${goal}</user-goal>
 </user-input>`;
 
-  const reportPrompt = ({ report }) => `<report>
+  const reportPrompt = ({ report }: { report: string }) => `<report>
 ${report}
 </report>`;
 
-  const toolsForCodePrompt = ({ tools }) => `<tool-instructions>
+  const toolsForCodePrompt = ({
+    tools,
+  }: {
+    tools: unknown;
+  }) => `<tool-instructions>
 You have helper functions available, based on the tools below. You can call any of these tools like this:
 
     const output = await tools.toolNameHere({ ...tool input here... });
@@ -368,6 +393,10 @@ ${reportPrompt({ report })}
   });
 
   const compiler = new Compiler();
+
+  if (result.status !== 'success') {
+    throw new Error(`Workflow did not complete successfully: ${result.status}`);
+  }
 
   const { code } = result.result;
   console.log('Got result:', code);

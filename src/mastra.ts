@@ -1,0 +1,141 @@
+import { pick } from 'radash';
+import { Redis } from 'ioredis';
+import { Mastra } from '@mastra/core';
+import { Agent } from '@mastra/core/agent';
+import { ConsoleLogger } from '@mastra/core/logger';
+import { MastraServerCache } from '@mastra/core/cache';
+import { MCPClient } from '@mastra/mcp';
+import { RedisServerCache } from '@mastra/redis';
+import { LibSQLStore } from '@mastra/libsql';
+import {
+  ResponseCache,
+  type ResponseCacheKeyInputs,
+} from '@mastra/core/processors';
+import { log } from './logger.js';
+import { hash } from './util.js';
+import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
+import {
+  brightdataApiKey,
+  firecrawlApiKey,
+  scrapingbeeApiKey,
+} from './constants.js';
+
+export const defaultMastra = async (): Promise<Mastra> => {
+  const cache = new RedisServerCache({
+    client: new Redis('redis://localhost:54321'),
+  });
+
+  const mcpClient = new MCPClient({
+    id: 'mcp-client',
+    servers: {
+      brightdata: {
+        url: new URL(
+          `https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`
+        ),
+      },
+      // firecrawl: {
+      //   url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
+      // },
+      // scrapingbee: {
+      //   url: new URL(
+      //     `https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`
+      //   ),
+      // },
+    },
+  });
+
+  const tools = {
+    fetchTool,
+    viewDocumentTool,
+    ...(await mcpClient.listTools()),
+  };
+
+  const buildAgent = new Agent({
+    id: 'build-agent',
+    name: 'Build Agent',
+    instructions: 'You are a scraping bot builder.',
+    model: 'openai/gpt-5.6-luna',
+    tools,
+    inputProcessors: [
+      new ResponseCache({
+        cache,
+        ttl: 3600,
+        key: ({
+          agentId,
+          scope,
+          model,
+          prompt,
+          stepNumber,
+        }: ResponseCacheKeyInputs) => {
+          const h = hashPrompt(prompt);
+          const key = `${agentId}:${stepNumber}:${model}:${h}`;
+          console.log('key', key);
+          return key;
+        },
+      }),
+    ],
+
+    hooks: {
+      beforeToolCall: ({ toolName, input }) => {
+        log.info(`Tool start: ${toolName}(${JSON.stringify(input)})`);
+      },
+
+      afterToolCall: ({ toolName, output, error }) => {
+        if (error) {
+          log.error(`Tool error: ${toolName}: ${error}`);
+        } else {
+          log.info(`Tool done: ${toolName}`);
+        }
+      },
+    },
+  });
+
+  const storage = new LibSQLStore({
+    id: 'libsql-storage',
+    url: 'file:./mastra-storage.db',
+  });
+
+  const mastra = new Mastra({
+    agents: { buildAgent },
+    cache,
+    storage,
+    logger: new ConsoleLogger({
+      level: 'debug',
+      // filter: ({ component }) => ['AGENT', 'TOOL', 'MCP'].includes(component as string)
+    }),
+  });
+
+  return mastra;
+};
+
+const hashPrompt = (prompt: any) => {
+  const asText = prompt
+    .map((message: any) => {
+      try {
+        const content = message.content;
+        let val;
+        if (typeof content == 'string') {
+          val = content;
+        } else if (Array.isArray(content)) {
+          val = content.map((c) =>
+            pick(c as unknown as Record<string, unknown>, [
+              'toolName',
+              'input',
+              'output',
+              'type',
+              'text',
+            ])
+          );
+        } else {
+          val = hash('' + Math.random());
+        }
+        // console.log('val:', val);
+        return val;
+      } catch (e) {
+        console.error('Error while generating cache key:', e);
+        return hash('' + Math.random());
+      }
+    })
+    .sort((a: any, b: any) => hash(a).localeCompare(hash(b)));
+  return hash(asText);
+};

@@ -3,15 +3,18 @@ import * as vm from 'node:vm';
 import * as cheerio from 'cheerio';
 import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
-import * as zod from 'zod';
+import * as z from 'zod';
 import type { JSONSchema } from 'json-schema-to-ts';
 
 import { toContextTools } from './tool-fns.js';
+
+type ZodJSONSchema = Parameters<typeof z.fromJSONSchema>[0];
 
 export type CompileResult = {
   fn: (input: unknown) => Promise<unknown>;
   inputSchema: JSONSchema | undefined;
   outputSchema: JSONSchema | undefined;
+  exampleInput: unknown;
 };
 
 export const availableContext = {
@@ -36,8 +39,11 @@ export const availableContext = {
   console,
 };
 
-const parseWithSchema = async (schema, value) => {
-  return zod.fromJSONSchema(schema).parseAsync(value);
+const parseWithSchema = async (
+  schema: JSONSchema,
+  value: unknown
+): Promise<unknown> => {
+  return z.fromJSONSchema(schema as unknown as ZodJSONSchema).parseAsync(value);
 };
 
 export class Compiler {
@@ -51,7 +57,7 @@ export class Compiler {
         cheerio,
         'node-html-parser': nodeHtmlParser,
         playwright,
-        zod,
+        zod: z,
       },
     });
 
@@ -84,12 +90,12 @@ export class Compiler {
         timeout: 1000,
       });
 
-    const fn = async (input) => {
-      const parsedInput = await parseWithSchema(inputSchema, input);
+    const fn = async (input: unknown) => {
+      const parsedInput = await parseWithSchema(inputSchema!, input);
       const result = await run(parsedInput);
       let out;
       try {
-        out = await parseWithSchema(outputSchema, result);
+        out = await parseWithSchema(outputSchema!, result);
       } catch (e) {
         console.warn('Got output validation error:', e);
         out = result;

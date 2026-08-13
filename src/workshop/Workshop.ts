@@ -18,22 +18,12 @@ export class Workshop {
   async build(options: BuildOptions, mastra?: Mastra): Promise<Bot> {
     log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
 
-    log.info('Got Mastra:', mastra);
-    if (!mastra) {
+    if (mastra) {
+      log.info('Got Mastra:', mastra);
+    } else {
       mastra = await defaultMastra();
       log.info('Instantiated default Mastra:', mastra);
     }
-
-    // const agent = new Agent(options.agentOptions);
-    // const planPrompt = prompts.plan({
-    //   url: options.url,
-    //   prompt: options.prompt,
-    //   agentState: JSON.stringify(agent.state()),
-    // });
-
-    // // console.log('Plan prompt:', prompt);
-
-    // const result = await agent.run(planPrompt);
 
     const bot = new Bot();
     return bot;

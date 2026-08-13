@@ -1,13 +1,21 @@
-import { pick, omit } from 'radash';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { DiskCache } from '../cache/DiskCache.js';
 import { hash } from '../util.js';
 
 let id = 1;
-const docs = {};
+type FetchResponse = {
+  url: string;
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+};
 
-const cache = new DiskCache('/tmp');
+const docs: Record<string, FetchResponse> = {};
+
+const cache = new DiskCache<FetchResponse>('/tmp/builder/fetchTool');
 
 export const fetchTool = createTool({
   id: 'fetchTool',
@@ -30,7 +38,7 @@ export const fetchTool = createTool({
   execute: async ({ url }, { abortSignal }) => {
     const documentId = 'DOC' + id++;
 
-    let out;
+    let out: FetchResponse;
     const key = hash({ tool: 'fetchTool', url });
     const cached = await cache.get(key);
     if (cached) {
@@ -38,7 +46,7 @@ export const fetchTool = createTool({
       out = cached;
     } else {
       const resp = await fetch(url, { signal: abortSignal });
-      const out = {
+      out = {
         url: resp.url,
         ok: resp.ok,
         status: resp.status,
@@ -51,12 +59,14 @@ export const fetchTool = createTool({
       await cache.set(key, out);
     }
 
-    const large = ['headers', 'body'];
-    docs[documentId] = pick(out, large);
+    docs[documentId] = out;
 
     return {
       documentId,
-      ...omit(out, large),
+      url: out.url,
+      ok: out.ok,
+      status: out.status,
+      statusText: out.statusText,
     };
   },
 });
@@ -80,6 +90,9 @@ export const viewDocumentTool = createTool({
     body: z.string(),
   }),
   execute: async ({ documentId }, { abortSignal }) => {
-    return docs[documentId];
+    return {
+      headers: docs[documentId].headers,
+      body: docs[documentId].body,
+    };
   },
 });
