@@ -10,7 +10,9 @@ import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/process
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
-import { brightdataApiKey } from './constants.js';
+import { brightdataApiKey, firecrawlApiKey } from './constants.js';
+
+console.log('firecrawlApiKey', firecrawlApiKey);
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -27,9 +29,9 @@ export const defaultMastra = async (): Promise<{
       brightdata: {
         url: new URL(`https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`),
       },
-      // firecrawl: {
-      //   url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
-      // },
+      firecrawl: {
+        url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
+      },
       // scrapingbee: {
       //   url: new URL(
       //     `https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`
@@ -38,11 +40,32 @@ export const defaultMastra = async (): Promise<{
     },
   });
 
-  const tools = {
+  const rawTools = {
     fetchTool,
     viewDocumentTool,
     ...(await mcpClient.listTools()),
   };
+  const tools = {};
+  for (const [name, tool] of Object.entries(rawTools)) {
+    tools[name] = {
+      ...tool,
+      execute: async (...args) => {
+        const start = new Date().getTime();
+        const out = await tool.execute(...args);
+        const runtime = new Date().getTime() - start;
+        console.log('runtime:', runtime);
+        return { output: out, metadata: { runtime } };
+      },
+
+      // toModelOutput: (it: any) => {
+      //   // console.log('toModelOutput:', name, it);
+      //   return {
+      //     type: 'json',
+      //     value: it,
+      //   }
+      // }
+    };
+  }
 
   const buildAgent = new Agent({
     id: 'build-agent',
@@ -55,8 +78,11 @@ export const defaultMastra = async (): Promise<{
         cache,
         ttl: 3600,
         key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-          const h = hashPrompt(prompt);
-          const key = `${agentId}:${stepNumber}:${model}:${h}`;
+          const h = hash({
+            prompt: hashPrompt(prompt),
+            tools: Object.keys(tools),
+          });
+          const key = `${agentId}:${stepNumber}:${JSON.stringify(model)}:${h}`;
           log.info(`Cache key: ${key}`);
           return key;
         },
@@ -64,15 +90,27 @@ export const defaultMastra = async (): Promise<{
     ],
 
     hooks: {
-      beforeToolCall: ({ toolName, input }) => {
-        log.info(`Tool start: ${toolName}(${JSON.stringify(input)})`);
+      beforeToolCall: (it) => {
+        // console.log('Before it:', it);
+        const {
+          toolName,
+          input,
+          context: { toolCallId },
+        } = it;
+        log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
       },
 
-      afterToolCall: ({ toolName, error }) => {
+      afterToolCall: (it) => {
+        // console.log('After it:', it);
+        const {
+          toolName,
+          error,
+          context: { toolCallId },
+        } = it;
         if (error) {
-          log.error(`Tool error: ${toolName}: ${error}`);
+          log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
         } else {
-          log.info(`Tool done: ${toolName}`);
+          log.info(`Tool done:  id=${toolCallId} ${toolName}`);
         }
       },
     },
@@ -89,7 +127,9 @@ export const defaultMastra = async (): Promise<{
     storage,
     logger: new ConsoleLogger({
       level: 'debug',
-      filter: () => false,
+      filter: (it) => {
+        // console.log('IT:', it);
+      },
     }),
   });
 

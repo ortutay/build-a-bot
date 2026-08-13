@@ -39,7 +39,7 @@ export const fetchTool = createTool({
     let out: FetchResponse;
     const key = hash({ tool: 'fetchTool', url });
     const cached = await cache.get(key);
-    if (cached) {
+    if (false && cached) {
       console.log('Cache hit:', key);
       out = cached;
     } else {

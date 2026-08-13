@@ -48,6 +48,12 @@ Guidelines:
 - If the task is impossible, explain why and stop.
 - If necessary, navigate around the site to find the right target page(s) for extraction.
 
+# Runtime considerations
+
+If available, compare runtimes of various tools. Include this information in your report. When possible, your goal is to minimize runtime, while also considering data accessibility and reliability.
+
+Try different tools to gather evidence for fastest runtime.
+
 # Specifics and evidence
 
 Include specifics in your report, including:

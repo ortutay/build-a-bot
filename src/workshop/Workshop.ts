@@ -53,10 +53,15 @@ export class Workshop {
           const userInput = templates.userInput.render({ url, goal });
           const prompt = templates.plan.render({ userInput });
           const resp = await agent.generate(prompt);
+
+          const report = resp.text;
+
+          log.info('Generated report:', report);
+
           return {
             url,
             goal,
-            report: resp.text,
+            report,
           };
         },
       });
