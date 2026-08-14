@@ -48,7 +48,7 @@ export class Workshop {
         execute: async ({ inputData }) => {
           log.info('Running report step');
 
-          const agent = mastra.getAgentById('build-agent');
+          const agent = mastra!.getAgentById('build-agent');
           const { url, goal } = inputData;
           const userInput = templates.userInput.render({ url, goal });
           const prompt = templates.plan.render({ userInput });
@@ -75,8 +75,8 @@ export class Workshop {
         execute: async ({ inputData }) => {
           log.info('Running write code step');
 
-          const agent = mastra.getAgentById('build-agent');
-          const { url, goal, report } = inputData;
+          const agent = mastra!.getAgentById('build-agent');
+          const { url, goal, report } = inputData as any;
           const tools = Object.fromEntries(
             Object.entries(await agent.listTools()).filter(
               ([, tool]) => !('requireApproval' in tool) || !tool.requireApproval
@@ -102,7 +102,7 @@ export class Workshop {
         inputSchema: planStep.inputSchema,
         outputSchema: writeCodeStep.outputSchema,
       })
-        .then(planStep)
+        .then(planStep as any)
         .then(writeCodeStep)
         .commit();
 
@@ -118,7 +118,7 @@ export class Workshop {
         throw new Error(`Workflow did not complete successfully: ${result.status}`);
       }
 
-      const { code } = result.result;
+      const { code } = result.result as any;
       const compiler = new Compiler();
       const out = await compiler.compile(code, mastra.getAgentById('build-agent'));
 
