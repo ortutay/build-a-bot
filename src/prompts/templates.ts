@@ -54,6 +54,12 @@ If available, compare runtimes of various tools. Include this information in you
 
 Try the different providers and various tools to gather evidence for fastest runtime.
 
+# Cost considerations
+
+If available, compare costs of various tools. Include this information in your report. When possible, your goal is to minimize cost, while also considering data accessibility and reliability.
+
+Try the different providers and various tools to gather evidence for fastest cost.
+
 # Specifics and evidence
 
 Include specifics in your report, including:

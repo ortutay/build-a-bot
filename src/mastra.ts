@@ -3,6 +3,7 @@ import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ConsoleLogger } from '@mastra/core/logger';
+import { type Tool } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
@@ -10,6 +11,13 @@ import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/process
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
+import {
+  brightdataCostInstrument,
+  firecrawlCostInstrument,
+  runtimeInstrument,
+  scrapingbeeCostInstrument,
+  type Instrument,
+} from './instruments/index.js';
 import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 
 const firecrawlToolNames = new Set([
@@ -53,18 +61,7 @@ export const defaultMastra = async (): Promise<{
       )
     ),
   };
-  const tools: Record<string, any> = {};
-  for (const [name, tool] of Object.entries(rawTools)) {
-    tools[name] = {
-      ...tool,
-      execute: async (...args: any[]) => {
-        const start = new Date().getTime();
-        const output = await tool.execute(...args);
-        const runtime = new Date().getTime() - start;
-        return { output, metadata: { runtime } };
-      },
-    };
-  }
+  const tools = await instrument(rawTools);
 
   const buildAgent = new Agent({
     id: 'build-agent',
@@ -90,14 +87,12 @@ export const defaultMastra = async (): Promise<{
 
     hooks: {
       beforeToolCall: (it) => {
-        // console.log('Before it:', it);
         const { toolName, input, context } = it;
         const toolCallId = (context as { toolCallId: string }).toolCallId;
         log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
       },
 
       afterToolCall: (it) => {
-        // console.log('After it:', it);
         const { toolName, error, context } = it;
         const toolCallId = (context as { toolCallId: string }).toolCallId;
         if (error) {
@@ -119,7 +114,7 @@ export const defaultMastra = async (): Promise<{
     cache,
     storage,
     logger: new ConsoleLogger({
-      level: 'debug',
+      level: 'info',
       filter: () => true,
     }),
   });
@@ -152,7 +147,6 @@ const hashPrompt = (prompt: any) => {
         } else {
           val = hash('' + Math.random());
         }
-        // console.log('val:', val);
         return val;
       } catch (e) {
         console.error('Error while generating cache key:', e);
@@ -161,4 +155,27 @@ const hashPrompt = (prompt: any) => {
     })
     .sort((a: any, b: any) => hash(a).localeCompare(hash(b)));
   return hash(asText);
+};
+
+const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string, Tool>> => {
+  const tools: Record<string, Tool> = {};
+
+  const instruments: Instrument[] = [
+    runtimeInstrument,
+    firecrawlCostInstrument,
+    brightdataCostInstrument,
+    scrapingbeeCostInstrument,
+  ];
+
+  for (const [name, tool] of Object.entries(rawTools)) {
+    tools[name] = tool;
+  }
+
+  for (const instrument of instruments) {
+    for (const [name, tool] of Object.entries(tools)) {
+      tools[name] = await instrument(tool);
+    }
+  }
+
+  return tools;
 };
