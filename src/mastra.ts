@@ -44,7 +44,7 @@ export const defaultMastra = async (): Promise<{
   });
 
   const mcpTools = await mcpClient.listTools();
-  const rawTools = {
+  const rawTools: Record<string, any> = {
     fetchTool,
     viewDocumentTool,
     ...Object.fromEntries(
@@ -53,25 +53,16 @@ export const defaultMastra = async (): Promise<{
       )
     ),
   };
-  const tools = {};
+  const tools: Record<string, any> = {};
   for (const [name, tool] of Object.entries(rawTools)) {
     tools[name] = {
       ...tool,
-      execute: async (...args) => {
+      execute: async (...args: any[]) => {
         const start = new Date().getTime();
-        const out = await tool.execute(...args);
+        const output = await tool.execute(...args);
         const runtime = new Date().getTime() - start;
-        console.log('runtime:', runtime);
-        return { output: out, metadata: { runtime } };
+        return { output, metadata: { runtime } };
       },
-
-      // toModelOutput: (it: any) => {
-      //   // console.log('toModelOutput:', name, it);
-      //   return {
-      //     type: 'json',
-      //     value: it,
-      //   }
-      // }
     };
   }
 
@@ -100,21 +91,15 @@ export const defaultMastra = async (): Promise<{
     hooks: {
       beforeToolCall: (it) => {
         // console.log('Before it:', it);
-        const {
-          toolName,
-          input,
-          context: { toolCallId },
-        } = it;
+        const { toolName, input, context } = it;
+        const toolCallId = (context as { toolCallId: string }).toolCallId;
         log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
       },
 
       afterToolCall: (it) => {
         // console.log('After it:', it);
-        const {
-          toolName,
-          error,
-          context: { toolCallId },
-        } = it;
+        const { toolName, error, context } = it;
+        const toolCallId = (context as { toolCallId: string }).toolCallId;
         if (error) {
           log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
         } else {
@@ -135,9 +120,7 @@ export const defaultMastra = async (): Promise<{
     storage,
     logger: new ConsoleLogger({
       level: 'debug',
-      filter: (it) => {
-        // console.log('IT:', it);
-      },
+      filter: () => true,
     }),
   });
 

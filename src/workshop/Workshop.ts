@@ -102,7 +102,7 @@ export class Workshop {
         inputSchema: planStep.inputSchema,
         outputSchema: writeCodeStep.outputSchema,
       })
-        .then(planStep as any)
+        .then(planStep)
         .then(writeCodeStep)
         .commit();
 

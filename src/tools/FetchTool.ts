@@ -41,7 +41,7 @@ export const fetchTool = createTool({
     const cached = await cache.get(key);
     if (false && cached) {
       console.log('Cache hit:', key);
-      out = cached;
+      out = cached as FetchResponse;
     } else {
       const resp = await fetch(url, { signal: abortSignal });
       out = {
