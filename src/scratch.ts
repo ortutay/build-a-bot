@@ -1,15 +1,14 @@
 import { Workshop } from './index.js';
 
-const target = {
-  url: 'https://pokemondb.net/pokedex/national',
-  prompt: ' pokemon: name, number, and basic stats including HP',
-};
-
 // const target = {
-//   url: "https://uk.rubix.com/en/adhesive-tapes/c-50-15-20",
-//   prompt:
-//     "Scrape all tape products: EUR price, dimensions, and other standard details.",
+//   url: 'https://pokemondb.net/pokedex/national',
+//   prompt: 'scrape pokemon: name, number, and basic stats including HP. input should take multiple pokemon names a list',
 // };
+
+const target = {
+  url: 'https://uk.rubix.com/en/adhesive-tapes/c-50-15-20',
+  prompt: 'Scrape all tape products: EUR price, dimensions, and other standard details.',
+};
 
 const main = async () => {
   console.log('main');
@@ -18,6 +17,10 @@ const main = async () => {
   const bot = await ws.build({ ...target, agentOptions: {} });
 
   console.log('Got bot:', bot);
+
+  const out = await bot.run(bot.exampleInput);
+
+  console.log('Bot output:', JSON.stringify(out, null, 2));
 };
 
 main()

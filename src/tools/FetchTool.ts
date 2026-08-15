@@ -1,7 +1,5 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { DiskCache } from '../cache/DiskCache.js';
-import { hash } from '../util.js';
 
 let id = 1;
 type FetchResponse = {
@@ -14,8 +12,6 @@ type FetchResponse = {
 };
 
 const docs: Record<string, FetchResponse> = {};
-
-const cache = new DiskCache<FetchResponse>('/tmp/builder/fetchTool');
 
 export const fetchTool = createTool({
   id: 'fetchTool',
@@ -36,26 +32,15 @@ export const fetchTool = createTool({
   execute: async ({ url }, { abortSignal }) => {
     const documentId = 'DOC' + id++;
 
-    let out: FetchResponse;
-    const key = hash({ tool: 'fetchTool', url });
-    const cached = await cache.get(key);
-    if (false && cached) {
-      console.log('Cache hit:', key);
-      out = cached as FetchResponse;
-    } else {
-      const resp = await fetch(url, { signal: abortSignal });
-      out = {
-        url: resp.url,
-        ok: resp.ok,
-        status: resp.status,
-        statusText: resp.statusText,
-        headers: Object.fromEntries(resp.headers),
-        body: await resp.text(),
-      };
-
-      console.log('Saving cache:', key);
-      await cache.set(key, out);
-    }
+    const resp = await fetch(url, { signal: abortSignal });
+    const out: FetchResponse = {
+      url: resp.url,
+      ok: resp.ok,
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: Object.fromEntries(resp.headers),
+      body: await resp.text(),
+    };
 
     docs[documentId] = out;
 

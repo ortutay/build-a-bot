@@ -19,4 +19,9 @@ export class Bot {
     this.outputSchema = options.outputSchema;
     this.exampleInput = options.exampleInput;
   }
+
+  async run(input: unknown): Promise<unknown> {
+    // TODO: input validation against input schema?
+    return this.fn(input);
+  }
 }

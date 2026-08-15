@@ -60,6 +60,6 @@ const items = (input: unknown, field: string): number => {
   if (typeof input !== 'object' || input === null || !(field in input)) {
     return 1;
   }
-  const value = input[field as keyof typeof input];
+  const value = (input as Record<string, unknown>)[field];
   return Array.isArray(value) && value.length > 0 ? value.length : 1;
 };

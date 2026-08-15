@@ -17,6 +17,13 @@ export type CompileResult = {
   exampleInput: unknown;
 };
 
+export const availableModules = {
+  cheerio,
+  'node-html-parser': nodeHtmlParser,
+  playwright,
+  zod,
+};
+
 export const availableContext = {
   URL,
   URLSearchParams,
@@ -50,12 +57,7 @@ export class Compiler {
     const context = vm.createContext({
       ...availableContext,
       tools: toContextTools(await agent.listTools()),
-      availableModules: {
-        cheerio,
-        'node-html-parser': nodeHtmlParser,
-        playwright,
-        zod,
-      },
+      ...availableModules,
     });
 
     const cleaned = code
@@ -88,7 +90,7 @@ export class Compiler {
       try {
         out = await parseWithSchema(outputSchema!, result);
       } catch (e) {
-        console.warn('Got output validation error:', e);
+        console.warn(`Got output validation error: ${e instanceof Error ? e.message : e}`);
         out = result;
       }
       return out;

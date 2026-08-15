@@ -5,7 +5,7 @@ import { type AgentOptions } from '../agent/Agent.js';
 import { Bot } from '../bot/Bot.js';
 import { z } from 'zod';
 import * as templates from '../prompts/templates.js';
-import { Compiler } from '../compile/Compiler.js';
+import { Compiler, availableContext, availableModules } from '../compile/Compiler.js';
 import { defaultMastra } from '../mastra.js';
 
 export type BuildOptions = {
@@ -54,8 +54,9 @@ export class Workshop {
           const prompt = templates.plan.render({ userInput });
           const resp = await agent.generate(prompt);
 
-          const report = resp.text;
+          console.log('Plan resp:', resp);
 
+          const report = resp.text;
           log.info('Generated report:', report);
 
           return {
@@ -77,23 +78,35 @@ export class Workshop {
 
           const agent = mastra!.getAgentById('build-agent');
           const { url, goal, report } = inputData as any;
+
+          console.log('Write code got report:', report);
+
           const tools = Object.fromEntries(
             Object.entries(await agent.listTools()).filter(
               ([, tool]) => !('requireApproval' in tool) || !tool.requireApproval
             )
           );
+
+          const renderedReport = templates.report.render({ report });
+          console.log('renderedReport:', renderedReport);
+
           const prompt = templates.code.render({
             toolsForCode: templates.toolsForCode.render({
               tools: JSON.stringify(tools, null, 2),
             }),
             userInput: templates.userInput.render({ url, goal }),
-            report: templates.report.render({ report }),
+            availableModules: JSON.stringify(Object.keys(availableModules)),
+            availableContext: JSON.stringify(Object.keys(availableContext)),
+            report: renderedReport,
           });
+
+          console.log('Write code prompt:', prompt);
           const resp = await agent.generate(prompt);
 
-          return {
-            code: resp.text,
-          };
+          const code = resp.text;
+          log.info('Generated code:', code);
+
+          return { code };
         },
       });
 
@@ -102,15 +115,15 @@ export class Workshop {
         inputSchema: planStep.inputSchema,
         outputSchema: writeCodeStep.outputSchema,
       })
-        .then(planStep)
-        .then(writeCodeStep)
+        .then(planStep as any)
+        .then(writeCodeStep as any)
         .commit();
 
       const run = await workflow.createRun();
       const result = await run.start({
         inputData: {
-          url: 'https://pokemondb.net/pokedex/pikachu',
-          goal: 'Scrape pokemon names, number and move stats',
+          url: options.url,
+          goal: options.prompt,
         },
       });
 

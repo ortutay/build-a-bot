@@ -47,6 +47,7 @@
     "ioredis": "^6.0.0",
     "json-schema-to-ts": "^3.1.1",
     "node-html-parser": "^7.1.0",
+    "p-queue": "^9.3.3",
     "playwright": "^1.58.2",
     "pretty": "^2.0.0",
     "radash": "^12.1.1",

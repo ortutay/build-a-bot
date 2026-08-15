@@ -12,9 +12,11 @@ import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
 import {
+  runtimeInstrument,
+  cacheInstrument,
+  concurrencyInstrument,
   brightdataCostInstrument,
   firecrawlCostInstrument,
-  runtimeInstrument,
   scrapingbeeCostInstrument,
   type Instrument,
 } from './instruments/index.js';
@@ -27,14 +29,18 @@ const firecrawlToolNames = new Set([
   'firecrawl_firecrawl_check_crawl_status',
 ]);
 
+const cacheBuster = '3';
+
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
   const redisClient = new Redis('redis://localhost:54321');
-  const cache = new RedisServerCache({
-    client: redisClient,
-  });
+  const cache = new RedisServerCache(
+    { client: redisClient },
+    { keyPrefix: 'cb:' + cacheBuster + ':' }
+  );
+  // const cache = null;
 
   const mcpClient = new MCPClient({
     id: 'mcp-client',
@@ -68,16 +74,21 @@ export const defaultMastra = async (): Promise<{
     name: 'Build Agent',
     instructions: 'You are a scraping bot builder.',
     model: 'openai/gpt-5.6-luna',
+    // model: 'openai/gpt-5.6-terra',
     tools,
     inputProcessors: [
       new ResponseCache({
         cache,
         ttl: 3600,
         key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-          const h = hash({
+          const hh = {
             prompt: hashPrompt(prompt),
-            tools: Object.keys(tools),
-          });
+            tools: Object.entries(tools).map(([key, tool]) =>
+              [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
+            ),
+          };
+          // console.log('Hashing:', hh);
+          const h = hash(hh);
           const key = `${agentId}:${stepNumber}:${JSON.stringify(model)}:${h}`;
           log.info(`Cache key: ${key}`);
           return key;
@@ -161,7 +172,10 @@ const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string
   const tools: Record<string, Tool> = {};
 
   const instruments: Instrument[] = [
+    // Cache the runtime-instrumented result to retain the original runtime metric.
     runtimeInstrument,
+    cacheInstrument,
+    concurrencyInstrument,
     firecrawlCostInstrument,
     brightdataCostInstrument,
     scrapingbeeCostInstrument,

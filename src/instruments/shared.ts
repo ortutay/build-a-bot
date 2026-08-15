@@ -1,3 +1,5 @@
+import * as z from 'zod';
+import { standardSchemaToJSONSchema, type StandardSchemaWithJSON } from '@mastra/core/schema';
 import type { ToolExecutionContext, Tool } from '@mastra/core/tools';
 import { log } from '../logger.js';
 
@@ -29,4 +31,11 @@ export const addMetric = (
   }
   (metrics as Record<string, unknown>)[field] = value;
   return result;
+};
+
+export const asJSONSchema = (
+  schema: StandardSchemaWithJSON,
+  io: 'input' | 'output'
+): Parameters<typeof z.fromJSONSchema>[0] => {
+  return standardSchemaToJSONSchema(schema, { io }) as Parameters<typeof z.fromJSONSchema>[0];
 };
