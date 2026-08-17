@@ -4,7 +4,7 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 // import { ConsoleLogger } from '@mastra/core/logger';
 import { ConsoleLogger } from '@mastra/core/logger';
-import { type Tool } from '@mastra/core/tools';
+import { type Tool, type ToolHooks } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
@@ -88,7 +88,7 @@ export const defaultMastra = async (): Promise<{
       key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
         const hh = {
           prompt: serializePrompt(prompt),
-          tools: Object.entries(tools).map(([key, tool]) =>
+          tools: Object.entries(allTools).map(([key, tool]) =>
             [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
           ),
         };
@@ -100,7 +100,7 @@ export const defaultMastra = async (): Promise<{
       },
     }),
   ];
-  const hooks = {
+  const hooks: ToolHooks = {
     beforeToolCall: (it) => {
       const { toolName, input, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
