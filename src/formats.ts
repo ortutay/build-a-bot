@@ -65,11 +65,7 @@ const absoluteUrls = (root, url) => {
   return root;
 };
 
-export const remove = (
-  html,
-  tags = defaultRemoveTags,
-  attributes = defaultRemoveAttributes
-) => {
+export const remove = (html, tags = defaultRemoveTags, attributes = defaultRemoveAttributes) => {
   const root = parseHtml(html);
   root.querySelectorAll(tags.join(', ')).forEach((node) => node.remove());
   return cleanAttributes(root, attributes).toString();
@@ -97,10 +93,9 @@ export const drop = (html, levels = 2, limit = 16) => {
     const anchor = children[children.length - edge];
     if (anchor) {
       anchor.before(
-        parse(
-          `<!-- dropped ${omitted.length} nodes of ${bytes} bytes for context reduction -->`,
-          { comment: true }
-        )
+        parse(`<!-- dropped ${omitted.length} nodes of ${bytes} bytes for context reduction -->`, {
+          comment: true,
+        })
       );
     }
   };
@@ -148,9 +143,7 @@ export const collapseHtml = (html, shouldExpand = []) => {
       : Object.entries(shouldExpand || {})
   );
   const divs = root.querySelectorAll('div');
-  const refs = new Map(
-    divs.map((div, index) => [div, `d${index.toString(36)}`])
-  );
+  const refs = new Map(divs.map((div, index) => [div, `d${index.toString(36)}`]));
   const open = new Set();
 
   for (const div of divs) {
@@ -193,11 +186,7 @@ export const inspect = (html, collapseId) => {
   if (!target) throw new Error(`Unknown collapse ID: ${collapseId}`);
 
   target.setAttribute('data-collapse-id', collapseId);
-  return drop(
-    pretty(target.toString(), { ocd: true, indent_size: 2 }).trim(),
-    2,
-    4
-  );
+  return drop(pretty(target.toString(), { ocd: true, indent_size: 2 }).trim(), 2, 4);
 };
 
 export const slimHtml = ({ html, url }) => {
@@ -211,8 +200,7 @@ export const slimHtml = ({ html, url }) => {
     const attributes = Object.entries(node.attrs || {})
       .filter(
         ([key, value]) =>
-          ['class', 'id'].includes(key) ||
-          (key.startsWith('data-') && value && value.length < 500)
+          ['class', 'id'].includes(key) || (key.startsWith('data-') && value && value.length < 500)
       )
       .map(([key, value]) => ` ${key}="${String(value).slice(0, 400)}"`)
       .join('');
@@ -220,14 +208,9 @@ export const slimHtml = ({ html, url }) => {
     const href = (node.getAttribute?.('href') || '').slice(0, 1000);
     const src = (node.getAttribute?.('src') || '').slice(0, 1000);
 
-    if (tagName === 'a' && href)
-      return `<a href="${href}"${attributes}>${inner}</a>`;
+    if (tagName === 'a' && href) return `<a href="${href}"${attributes}>${inner}</a>`;
     if (tagName === 'meta') return node.toString();
-    if (
-      ['img', 'source', 'video', 'audio'].includes(tagName) &&
-      src &&
-      !src.startsWith('data:')
-    ) {
+    if (['img', 'source', 'video', 'audio'].includes(tagName) && src && !src.startsWith('data:')) {
       return `<${tagName} src="${src}"${attributes}/>`;
     }
     if (tagName) return `<${tagName}${attributes}>${inner}</${tagName}>`;

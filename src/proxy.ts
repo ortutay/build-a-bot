@@ -1,8 +1,8 @@
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
 import './env.js';
 
-export type ProxyName =
-  'none' | 'datacenter' | 'residential' | 'residentialCdp' | 'unblock';
+export type ProxyName = 'datacenterDedicated' | 'datacenterShared' | 'residential' | 'unblock';
+// 'residentialCdp' |
 
 type ProxyFetchOptions = {
   url: string;
@@ -20,25 +20,27 @@ export type Proxy = {
 };
 
 const proxies: Record<ProxyName, Proxy> = {
-  none: {},
-  datacenter: {
-    server: process.env.PROXY_DATACENTER_SERVER,
-    username: process.env.PROXY_DATACENTER_USERNAME,
-    password: process.env.PROXY_DATACENTER_PASSWORD,
+  // none: {},
+  datacenterDedicated: {
+    server: process.env.PROXY_DATACENTER_DEDICATED_SERVER,
+    username: process.env.PROXY_DATACENTER_DEDICATED_USERNAME,
+    password: process.env.PROXY_DATACENTER_DEDICATED_PASSWORD,
+  },
+  datacenterShared: {
+    server: process.env.PROXY_DATACENTER_SHARED_SERVER,
+    username: process.env.PROXY_DATACENTER_SHARED_USERNAME,
+    password: process.env.PROXY_DATACENTER_SHARED_PASSWORD,
   },
   residential: {
     server: process.env.PROXY_RESIDENTIAL_SERVER,
     username: process.env.PROXY_RESIDENTIAL_USERNAME,
     password: process.env.PROXY_RESIDENTIAL_PASSWORD,
   },
-  residentialCdp: {
-    cdp: process.env.PROXY_RESIDENTIAL_CDP_URL,
-  },
+  // residentialCdp: {
+  //   cdp: process.env.PROXY_RESIDENTIAL_CDP_URL,
+  // },
   unblock: {
-    fetch: async ({
-      url,
-      headers = {},
-    }: ProxyFetchOptions): Promise<Response> =>
+    fetch: async ({ url, headers = {} }: ProxyFetchOptions): Promise<Response> =>
       fetch(process.env.PROXY_UNBLOCK_API_URL!, {
         method: 'POST',
         headers: {
@@ -58,10 +60,9 @@ const proxies: Record<ProxyName, Proxy> = {
 
 export const names: ProxyName[] = Object.keys(proxies) as ProxyName[];
 
-const isProxyName = (proxy: string): proxy is ProxyName =>
-  names.includes(proxy as ProxyName);
+const isProxyName = (proxy: string): proxy is ProxyName => names.includes(proxy as ProxyName);
 
-export const getProxySpec = (proxy: string = 'none'): Proxy => {
+export const getProxySpec = (proxy: string = 'dedicated'): Proxy => {
   if (!isProxyName(proxy)) {
     throw new Error(`Unexpected proxy tier: ${proxy}`);
   }
@@ -72,7 +73,7 @@ export const getProxySpec = (proxy: string = 'none'): Proxy => {
 
 export const proxyFetch = async (
   url: string,
-  proxy: string = 'none',
+  proxy: string = 'dedicated',
   headers: HeadersInit = {}
 ): Promise<Response> => {
   const spec = getProxySpec(proxy);
@@ -82,9 +83,7 @@ export const proxyFetch = async (
   }
 
   if (spec.cdp) {
-    throw new Error(
-      'Proxy tier "residentialCdp" is only available to launchBrowser.'
-    );
+    throw new Error('Proxy tier "residentialCdp" is only available to launchBrowser.');
   }
 
   if (!spec.server) {

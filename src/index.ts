@@ -1,4 +1,15 @@
+import { Bot } from './bot/Bot.js';
+import { Workshop } from './workshop/Workshop.js';
+import type { BuildOptions } from './types.js';
+
 export { Workshop } from './workshop/Workshop.js';
+
+export const build = async (options: BuildOptions): Promise<Bot | undefined> => {
+  // console.log('options:', options);
+  // return;
+  const ws = new Workshop();
+  return ws.build(options);
+};
 
 // import * as run from './core/run.js';
 // import { compile } from './core/compile.js';

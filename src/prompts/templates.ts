@@ -8,6 +8,20 @@ export const userInput = new Template(
 </user-input>`
 );
 
+export const inputSchema = new Template(
+  ['inputSchema'],
+  `<input-schema>
+{{inputSchema}}
+</input-schema>`
+);
+
+export const outputSchema = new Template(
+  ['outputSchema'],
+  `<output-schema>
+{{outputSchema}}
+</output-schema>`
+);
+
 export const report = new Template(
   ['report'],
   `<report>
@@ -38,7 +52,7 @@ Tools:
 );
 
 export const plan = new Template(
-  ['userInput'],
+  ['userInput', 'inputSchema', 'outputSchema'],
   `You are writing a JavaScript web scraping bot. Explore and gather information necessary to write this script.
 
 Do not write code yet, simple generate a written report about how to run the script once you have enough information.
@@ -51,7 +65,7 @@ Guidelines:
 
 # Format considerations
 
-Decide what format you want to fetch for each URL. Typically, slim HTML or full HTML formats are best for structured data extraction. Text and markdown formats are best for full page text extraction.
+Decide what format you want to fetch for each URL. Use slim HTML for efficient inspection and full HTML only when necessary for structured data extraction.
 
 Put this in a section titled "Format report"
 
@@ -67,25 +81,19 @@ Compare costs of various tools. Include this information in your report. When po
 
 Try the different providers and various tools to gather evidence for fastest cost. Put this data in a section titled "Cost report".
 
-# Concurrency and rate limit considerations
+# Proxy considerations
 
-Evaluate concurrency and rate limits for URL retrieval by try different concurrency configurations. First try low concurrency and low rate limit. Then, try higher values.
-
-Rate limit progression:
-  - First, try 1 query by itself
-  - Then, try around 10 queries at ~5qps, max concurrency = 5
-  - Then, try around 20 queries at ~10qps, max concurrency = 10
-
-Beyond this, use your judgement.
-
-Try the different providers and various tools to gather evidence for concurrency and rate limits on a per-provider basis. Put this data in a section titled "Concurrency and rate limit report".
+Try different proxy settings, starting with lowest weight solutions.
 
 # Specifics and evidence
 
 Include specifics in your report, including:
 - Sample URLs
 - Sample HTML snippets from those URLs
+- Relevant selectors for all fields in output schema.
 - Any other specifics that will be helpful for the coding agent
+
+Give enough HTML snippets to write the proper selectors.
 
 # Input and ouput schema
 
@@ -113,17 +121,44 @@ Guidelines for input schema:
 - It should more resemble an HTTP API, rather than a scraping endpoint. That means the parameters may not be URLs
 - Base the input on the user prompt, and also on the general site layout. For example, if you have something like https://www.example.com/category/product, perhaps "category" can be a parameters
 - Make it permissive. Unless necessary, make inputs optional.
+- Do not include fields for proxy selection. That should be handled internally.
+- If a specific input schema is provided in the user prompt section, ignore above guidelines and use the user's input schema. Restate the user schema in your output.
 
 Guidelines for output schema:
 - Follow the user prompt
 - Beyond that, give a nicely structured output with the key data
 - Make it resilient. Unless absolutely necessary, make outputs optional.
+- Do not overcomplicate the schema, avoid excessive nesting
+- For each item scraped, include a meta field:
+  - meta.sourceURL: The source URL for this item. This describes where the data was gathered from
+- Include a meta field, which has:
+  - meta.urlsVisited: list of URLs visited
+  - meta.count: Include for "list" view scrapers: Number of items scraped and available in results
+  - meta.total: Include for "list" view scrapers: Total number of items, will be greater than or equal to meta.count
+  - meta.errors: array of errors, or null
+- If a specific output schema is provided out the user prompt section, ignore above guideloutes and use the user's output schema. Restate the user schema in your output.
+  - However, still include the "meta" output, in addition to the user's specifications
 
 # Additional guidelines
 
 - The eventual script will be run in a node.js VM context, with specific modules made available, along with the tools you have
+- For exampleInput, if there is a "limit", set it to 10
+- Do not suggest tools that were not available to you. The execution environment will have the exact same tools.
+
+# Report summary
+
+At the end of your report, include a brief summary of your findings. This is also where you should call out errors or problems that may prevent the task from being feasible.
+
+<== Begin User Input Section ==>
 
 {{userInput}}
+
+{{inputSchema}}
+
+{{outputSchema}}
+
+<== End User Input Section ==>
+
 `
 );
 
@@ -185,17 +220,18 @@ You have access to these globals in the VM context
 
 # Dependencies
 
-Use only the modules, context, and tools from above. Do not import anything.
+- Use only the modules, context, and tools from above. 
+- Do not import or require anything, they are already in the context.
 
 # Report
 
-Below is the research report. Follow guidances in the report, including runtime, cost, and concurrency considerations. Use the highest safe concurrency settings, and balance cost and runtime in a way developers would like.
+Below is the research report. Follow guidances in the report, including runtime, and cost considerations. Balance cost and runtime in a way developers would like.
 
 {{report}}
 
 # Comments
 
-Begin your code with comments summarizing report findings briefly, including relevant format considerations, selectors, rate limits, concurrency, provider, cost and runtime recommendations, as well as any other considerations. Bias toward higher rate limits and concurrency, you want this to run fast.
+Begin your code with comments summarizing report findings briefly, including relevant format considerations, selectors, rate limits, provider, cost and runtime recommendations, as well as any other considerations.
 
 # Debug output
 
@@ -206,8 +242,22 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - Because you have availableModules, do not write any "import" lines.
 - Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
 - Try to make the example input something that runs on the faster side
+  - If example input includes a limit, set it to 10
 
 {{userInput}}
 
 `
 );
+
+// # Concurrency and rate limit considerations
+
+// Evaluate concurrency and rate limits for URL retrieval by try different concurrency configurations. First try low concurrency and low rate limit. Then, try higher values.
+
+// Rate limit progression:
+//   - First, try 1 query by itself
+//   - Then, try around 10 queries at ~5qps, max concurrency = 5
+//   - Then, try around 20 queries at ~10qps, max concurrency = 10
+
+// Beyond this, use your judgement.
+
+// Try the different providers and various tools to gather evidence for concurrency and rate limits on a per-provider basis. Put this data in a section titled "Concurrency and rate limit report".

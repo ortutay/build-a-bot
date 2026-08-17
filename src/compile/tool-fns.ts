@@ -1,3 +1,5 @@
+import { log } from '../logger.js';
+
 export type ContextTool = (input: unknown) => Promise<unknown>;
 
 export type ContextTools = Record<string, ContextTool>;
@@ -28,6 +30,11 @@ export const toContextTools = (tools: Record<string, unknown>): ContextTools =>
         );
       }
 
-      return [name, (input: unknown) => tool.execute(input)];
+      const fn = (input: unknown) => {
+        log.info(`Calling ${name} on ${JSON.stringify(input)}`);
+        return tool.execute(input);
+      };
+
+      return [name, fn];
     })
   );

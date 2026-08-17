@@ -1,5 +1,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { slimHtml } from '../formats.js';
+import { hash } from '../util.js';
+import { names as proxyNames, proxyFetch } from '../proxy.js';
 
 let id = 1;
 type FetchResponse = {
@@ -21,6 +24,9 @@ export const fetchTool = createTool({
       .string()
       .url()
       .describe('URL to fetch. Include the scheme, for example https://example.com.'),
+    proxy: z
+      .enum(proxyNames)
+      .describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`),
   }),
   outputSchema: z.object({
     url: z.string(),
@@ -29,10 +35,14 @@ export const fetchTool = createTool({
     statusText: z.string(),
     documentId: z.string(),
   }),
-  execute: async ({ url }, { abortSignal }) => {
-    const documentId = 'DOC' + id++;
+  execute: async ({ url, proxy }) => {
+    const documentId =
+      'doc:' +
+      hash({ url, proxy }).substring(0, 8) +
+      ':' +
+      url.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-    const resp = await fetch(url, { signal: abortSignal });
+    const resp = await proxyFetch(url, proxy);
     const out: FetchResponse = {
       url: resp.url,
       ok: resp.ok,
@@ -56,23 +66,24 @@ export const fetchTool = createTool({
 
 export const viewDocumentTool = createTool({
   id: 'viewDocumentTool',
-  description: 'Get response body for a previously loaded URL.',
+  description: 'Get HTML for a previously loaded URL.',
   inputSchema: z.object({
     documentId: z.string().describe('Document ID to view, provided by a document loader tool.'),
-    mode: z.enum(['full', 'slim', 'markdown']).describe(`How to view the document.
-"full": Gives full document HTML.
-"slim": Gives a subset of the HTML most likely to be relevant for data extraction.
-"markdown": Gives markdown.
-      `),
+    mode: z.enum(['html', 'slim']).describe(`How to view the document.
+"html": Gives the complete response HTML.
+"slim": Gives cleaned HTML for efficient inspection and data extraction.`),
   }),
   outputSchema: z.object({
     headers: z.record(z.string(), z.string()),
     body: z.string(),
   }),
-  execute: async ({ documentId }) => {
+  execute: async ({ documentId, mode }) => {
+    const document = docs[documentId];
+    if (!document) throw new Error(`Unknown document ID: ${documentId}`);
+
     return {
-      headers: docs[documentId].headers,
-      body: docs[documentId].body,
+      headers: document.headers,
+      body: mode === 'slim' ? slimHtml({ html: document.body, url: document.url }) : document.body,
     };
   },
 });

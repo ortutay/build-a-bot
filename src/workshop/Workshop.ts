@@ -1,18 +1,11 @@
 import { Mastra } from '@mastra/core';
-import { createWorkflow, createStep } from '@mastra/core/workflows';
+import { createWorkflow } from '@mastra/core/workflows';
 import { log } from '../logger.js';
-import { type AgentOptions } from '../agent/Agent.js';
 import { Bot } from '../bot/Bot.js';
-import { z } from 'zod';
-import * as templates from '../prompts/templates.js';
-import { Compiler, availableContext, availableModules } from '../compile/Compiler.js';
+import { Compiler } from '../compile/Compiler.js';
 import { defaultMastra } from '../mastra.js';
-
-export type BuildOptions = {
-  url: string;
-  prompt: string;
-  agentOptions: AgentOptions;
-};
+import type { BuildOptions } from '../types.js';
+import { planStep, writeCodeStep } from './steps.js';
 
 export class Workshop {
   constructor() {}
@@ -34,83 +27,8 @@ export class Workshop {
     mastra = mastra!;
 
     try {
-      const planStep = createStep({
-        id: 'plan-step',
-        inputSchema: z.object({
-          url: z.string(),
-          goal: z.string(),
-        }),
-        outputSchema: z.object({
-          url: z.string(),
-          goal: z.string(),
-          report: z.string(),
-        }),
-        execute: async ({ inputData }) => {
-          log.info('Running report step');
-
-          const agent = mastra!.getAgentById('build-agent');
-          const { url, goal } = inputData;
-          const userInput = templates.userInput.render({ url, goal });
-          const prompt = templates.plan.render({ userInput });
-          const resp = await agent.generate(prompt);
-
-          console.log('Plan resp:', resp);
-
-          const report = resp.text;
-          log.info('Generated report:', report);
-
-          return {
-            url,
-            goal,
-            report,
-          };
-        },
-      });
-
-      const writeCodeStep = createStep({
-        id: 'write-code-step',
-        inputSchema: planStep.outputSchema,
-        outputSchema: z.object({
-          code: z.string(),
-        }),
-        execute: async ({ inputData }) => {
-          log.info('Running write code step');
-
-          const agent = mastra!.getAgentById('build-agent');
-          const { url, goal, report } = inputData as any;
-
-          console.log('Write code got report:', report);
-
-          const tools = Object.fromEntries(
-            Object.entries(await agent.listTools()).filter(
-              ([, tool]) => !('requireApproval' in tool) || !tool.requireApproval
-            )
-          );
-
-          const renderedReport = templates.report.render({ report });
-          console.log('renderedReport:', renderedReport);
-
-          const prompt = templates.code.render({
-            toolsForCode: templates.toolsForCode.render({
-              tools: JSON.stringify(tools, null, 2),
-            }),
-            userInput: templates.userInput.render({ url, goal }),
-            availableModules: JSON.stringify(Object.keys(availableModules)),
-            availableContext: JSON.stringify(Object.keys(availableContext)),
-            report: renderedReport,
-          });
-
-          console.log('Write code prompt:', prompt);
-          const resp = await agent.generate(prompt);
-
-          const code = resp.text;
-          log.info('Generated code:', code);
-
-          return { code };
-        },
-      });
-
       const workflow = createWorkflow({
+        mastra,
         id: 'build-workflow',
         inputSchema: planStep.inputSchema,
         outputSchema: writeCodeStep.outputSchema,
@@ -124,6 +42,8 @@ export class Workshop {
         inputData: {
           url: options.url,
           goal: options.prompt,
+          inputSchema: options.inputSchema,
+          outputSchema: options.outputSchema,
         },
       });
 
@@ -143,6 +63,52 @@ export class Workshop {
 
       const bot = new Bot({ inputSchema, outputSchema, exampleInput, fn });
       return bot;
+    } finally {
+      await cleanup();
+    }
+  }
+
+  async plan(options: BuildOptions, mastra?: Mastra): Promise<string> {
+    log.info(`Plan a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
+
+    let cleanup: () => Promise<void> = async () => {};
+
+    if (mastra) {
+      log.info('Got Mastra:', mastra);
+    } else {
+      const r = await defaultMastra();
+      mastra = r.mastra;
+      cleanup = r.cleanup;
+      log.info('Instantiated default Mastra:', mastra);
+    }
+
+    mastra = mastra!;
+
+    try {
+      const workflow = createWorkflow({
+        mastra,
+        id: 'plan-workflow',
+        inputSchema: planStep.inputSchema,
+        outputSchema: planStep.outputSchema,
+      })
+        .then(planStep as any)
+        .commit();
+
+      const run = await workflow.createRun();
+      const result = await run.start({
+        inputData: {
+          url: options.url,
+          goal: options.prompt,
+          inputSchema: options.inputSchema,
+          outputSchema: options.outputSchema,
+        },
+      });
+
+      console.log('Run result:', result);
+
+      const { report } = (result as any).result;
+
+      return report;
     } finally {
       await cleanup();
     }

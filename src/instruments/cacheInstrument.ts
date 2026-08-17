@@ -36,7 +36,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
     execute: async (input, context) => {
       const key = hash({
         instrument: 'cacheInstrument',
-        version: 3,
+        version: 6,
         tool: {
           id: tool.id,
           description: tool.description,
@@ -70,7 +70,8 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
       } catch (e) {
         log.info(`Setting cache error for ${key}, tool=${tool.id}`);
         await cache.set(key, { type: 'error', error: errorForCache(e) });
-        throw e;
+        // throw e;
+        throw errorForCache(e);
       }
       log.info(`Setting cache for ${key}, tool=${tool.id}`);
       await cache.set(key, { type: 'output', output });

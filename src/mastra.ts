@@ -2,15 +2,16 @@ import { pick } from 'radash';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+// import { ConsoleLogger } from '@mastra/core/logger';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { type Tool } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
-import { ResponseCache, type ResponseCacheKeyInputs } from '@mastra/core/processors';
+import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { hash } from './util.js';
-import { fetchTool, viewDocumentTool } from './tools/fetchTool.js';
+import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
 import {
   runtimeInstrument,
   cacheInstrument,
@@ -21,6 +22,7 @@ import {
   type Instrument,
 } from './instruments/index.js';
 import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
+import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 
 const firecrawlToolNames = new Set([
   'firecrawl_firecrawl_scrape',
@@ -56,63 +58,78 @@ export const defaultMastra = async (): Promise<{
       },
     },
   });
+  // const mcpTools = await mcpClient.listTools();
 
-  const mcpTools = await mcpClient.listTools();
   const rawTools: Record<string, any> = {
     fetchTool,
     viewDocumentTool,
-    ...Object.fromEntries(
-      Object.entries(mcpTools).filter(
-        ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
-      )
-    ),
+    // ...Object.fromEntries(
+    //   Object.entries(mcpTools).filter(
+    //     ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
+    //   )
+    // ),
   };
-  const tools = await instrument(rawTools);
+  const allTools = await instrument(rawTools);
+
+  // model: 'google/gemini-3.5-flash',
+  // model: 'google/gemini-3.6-flash',
+  // model: 'google/gemini-3.7-flash',
+  const model = 'openai/gpt-5.6-luna';
+  // model: 'openai/gpt-5.6-terra',
+  // model: 'openai/gpt-5.6-sol',
+  const inputProcessors = [
+    // Compress individual page-sized tool responses first, then cap the full
+    // transcript so every tool-loop iteration fits comfortably in context.
+    new ContextCompressionProcessor(),
+    new TokenLimiter({ limit: 200_000, trimMode: 'contiguous' }),
+    new ResponseCache({
+      cache,
+      ttl: 3600,
+      key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
+        const hh = {
+          prompt: serializePrompt(prompt),
+          tools: Object.entries(tools).map(([key, tool]) =>
+            [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
+          ),
+        };
+        // console.log('Hashing:', JSON.stringify(hh, null, 2));
+        const h = hash(hh);
+        const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
+        log.info(`Cache key: ${key}`);
+        return key;
+      },
+    }),
+  ];
+  const hooks = {
+    beforeToolCall: (it) => {
+      const { toolName, input, context } = it;
+      const toolCallId = (context as { toolCallId: string }).toolCallId;
+      log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
+    },
+
+    afterToolCall: (it) => {
+      const { toolName, error, context } = it;
+      const toolCallId = (context as { toolCallId: string }).toolCallId;
+      if (error) {
+        log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
+      } else {
+        log.info(`Tool done:  id=${toolCallId} ${toolName}`);
+      }
+    },
+  };
+
+  const shared = {
+    model,
+    inputProcessors,
+    hooks,
+  };
 
   const buildAgent = new Agent({
     id: 'build-agent',
     name: 'Build Agent',
     instructions: 'You are a scraping bot builder.',
-    model: 'openai/gpt-5.6-luna',
-    // model: 'openai/gpt-5.6-terra',
-    tools,
-    inputProcessors: [
-      new ResponseCache({
-        cache,
-        ttl: 3600,
-        key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-          const hh = {
-            prompt: hashPrompt(prompt),
-            tools: Object.entries(tools).map(([key, tool]) =>
-              [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
-            ),
-          };
-          // console.log('Hashing:', hh);
-          const h = hash(hh);
-          const key = `${agentId}:${stepNumber}:${JSON.stringify(model)}:${h}`;
-          log.info(`Cache key: ${key}`);
-          return key;
-        },
-      }),
-    ],
-
-    hooks: {
-      beforeToolCall: (it) => {
-        const { toolName, input, context } = it;
-        const toolCallId = (context as { toolCallId: string }).toolCallId;
-        log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
-      },
-
-      afterToolCall: (it) => {
-        const { toolName, error, context } = it;
-        const toolCallId = (context as { toolCallId: string }).toolCallId;
-        if (error) {
-          log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
-        } else {
-          log.info(`Tool done:  id=${toolCallId} ${toolName}`);
-        }
-      },
-    },
+    tools: allTools,
+    ...shared,
   });
 
   const storage = new LibSQLStore({
@@ -124,8 +141,15 @@ export const defaultMastra = async (): Promise<{
     agents: { buildAgent },
     cache,
     storage,
+    backgroundTasks: {
+      enabled: true,
+      globalConcurrency: 20,
+      perAgentConcurrency: 10,
+      backpressure: 'queue',
+      defaultTimeoutMs: 120_000,
+    },
     logger: new ConsoleLogger({
-      level: 'info',
+      level: 'debug',
       filter: () => true,
     }),
   });
@@ -137,7 +161,7 @@ export const defaultMastra = async (): Promise<{
   return { mastra, cleanup };
 };
 
-const hashPrompt = (prompt: any) => {
+const serializePrompt = (prompt: any) => {
   const asText = prompt
     .map((message: any) => {
       try {
@@ -156,16 +180,25 @@ const hashPrompt = (prompt: any) => {
             ])
           );
         } else {
+          log.error(`Unknown message type for hashing: ${content}`);
+
+          // TODO: strict / lenient modes
+          throw new Error('STOP');
+
           val = hash('' + Math.random());
         }
         return val;
       } catch (e) {
         console.error('Error while generating cache key:', e);
+
+        // TODO: strict / lenient modes
+        throw e;
+
         return hash('' + Math.random());
       }
     })
     .sort((a: any, b: any) => hash(a).localeCompare(hash(b)));
-  return hash(asText);
+  return asText;
 };
 
 const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string, Tool>> => {
@@ -175,7 +208,7 @@ const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string
     // Cache the runtime-instrumented result to retain the original runtime metric.
     runtimeInstrument,
     cacheInstrument,
-    concurrencyInstrument,
+    // concurrencyInstrument,
     firecrawlCostInstrument,
     brightdataCostInstrument,
     scrapingbeeCostInstrument,
