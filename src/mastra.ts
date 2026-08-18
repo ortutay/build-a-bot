@@ -13,6 +13,19 @@ import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
 import {
+  newPageTool,
+  clickTool,
+  gotoTool,
+  contentTool,
+  waitForSelectorTool,
+
+  // attributeTool,
+  // getLinksTool,
+  // innerHTMLTool,
+  // queryAllTool,
+  // textContentTool,
+} from './tools/browserTools.js';
+import {
   runtimeInstrument,
   cacheInstrument,
   concurrencyInstrument,
@@ -58,18 +71,17 @@ export const defaultMastra = async (): Promise<{
       },
     },
   });
-  // const mcpTools = await mcpClient.listTools();
 
-  const rawTools: Record<string, any> = {
-    fetchTool,
-    viewDocumentTool,
-    // ...Object.fromEntries(
-    //   Object.entries(mcpTools).filter(
-    //     ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
-    //   )
-    // ),
-  };
-  const allTools = await instrument(rawTools);
+  // const mcpTools = await mcpClient.listTools();
+  // const rawTools: Record<string, any> = {
+  //   fetchTool,
+  //   viewDocumentTool,
+  //   // ...Object.fromEntries(
+  //   //   Object.entries(mcpTools).filter(
+  //   //     ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
+  //   //   )
+  //   // ),
+  // };
 
   // model: 'google/gemini-3.5-flash',
   // model: 'google/gemini-3.6-flash',
@@ -100,6 +112,7 @@ export const defaultMastra = async (): Promise<{
       },
     }),
   ];
+
   const hooks: ToolHooks = {
     beforeToolCall: (it) => {
       const { toolName, input, context } = it;
@@ -124,6 +137,27 @@ export const defaultMastra = async (): Promise<{
     hooks,
   };
 
+  const allTools = await instrument({
+    fetchTool,
+    viewDocumentTool,
+    newPageTool,
+    gotoTool,
+    contentTool,
+    // waitForSelectorTool,
+    clickTool,
+  } as Record<string, any>);
+  const fetchResearchTools = await instrument({
+    fetchTool,
+    viewDocumentTool,
+  } as Record<string, any>);
+  const browserResearchTools = await instrument({
+    newPageTool,
+    gotoTool,
+    contentTool,
+    // waitForSelectorTool,
+    // clickTool,
+  } as Record<string, any>);
+
   const buildAgent = new Agent({
     id: 'build-agent',
     name: 'Build Agent',
@@ -132,13 +166,45 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
+  const fetchResearchAgent = new Agent({
+    id: 'fetch-research-agent',
+    name: 'Fetch Research Agent',
+    instructions: 'You are researching how to use HTTP fetch based tools for web scraping.',
+    tools: fetchResearchTools,
+    ...shared,
+  });
+
+  const browserResearchAgent = new Agent({
+    id: 'browser-research-agent',
+    name: 'Browser Research Agent',
+    instructions: 'You are researching how to use Playwright browser based tools for web scraping.',
+    tools: browserResearchTools,
+    ...shared,
+  });
+
+  // const planningAgent = new Agent({
+  //   id: 'planning-agent',
+  //   name: 'Planning Agent',
+  //   instructions: 'You are researching how to scrape a target.',
+  //   agents: {
+  //     fetchResearchAgent,
+  //     browserResearchAgent,
+  //   },
+  //   ...shared,
+  // });
+
   const storage = new LibSQLStore({
     id: 'libsql-storage',
     url: 'file:./db/mastra-storage.db',
   });
 
   const mastra = new Mastra({
-    agents: { buildAgent },
+    agents: {
+      buildAgent,
+      // planningAgent,
+      fetchResearchAgent,
+      browserResearchAgent,
+    },
     cache,
     storage,
     backgroundTasks: {
@@ -149,7 +215,7 @@ export const defaultMastra = async (): Promise<{
       defaultTimeoutMs: 120_000,
     },
     logger: new ConsoleLogger({
-      level: 'debug',
+      level: 'info',
       filter: () => true,
     }),
   });
@@ -207,7 +273,7 @@ const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string
   const instruments: Instrument[] = [
     // Cache the runtime-instrumented result to retain the original runtime metric.
     runtimeInstrument,
-    cacheInstrument,
+    // cacheInstrument,
     // concurrencyInstrument,
     firecrawlCostInstrument,
     brightdataCostInstrument,

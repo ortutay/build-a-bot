@@ -8,11 +8,17 @@ describe('Dogfood Builder Tests', () => {
   const pokemonTarget = {
     url: 'https://pokemondb.net/pokedex/national',
     prompt:
-      'scrape pokemon: name, number, and basic stats including HP. input is pokemon names, either single string or a list of names',
+      'scrape pokemon: name, number, basic stats including HP, and a list of move names. input is pokemon names, either single string or a list of names',
     inputSchema: z.object({
       names: z.array(z.string()).describe('list of pokemon to scrape'),
     }),
   };
+
+  it('should plan for pokemon', async () => {
+    const ws = new Workshop();
+    const out = await ws.plan(pokemonTarget);
+    console.log('Plan out:', out);
+  }, 180_000);
 
   it('should build a bot for pokemon', async () => {
     const ws = new Workshop();
@@ -21,12 +27,6 @@ describe('Dogfood Builder Tests', () => {
       names: ['pikachu', 'squirtle'],
     });
     console.log(out);
-  }, 180_000);
-
-  it('should plan for pokemon', async () => {
-    const ws = new Workshop();
-    const out = await ws.plan(pokemonTarget);
-    console.log('Plan out:', out);
   }, 180_000);
 });
 

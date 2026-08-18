@@ -144,6 +144,7 @@ Guidelines for output schema:
 - The eventual script will be run in a node.js VM context, with specific modules made available, along with the tools you have
 - For exampleInput, if there is a "limit", set it to 10
 - Do not suggest tools that were not available to you. The execution environment will have the exact same tools.
+- The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream.
 
 # Report summary
 
@@ -159,6 +160,18 @@ At the end of your report, include a brief summary of your findings. This is als
 
 <== End User Input Section ==>
 
+`
+);
+
+export const consolidateIntoPlan = new Template(
+  ['reports', 'userInput'],
+  `Examine the reports below on how to scrape a use site given some user input. Consolidate the reports into a single recommendations on how to write the scraper.
+
+Keep the same level of details and precision as the original reports. The next step in this workflow will write code, so it will need precision and details.
+
+{{reports}}
+
+{{userInput}}
 `
 );
 
@@ -243,6 +256,7 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
 - Try to make the example input something that runs on the faster side
   - If example input includes a limit, set it to 10
+- The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
 
 {{userInput}}
 
