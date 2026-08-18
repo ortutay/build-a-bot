@@ -8,3 +8,17 @@ export * from './firecrawl.js';
 export * from './scrapingbee.js';
 
 export type Instrument = (tool: Tool) => Promise<Tool>;
+
+type AnyTool = Tool<any, any, any, any, any, any, any>;
+
+export const addInstruments = async (
+  instruments: Instrument[],
+  tool: AnyTool
+): Promise<AnyTool> => {
+  let instrumented = tool;
+  console.log('TODO: addInstruments:', tool, instruments);
+  for (const instrument of instruments) {
+    instrumented = await instrument(tool);
+  }
+  return instrumented;
+};

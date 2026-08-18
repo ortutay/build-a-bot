@@ -1,8 +1,11 @@
 // @ts-nocheck TS2589: ignore due ot zod/TypeScript server mismatch
+
 import * as z from 'zod';
 import { describe, it, expect } from 'vitest';
 import { build } from '../../src/index.js';
 import { Workshop } from '../../src/workshop/Workshop.js';
+import { browserPlanStep } from '../../src/workshop/steps.js';
+import { defaultMastra } from '../../src/mastra.js';
 
 describe('Dogfood Builder Tests', () => {
   const pokemonTarget = {
@@ -13,6 +16,26 @@ describe('Dogfood Builder Tests', () => {
       names: z.array(z.string()).describe('list of pokemon to scrape'),
     }),
   };
+
+  it('should plan browser for pokemon', async () => {
+    const { mastra, cleanup } = await defaultMastra();
+    try {
+      console.log('Mastra:', mastra);
+      console.log('browser pokemon plan');
+      console.log('browserPlanStep:', browserPlanStep);
+      const out = await browserPlanStep.execute({
+        inputData: pokemonTarget,
+        mastra,
+      });
+      console.log('Step out:', out.report);
+    } finally {
+      await cleanup();
+    }
+
+    // const ws = new Workshop();
+    // const out = await ws.plan(pokemonTarget);
+    // console.log('Plan out:', out);
+  }, 180_000);
 
   it('should plan for pokemon', async () => {
     const ws = new Workshop();

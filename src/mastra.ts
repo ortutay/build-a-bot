@@ -19,12 +19,15 @@ import {
   contentTool,
   waitForSelectorTool,
 
+  // hooks as browserHooks,
+  // type MiddlewareToolHooks,
+
   // attributeTool,
   // getLinksTool,
   // innerHTMLTool,
   // queryAllTool,
   // textContentTool,
-} from './tools/browserTools.js';
+} from './tools/browserTools/index.js';
 import {
   runtimeInstrument,
   cacheInstrument,
@@ -44,7 +47,7 @@ const firecrawlToolNames = new Set([
   'firecrawl_firecrawl_check_crawl_status',
 ]);
 
-const cacheBuster = '3';
+const cacheBuster = '4';
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -99,6 +102,7 @@ export const defaultMastra = async (): Promise<{
       ttl: 3600,
       key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
         const hh = {
+          cacheBuster,
           prompt: serializePrompt(prompt),
           tools: Object.entries(allTools).map(([key, tool]) =>
             [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
@@ -113,29 +117,9 @@ export const defaultMastra = async (): Promise<{
     }),
   ];
 
-  const hooks: ToolHooks = {
-    beforeToolCall: (it) => {
-      const { toolName, input, context } = it;
-      const toolCallId = (context as { toolCallId: string }).toolCallId;
-      log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
-    },
-
-    afterToolCall: (it) => {
-      const { toolName, error, context } = it;
-      const toolCallId = (context as { toolCallId: string }).toolCallId;
-      if (error) {
-        log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
-      } else {
-        log.info(`Tool done:  id=${toolCallId} ${toolName}`);
-      }
-    },
-  };
-
-  const shared = {
-    model,
-    inputProcessors,
-    hooks,
-  };
+  // const middlewareHooks: MiddlewareToolHooks[] = [
+  //   // browserHooks,
+  // ];
 
   const allTools = await instrument({
     fetchTool,
@@ -157,6 +141,71 @@ export const defaultMastra = async (): Promise<{
     // waitForSelectorTool,
     // clickTool,
   } as Record<string, any>);
+
+  const hooks: ToolHooks = {
+    beforeToolCall: async (it) => {
+      // // TODO: consolidate duped code w/ after
+      // let tool: Tool | null = null;
+      // for (const toolName of Object.keys(allTools)) {
+      //   if (toolName == it.toolName) {
+      //     tool = allTools[toolName];
+      //   }
+      // }
+      // console.log('Found tool:', it.toolName, tool);
+      // if (!tool) {
+      //   throw new Error(`Could not find tool: ${it.toolName}`);
+      // }
+      // for (const h of middlewareHooks) {
+      //   console.log('middlewareHooks before:', h);
+      //   if (!h.beforeToolCall) {
+      //     continue;
+      //   }
+      //   await h.beforeToolCall(it, tool);
+      // }
+
+      const { toolName, input, context } = it;
+      const toolCallId = (context as { toolCallId: string }).toolCallId;
+      log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
+    },
+
+    afterToolCall: async (it) => {
+      console.log('afterToolCall:', it);
+
+      const { toolName, error, context } = it;
+      const toolCallId = (context as { toolCallId: string }).toolCallId;
+      if (error) {
+        log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
+      } else {
+        log.info(`Tool done:  id=${toolCallId} ${toolName}`);
+      }
+
+      // let tool: Tool | null = null;
+      // for (const toolName of Object.keys(allTools)) {
+      //   if (toolName == it.toolName) {
+      //     tool = allTools[toolName];
+      //   }
+      // }
+      // console.log('Found tool:', it.toolName, tool);
+      // if (!tool) {
+      //   throw new Error(`Could not find tool: ${it.toolName}`);
+      // }
+      // for (const h of middlewareHooks) {
+      //   console.log('middlewareHooks after:', h);
+      //   if (!h.afterToolCall) {
+      //     continue;
+      //   }
+      //   await h.afterToolCall(it, tool);
+      // }
+
+      // throw new Error('STOP');
+    },
+  };
+
+  const shared = {
+    model,
+    inputProcessors,
+    hooks,
+  };
 
   const buildAgent = new Agent({
     id: 'build-agent',
