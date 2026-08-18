@@ -64,7 +64,10 @@ const planStep = (id: string, agentId: string) =>
 
 export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
 export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
-export const planSteps = [fetchPlanStep as any, browserPlanStep as any];
+export const planSteps = [
+  fetchPlanStep as any,
+  // browserPlanStep as any,
+];
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',
@@ -74,11 +77,11 @@ export const writePlanStep = createStep({
       goal: z.string(),
       report: z.string(),
     }),
-    'browser-plan-step': z.object({
-      url: z.string(),
-      goal: z.string(),
-      report: z.string(),
-    }),
+    // 'browser-plan-step': z.object({
+    //   url: z.string(),
+    //   goal: z.string(),
+    //   report: z.string(),
+    // }),
   }),
   outputSchema: z.object({
     url: z.string(),

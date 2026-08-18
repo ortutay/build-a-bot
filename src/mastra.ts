@@ -268,6 +268,8 @@ const serializePrompt = (prompt: any) => {
 };
 
 const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string, Tool>> => {
+  return rawTools;
+
   const tools: Record<string, Tool> = {};
 
   const instruments: Instrument[] = [
