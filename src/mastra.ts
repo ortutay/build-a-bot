@@ -68,15 +68,13 @@ export const defaultMastra = async (): Promise<{
       cache,
       ttl: 3600,
       key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-        const hh = {
+        const h = hash({
           cacheBuster,
           prompt: serializePrompt(prompt),
           tools: Object.entries(allTools).map(([key, tool]) =>
             [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
           ),
-        };
-        // console.log('Hashing:', JSON.stringify(hh, null, 2));
-        const h = hash(hh);
+        });
         const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
         log.info(`Response cache key: ${key}`);
         return key;
