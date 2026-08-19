@@ -1,4 +1,5 @@
 import { Workshop } from './index.js';
+import { log } from './logger.js';
 
 const target = {
   url: 'https://pokemondb.net/pokedex/national',
@@ -12,16 +13,16 @@ const target = {
 // };
 
 const main = async () => {
-  console.log('main');
+  log.info('Starting scratch run');
 
   const ws = new Workshop();
   const bot = await ws.build(target);
 
-  console.log('Got bot:', bot);
+  log.debug(JSON.stringify(bot));
 
   const out = await bot.run(bot.exampleInput);
 
-  console.log('Bot output:', JSON.stringify(out, null, 2));
+  log.info(JSON.stringify(out));
 };
 
 main()
@@ -29,6 +30,6 @@ main()
     process.exit(0);
   })
   .catch((e) => {
-    console.error(e);
+    log.error(`Scratch run failed: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
     process.exit(1);
   });

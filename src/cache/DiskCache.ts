@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { log } from '../logger.js';
 
 export type DiskCacheOptions = {
   readOnly?: boolean;
@@ -46,7 +47,7 @@ export class DiskCache<Value = unknown> {
 
     key = this._cleanKey(key);
 
-    console.log('Cache set:', key);
+    log.debug(`Cache set: ${key}`);
 
     const filepath = path.join(this.dirname, key);
 
@@ -57,9 +58,7 @@ export class DiskCache<Value = unknown> {
       throw new TypeError('Cache value is not JSON serializable');
     }
 
-    const tmpFilepath = [filepath, Math.random().toString(), 'writing'].join(
-      '.'
-    );
+    const tmpFilepath = [filepath, Math.random().toString(), 'writing'].join('.');
     try {
       await fs.promises.writeFile(tmpFilepath, ser, 'utf8');
       await fs.promises.rename(tmpFilepath, filepath);
@@ -95,11 +94,7 @@ export class DiskCache<Value = unknown> {
       return null;
     }
 
-    if (
-      !isCacheEntry<Value>(data) ||
-      Date.now() > data.expiresAt ||
-      data.val === undefined
-    ) {
+    if (!isCacheEntry<Value>(data) || Date.now() > data.expiresAt || data.val === undefined) {
       this.del(key);
       return null;
     }

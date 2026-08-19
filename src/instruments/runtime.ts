@@ -22,7 +22,6 @@ export const runtimeInstrument = async (tool: Tool): Promise<Tool> => {
         output = await tool.execute(input, context);
       }
       const runtime = new Date().getTime() - start;
-      // console.log('Tool runtime:', runtime, tool.id, context.agent?.toolCallId);
       return addMetric(output, 'runtime', runtime, tool, context);
     },
   };

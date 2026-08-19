@@ -57,7 +57,7 @@ const runWorkflow = async (
   options: BuildOptions
 ): Promise<any> => {
   const { mastra, cleanup } = await defaultMastra();
-  log.info('Instantiated default Mastra:', mastra);
+  log.info(`Instantiated default Mastra: ${String(mastra)}`);
 
   try {
     const workflow = workflowFactory(mastra);
@@ -93,10 +93,6 @@ export class Workshop {
     //   const out = await compiler.compile(code, mastra.getAgentById('build-agent'));
     //   const { inputSchema, outputSchema, exampleInput, fn } = out;
 
-    //   console.log('Compiled input schema:', inputSchema);
-    //   console.log('Compiled output schema:', outputSchema);
-    //   console.log('Compiled example input:', exampleInput);
-
     //   return new Bot({ inputSchema, outputSchema, exampleInput, fn });
     // } finally {
     //   await cleanup();
@@ -107,9 +103,9 @@ export class Workshop {
   async plan(options: BuildOptions): Promise<string> {
     log.info(`Plan a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
     const result = await runWorkflow(planWorkflow, options);
-    console.log('Workflow gave result:', result);
+    log.debug(`Workflow result: ${JSON.stringify(result)}`);
     const report = result.result.report;
-    console.log('Returning report:', report);
+    log.debug(`Returning report: ${report}`);
     return report;
   }
 }
