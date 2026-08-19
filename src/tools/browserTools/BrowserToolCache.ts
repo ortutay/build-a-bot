@@ -16,11 +16,8 @@ export class BrowserToolCache {
     pageId: string,
     toolId: string,
     input: Record<string, any>
-  ): Promise<{ cached: any; steps: any[] }> {
-    const sequence = this.sequences[pageId];
-    if (!sequence) {
-      return { cached: null, steps: [] };
-    }
+  ): Promise<{ cached: any; hit: boolean; steps: any[] }> {
+    const sequence = this.sequences[pageId] || [];
 
     // TODO: pull out helper for this part, use it in recordToolCall
     input = omit(input, ['pageId']);
@@ -32,16 +29,15 @@ export class BrowserToolCache {
     const key = hash(inputs);
 
     const cached = await this.cache.get(key);
-    // const cached = inputs.length == 2 ? null : await this.cache.get(key);
 
     console.log('Check tool for inputs:', key, inputs);
     console.log('Check tool call gave:', key, cached);
 
     if (cached) {
-      return { cached, steps: [] };
+      return { cached, hit: true, steps: [] };
     } else {
       inputs.pop();
-      return { cached: null, steps: inputs };
+      return { cached: null, hit: false, steps: inputs };
     }
   }
 

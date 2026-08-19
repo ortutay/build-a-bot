@@ -7,55 +7,69 @@ import { addInstruments } from '../../instruments/index.js';
 import { browserCacheInstrument } from './instruments.js';
 
 let browser: Browser | undefined;
-const pages: Record<string, Page> = {};
+const pages: Record<string, Page | string> = {};
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
-const createPage = async (
-  pageId: string | null,
-  options: LaunchOptions | null
-): Promise<{ pageId: string }> => {
-  options ||= { headless: true };
-  const b = await chromium.launch(options);
-  // if (!browser) {
-  //   // TODO: close it
-  //   browser = await chromium.launch(options);
-  // }
-
+const createPage = async (pageId: string | null): Promise<{ pageId: string }> => {
   if (!pageId) {
     pageId = srid();
   }
-
-  pages[pageId] = await b.newPage();
+  pages[pageId] = 'allocated';
   return { pageId };
 };
 
-const getPage = (pageId: string): Page => {
+const resetPageToAllocated = async (pageId: string) => {
   const page = pages[pageId];
-  if (!page) {
+  if (page != 'allocated') {
+    await (page as Page).close();
+  }
+  pages[pageId] = 'allocated';
+};
+
+const getPage = async (pageId: string): Promise<Page> => {
+  let record = pages[pageId];
+  let page: Page;
+
+  if (record == 'allocated') {
+    if (!browser) {
+      // TODO: close it
+      browser = await chromium.launch({ headless: true });
+    }
+    page = await browser.newPage();
+    pages[pageId] = page;
+  } else if (record && typeof record != 'string') {
+    page = record;
+  } else {
     throw new Error(`Unknown page ID: ${pageId}`);
   }
+
   return page;
 };
 
 const replay = async (pageId: string, steps: any[], context: any) => {
   console.log('Replay steps:', steps);
-  await createPage(pageId, null);
-  for (const step of steps) {
-    const toolId = step.toolId;
-    const name = toolId.replace(prefix(''), '');
-    const fn = executors[name];
-    if (!fn) {
-      throw new Error(`Could not find brower tool executor: ${name}, ${toolId}`);
+  try {
+    await createPage(pageId);
+    for (const step of steps) {
+      const toolId = step.toolId;
+      const name = toolId.replace(prefix(''), '');
+      const fn = executors[name];
+      if (!fn) {
+        throw new Error(`Could not find brower tool executor: ${name}, ${toolId}`);
+      }
+      await fn({ ...step.input, pageId });
     }
-    await fn({ ...step.input, pageId });
+  } catch (e) {
+    await resetPageToAllocated(pageId);
+    throw e;
   }
 };
 
 const executors: Record<string, any> = {
-  newPageTool: async () => createPage(null, null),
+  newPageTool: async () => createPage(null),
   gotoTool: async ({ pageId, url }: { pageId: string; url: string }) => {
-    const page = getPage(pageId);
+    const page = await getPage(pageId);
     const resp = await page.goto(url);
     if (!resp) {
       throw new Error(`Navigation did not return a response for: ${url}`);
@@ -65,7 +79,7 @@ const executors: Record<string, any> = {
       ok: resp.ok(),
     };
   },
-  contentTool: async ({ pageId }: { pageId: string }) => getPage(pageId).content(),
+  contentTool: async ({ pageId }: { pageId: string }) => (await getPage(pageId)).content(),
   waitForSelectorTool: async ({
     pageId,
     selector,
@@ -77,7 +91,7 @@ const executors: Record<string, any> = {
     state?: 'attached' | 'detached' | 'visible' | 'hidden';
     timeout?: number;
   }) => {
-    const element = await getPage(pageId).waitForSelector(selector, { state, timeout });
+    const element = await (await getPage(pageId)).waitForSelector(selector, { state, timeout });
     return { found: element !== null };
   },
   clickTool: async ({
@@ -89,7 +103,7 @@ const executors: Record<string, any> = {
     selector: string;
     timeout?: number;
   }) => {
-    await getPage(pageId).locator(selector).click({ timeout });
+    await (await getPage(pageId)).locator(selector).click({ timeout });
     return { ok: true };
   },
 };
