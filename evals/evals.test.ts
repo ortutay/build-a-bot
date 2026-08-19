@@ -2,10 +2,10 @@
 
 import * as z from 'zod';
 import { describe, it, expect } from 'vitest';
-import { build } from '../../src/index.js';
-import { Workshop } from '../../src/workshop/Workshop.js';
-import { browserPlanStep } from '../../src/workshop/steps.js';
-import { defaultMastra } from '../../src/mastra.js';
+import { build } from '../src/index.js';
+import { Workshop } from '../src/workshop/Workshop.js';
+import { browserPlanStep } from '../src/workshop/steps.js';
+import { defaultMastra } from '../src/mastra.js';
 
 describe('Dogfood Builder Tests', () => {
   const pokemonTarget = {
@@ -20,21 +20,15 @@ describe('Dogfood Builder Tests', () => {
   it('should plan browser for pokemon', async () => {
     const { mastra, cleanup } = await defaultMastra();
     try {
-      console.log('Mastra:', mastra);
       console.log('browser pokemon plan');
-      console.log('browserPlanStep:', browserPlanStep);
       const out = await browserPlanStep.execute({
-        inputData: pokemonTarget,
+        inputData: { url: pokemonTarget.url, goal: pokemonTarget.prompt },
         mastra,
       });
       console.log('Step out:', out.report);
     } finally {
       await cleanup();
     }
-
-    // const ws = new Workshop();
-    // const out = await ws.plan(pokemonTarget);
-    // console.log('Plan out:', out);
   }, 180_000);
 
   it('should plan for pokemon', async () => {

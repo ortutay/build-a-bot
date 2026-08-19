@@ -42,7 +42,7 @@ const planStep = (id: string, agentId: string) =>
 
       // TODO: add a non-tool step in case last response is a tool call, to avoid empty text issue
       const resp = await agent.generate(prompt, { maxSteps: 20 });
-      console.log('Plan resp:', resp);
+      log.debug(`Plan response: ${JSON.stringify(resp)}`);
 
       let report: string;
       if (resp.text) {
@@ -52,7 +52,7 @@ const planStep = (id: string, agentId: string) =>
         report = resp.text;
       }
 
-      log.info('Generated report:', id, report);
+      log.debug(`Generated report (${id}): ${report}`);
 
       return {
         url,
@@ -91,20 +91,20 @@ export const writePlanStep = createStep({
   execute: async ({ inputData, mastra }) => {
     const agent = mastra!.getAgentById('build-agent');
     const { url, goal } = inputData as any;
-    console.log('Got input data in write plan step:', inputData);
+    log.debug(`Write plan input: ${JSON.stringify(inputData)}`);
 
     const reports = Object.keys(inputData).map((key) => inputData[key].report);
-    console.log('reports:', reports);
+    log.debug(`Reports to consolidate: ${JSON.stringify(reports)}`);
 
     const prompt = templates.consolidateIntoPlan.render({
       reports: reports.join('\n\n====================\n\n'),
       userInput: templates.userInput.render({ url, goal }),
     });
 
-    console.log('Consolidate reports:', prompt);
+    log.debug(`Consolidate reports prompt: ${prompt}`);
     const resp = await agent.generate(prompt);
     const report = resp.text;
-    log.info('Wrote consolidated report:', report);
+    log.debug(`Wrote consolidated report: ${report}`);
 
     return {
       url,
@@ -126,7 +126,7 @@ export const writeCodeStep = createStep({
     const agent = mastra!.getAgentById('build-agent');
     const { url, goal, report } = inputData as any;
 
-    console.log('Write code got report:', report);
+    log.debug(`Write code report: ${report}`);
 
     const tools = Object.fromEntries(
       Object.entries(await agent.listTools()).filter(
@@ -135,7 +135,7 @@ export const writeCodeStep = createStep({
     );
 
     const renderedReport = templates.report.render({ report });
-    console.log('renderedReport:', renderedReport);
+    log.debug(`Rendered report: ${renderedReport}`);
 
     const prompt = templates.code.render({
       toolsForCode: templates.toolsForCode.render({
@@ -147,10 +147,10 @@ export const writeCodeStep = createStep({
       report: renderedReport,
     });
 
-    console.log('Write code prompt:', prompt);
+    log.debug(`Write code prompt: ${prompt}`);
     const resp = await agent.generate(prompt);
     const code = resp.text;
-    log.info('Generated code:', code);
+    log.debug(`Generated code: ${code}`);
 
     return { code };
   },

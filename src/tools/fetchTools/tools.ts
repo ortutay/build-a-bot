@@ -1,10 +1,10 @@
-import { createTool } from '@mastra/core/tools';
+import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { slimHtml } from '../formats.js';
-import { hash } from '../util.js';
-import { names as proxyNames, proxyFetch } from '../proxy.js';
+import { slimHtml } from '../../formats.js';
+import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
+import { hash } from '../../util.js';
+import { names as proxyNames, proxyFetch } from '../../proxy.js';
 
-let id = 1;
 type FetchResponse = {
   url: string;
   ok: boolean;
@@ -16,7 +16,7 @@ type FetchResponse = {
 
 const docs: Record<string, FetchResponse> = {};
 
-export const fetchTool = createTool({
+const fetchTool = createTool({
   id: 'fetchTool',
   description: "Fetch a URL using Node's built-in fetch() function.",
   inputSchema: z.object({
@@ -64,7 +64,7 @@ export const fetchTool = createTool({
   },
 });
 
-export const viewDocumentTool = createTool({
+const viewDocumentTool = createTool({
   id: 'viewDocumentTool',
   description: 'Get HTML for a previously loaded URL.',
   inputSchema: z.object({
@@ -87,3 +87,15 @@ export const viewDocumentTool = createTool({
     };
   },
 });
+
+const internal = [fetchTool, viewDocumentTool];
+
+export const createFetchTools = async (): Promise<Record<string, Tool>> => {
+  return Object.fromEntries(
+    (await Promise.all(internal.map((tool) => addInstruments([runtimeInstrument], tool)))).map(
+      (tool) => [tool.id, tool]
+    )
+  );
+};
+
+export const tools = await createFetchTools();

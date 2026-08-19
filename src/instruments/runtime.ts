@@ -1,19 +1,16 @@
 import * as z from 'zod';
 import { type Tool } from '@mastra/core/tools';
-import { addMetric, asJSONSchema } from './shared.js';
+import { addMetric, instrumentOutputSchema } from './shared.js';
 
 export const runtimeInstrument = async (tool: Tool): Promise<Tool> => {
   if (tool.outputSchema === undefined || tool.outputSchema == null) {
     return tool;
   }
 
-  const outputSchema = z.fromJSONSchema(asJSONSchema(tool.outputSchema, 'output'));
-
-  const runtimeOutputSchema = z.object({
-    output: outputSchema,
-    // TODO: Handle existing runtime field, similar to addMetric
-    metrics: z.object({ runtime: z.number().describe('Runtime of this tool, in milliseconds.') }),
-  });
+  const runtimeOutputSchema = instrumentOutputSchema(
+    tool.outputSchema,
+    z.object({ runtime: z.number().describe('Runtime of this tool, in milliseconds.') })
+  );
 
   return {
     ...tool,
@@ -25,7 +22,6 @@ export const runtimeInstrument = async (tool: Tool): Promise<Tool> => {
         output = await tool.execute(input, context);
       }
       const runtime = new Date().getTime() - start;
-      // console.log('Tool runtime:', runtime, tool.id, context.agent?.toolCallId);
       return addMetric(output, 'runtime', runtime, tool, context);
     },
   };

@@ -1,21 +1,33 @@
 import crypto from 'crypto';
+import { deterministicRandom } from './constants.js';
 
-export const srid = (len = 6, prefix = ''): string => {
-  const alpha = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
-  let id = '';
-  for (let i = 0; i < len; i++) {
-    id += alpha[Math.floor(Math.random() * alpha.length)];
-  }
+export const srid = (() => {
+  let deterministicSeed = 0x12345678;
 
-  // bullmq doesn't allow integer custom ID's, ensure at least one
-  // alpha character
-  const r = prefix + id;
-  if (r.match(/^[0-9]+$/)) {
-    return srid(len, prefix);
-  } else {
-    return r;
-  }
-};
+  return (len = 6, prefix = ''): string => {
+    const alpha = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
+    let id = '';
+    for (let i = 0; i < len; i++) {
+      if (deterministicRandom) {
+        deterministicSeed ^= deterministicSeed << 13;
+        deterministicSeed ^= deterministicSeed >>> 17;
+        deterministicSeed ^= deterministicSeed << 5;
+        id += alpha[Math.floor(((deterministicSeed >>> 0) / 0x100000000) * alpha.length)];
+      } else {
+        id += alpha[Math.floor(Math.random() * alpha.length)];
+      }
+    }
+
+    // bullmq doesn't allow integer custom ID's, ensure at least one
+    // alpha character
+    const r = prefix + id;
+    if (r.match(/^[0-9]+$/)) {
+      return srid(len, prefix);
+    } else {
+      return r;
+    }
+  };
+})();
 
 export const hash = (obj: unknown): string => {
   const str = typeof obj === 'string' ? obj : JSON.stringify(obj || '') || '';

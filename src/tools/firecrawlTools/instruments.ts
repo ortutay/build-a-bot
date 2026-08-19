@@ -1,16 +1,18 @@
 import { type Tool } from '@mastra/core/tools';
 import { memo } from 'radash';
-import { firecrawlApiKey } from '../constants.js';
-import { addMetric } from './shared.js';
+import { z } from 'zod';
+import { firecrawlApiKey } from '../../constants.js';
+import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
 
 export const firecrawlCostInstrument = async (tool: Tool): Promise<Tool> => {
   const credits = firecrawlCredits(tool.id);
-  if (!credits) {
+  if (!credits || tool.outputSchema === undefined || tool.outputSchema === null) {
     return tool;
   }
 
   return {
     ...tool,
+    outputSchema: instrumentOutputSchema(tool.outputSchema, z.object({ cost: z.unknown() })),
     execute: async (input, context) => {
       let output;
       if (tool.execute) {

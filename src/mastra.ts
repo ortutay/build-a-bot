@@ -2,49 +2,23 @@ import { pick } from 'radash';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
-// import { ConsoleLogger } from '@mastra/core/logger';
 import { ConsoleLogger } from '@mastra/core/logger';
-import { type Tool, type ToolHooks } from '@mastra/core/tools';
+import { type ToolHooks } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
 import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { hash } from './util.js';
-import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
-import {
-  newPageTool,
-  clickTool,
-  gotoTool,
-  contentTool,
-  waitForSelectorTool,
-
-  // attributeTool,
-  // getLinksTool,
-  // innerHTMLTool,
-  // queryAllTool,
-  // textContentTool,
-} from './tools/browserTools.js';
-import {
-  runtimeInstrument,
-  cacheInstrument,
-  concurrencyInstrument,
-  brightdataCostInstrument,
-  firecrawlCostInstrument,
-  scrapingbeeCostInstrument,
-  type Instrument,
-} from './instruments/index.js';
+import { tools as fetchTools } from './tools/fetchTools/index.js';
+import { tools as browserTools } from './tools/browserTools/index.js';
+import { createBrightdataTools } from './tools/brightdataTools/index.js';
+import { createFirecrawlTools } from './tools/firecrawlTools/index.js';
+import { createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
 import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 
-const firecrawlToolNames = new Set([
-  'firecrawl_firecrawl_scrape',
-  'firecrawl_firecrawl_map',
-  'firecrawl_firecrawl_crawl',
-  'firecrawl_firecrawl_check_crawl_status',
-]);
-
-const cacheBuster = '3';
+const cacheBuster = '4';
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -72,16 +46,12 @@ export const defaultMastra = async (): Promise<{
     },
   });
 
-  // const mcpTools = await mcpClient.listTools();
-  // const rawTools: Record<string, any> = {
-  //   fetchTool,
-  //   viewDocumentTool,
-  //   // ...Object.fromEntries(
-  //   //   Object.entries(mcpTools).filter(
-  //   //     ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
-  //   //   )
-  //   // ),
-  // };
+  const mcpToolsets = await mcpClient.listToolsets();
+  const [brightdataTools, firecrawlTools, scrapingbeeTools] = await Promise.all([
+    createBrightdataTools(mcpToolsets.brightdata || {}),
+    createFirecrawlTools(mcpToolsets.firecrawl || {}),
+    createScrapingbeeTools(mcpToolsets.scrapingbee || {}),
+  ]);
 
   // model: 'google/gemini-3.5-flash',
   // model: 'google/gemini-3.6-flash',
@@ -98,29 +68,42 @@ export const defaultMastra = async (): Promise<{
       cache,
       ttl: 3600,
       key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-        const hh = {
+        const h = hash({
+          cacheBuster,
           prompt: serializePrompt(prompt),
           tools: Object.entries(allTools).map(([key, tool]) =>
             [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
           ),
-        };
-        // console.log('Hashing:', JSON.stringify(hh, null, 2));
-        const h = hash(hh);
+        });
         const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
-        log.info(`Cache key: ${key}`);
+        log.info(`Response cache key: ${key}`);
         return key;
       },
     }),
   ];
 
+  const allTools = {
+    ...fetchTools,
+    ...browserTools,
+    ...brightdataTools,
+    ...firecrawlTools,
+    ...scrapingbeeTools,
+  };
+  const fetchResearchTools = {
+    ...fetchTools,
+  };
+  const browserResearchTools = {
+    ...browserTools,
+  };
+
   const hooks: ToolHooks = {
-    beforeToolCall: (it) => {
+    beforeToolCall: async (it) => {
       const { toolName, input, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
       log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
     },
 
-    afterToolCall: (it) => {
+    afterToolCall: async (it) => {
       const { toolName, error, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
       if (error) {
@@ -136,27 +119,6 @@ export const defaultMastra = async (): Promise<{
     inputProcessors,
     hooks,
   };
-
-  const allTools = await instrument({
-    fetchTool,
-    viewDocumentTool,
-    newPageTool,
-    gotoTool,
-    contentTool,
-    // waitForSelectorTool,
-    clickTool,
-  } as Record<string, any>);
-  const fetchResearchTools = await instrument({
-    fetchTool,
-    viewDocumentTool,
-  } as Record<string, any>);
-  const browserResearchTools = await instrument({
-    newPageTool,
-    gotoTool,
-    contentTool,
-    // waitForSelectorTool,
-    // clickTool,
-  } as Record<string, any>);
 
   const buildAgent = new Agent({
     id: 'build-agent',
@@ -182,17 +144,6 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
-  // const planningAgent = new Agent({
-  //   id: 'planning-agent',
-  //   name: 'Planning Agent',
-  //   instructions: 'You are researching how to scrape a target.',
-  //   agents: {
-  //     fetchResearchAgent,
-  //     browserResearchAgent,
-  //   },
-  //   ...shared,
-  // });
-
   const storage = new LibSQLStore({
     id: 'libsql-storage',
     url: 'file:./db/mastra-storage.db',
@@ -201,7 +152,6 @@ export const defaultMastra = async (): Promise<{
   const mastra = new Mastra({
     agents: {
       buildAgent,
-      // planningAgent,
       fetchResearchAgent,
       browserResearchAgent,
     },
@@ -236,61 +186,30 @@ const serializePrompt = (prompt: any) => {
         if (typeof content == 'string') {
           val = content;
         } else if (Array.isArray(content)) {
-          val = content.map((c) =>
-            pick(c as unknown as Record<string, unknown>, [
+          val = content.map((c) => {
+            return pick(c as unknown as Record<string, unknown>, [
               'toolName',
               'input',
               'output',
               'type',
               'text',
-            ])
-          );
+            ]);
+          });
         } else {
           log.error(`Unknown message type for hashing: ${content}`);
 
           // TODO: strict / lenient modes
           throw new Error('STOP');
-
           val = hash('' + Math.random());
         }
         return val;
       } catch (e) {
         console.error('Error while generating cache key:', e);
-
         // TODO: strict / lenient modes
         throw e;
-
         return hash('' + Math.random());
       }
     })
     .sort((a: any, b: any) => hash(a).localeCompare(hash(b)));
   return asText;
-};
-
-const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string, Tool>> => {
-  return rawTools;
-
-  const tools: Record<string, Tool> = {};
-
-  const instruments: Instrument[] = [
-    // Cache the runtime-instrumented result to retain the original runtime metric.
-    runtimeInstrument,
-    // cacheInstrument,
-    // concurrencyInstrument,
-    firecrawlCostInstrument,
-    brightdataCostInstrument,
-    scrapingbeeCostInstrument,
-  ];
-
-  for (const [name, tool] of Object.entries(rawTools)) {
-    tools[name] = tool;
-  }
-
-  for (const instrument of instruments) {
-    for (const [name, tool] of Object.entries(tools)) {
-      tools[name] = await instrument(tool);
-    }
-  }
-
-  return tools;
 };

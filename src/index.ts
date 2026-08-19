@@ -5,7 +5,6 @@ import type { BuildOptions } from './types.js';
 export { Workshop } from './workshop/Workshop.js';
 
 export const build = async (options: BuildOptions): Promise<Bot | undefined> => {
-  // console.log('options:', options);
   // return;
   const ws = new Workshop();
   return ws.build(options);

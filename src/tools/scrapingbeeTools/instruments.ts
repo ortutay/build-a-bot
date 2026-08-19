@@ -1,16 +1,18 @@
 import { type Tool } from '@mastra/core/tools';
 import { memo } from 'radash';
-import { scrapingbeeApiKey } from '../constants.js';
-import { addMetric } from './shared.js';
+import { z } from 'zod';
+import { scrapingbeeApiKey } from '../../constants.js';
+import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
 
 export const scrapingbeeCostInstrument = async (tool: Tool): Promise<Tool> => {
   const credits = scrapingbeeCredits(tool.id);
-  if (!credits) {
+  if (!credits || tool.outputSchema === undefined || tool.outputSchema === null) {
     return tool;
   }
 
   return {
     ...tool,
+    outputSchema: instrumentOutputSchema(tool.outputSchema, z.object({ cost: z.unknown() })),
     execute: async (input, context) => {
       let output;
       if (tool.execute) {
@@ -36,7 +38,7 @@ const scrapingbeePlanPrices = {
   freelance: 49 / 250_000,
   startup: 99 / 1_000_000,
   business: 249 / 3_000_000,
-  business_plus: 599 / 8_000_000,
+  business_plus: 599 / 1_000_000,
 } as const;
 
 const scrapingbeePriceByPlanCredits = new Map<number, number>([
@@ -96,7 +98,7 @@ const scrapingbeeCredits = (toolId: string): ((input: unknown) => number) | unde
       return (input) => (isEnabled(input, 'light_request') ? 10 : 15);
     case 'scrapingbee_get_youtube_search_results':
     case 'scrapingbee_get_youtube_video_metadata':
-      return () => 5;
+      return () => 15;
     case 'scrapingbee_ask_chatgpt':
       return () => 15;
     default:
