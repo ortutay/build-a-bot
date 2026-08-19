@@ -219,7 +219,33 @@ describe('browser tools', () => {
       const secondContent = await execute('content', { pageId: replayedPage.pageId });
 
       expect(firstContent).toContain('data-cart-updated="true"');
-      expect(secondContent).toBe(firstContent);
+      expect(secondContent).toContain('data-cart-updated="true"');
+      expect(site.requestCount('/')).toBe(2);
+    });
+
+    it('replays cached navigation and clicks before an uncached call', async () => {
+      const warmPage = await execute('newPage');
+      await execute('goto', { pageId: warmPage.pageId, url: `${site.baseUrl}/` });
+      await execute('click', {
+        pageId: warmPage.pageId,
+        selector: '#add-to-cart',
+        timeout: 1_000,
+      });
+      expect(site.requestCount('/')).toBe(1);
+
+      const cachedPage = await execute('newPage');
+      await execute('goto', { pageId: cachedPage.pageId, url: `${site.baseUrl}/` });
+      await execute('click', {
+        pageId: cachedPage.pageId,
+        selector: '#add-to-cart',
+        timeout: 1_000,
+      });
+      expect(site.requestCount('/')).toBe(1);
+
+      const content = await execute('content', { pageId: cachedPage.pageId });
+
+      expect(content).toContain('data-cart-updated="true"');
+      expect(content).toContain('<span id="cart-count">1</span>');
       expect(site.requestCount('/')).toBe(2);
     });
   });

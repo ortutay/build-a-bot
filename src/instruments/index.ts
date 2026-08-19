@@ -16,7 +16,6 @@ export const addInstruments = async (
   tool: AnyTool
 ): Promise<AnyTool> => {
   let instrumented = tool;
-  // console.log('TODO: addInstruments:', tool, instruments);
   for (const instrument of instruments) {
     instrumented = await instrument(tool);
   }

@@ -2,6 +2,7 @@ import { createTool, type Tool } from '@mastra/core/tools';
 import { chromium, type Browser, type Page } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../cache/DiskCache.js';
+import { log } from '../../logger.js';
 import { srid } from '../../util.js';
 
 import { addInstruments } from '../../instruments/index.js';
@@ -49,8 +50,8 @@ const getPage = async (pageId: string): Promise<Page> => {
   return page;
 };
 
-const replay = async (pageId: string, steps: any[], context: any) => {
-  console.log('Replay steps:', steps);
+const replay = async (pageId: string, steps: any[]) => {
+  log.info(`Browser cache replay: prefixLength=${steps.length}`);
   try {
     await createPage(pageId);
     for (const step of steps) {
@@ -58,7 +59,7 @@ const replay = async (pageId: string, steps: any[], context: any) => {
       const name = toolId.replace(prefix(''), '');
       const fn = executors[name];
       if (!fn) {
-        throw new Error(`Could not find brower tool executor: ${name}, ${toolId}`);
+        throw new Error(`Could not find browser tool executor: ${name}, ${toolId}`);
       }
       await fn({ ...step.input, pageId });
     }
@@ -197,6 +198,7 @@ export const closeBrowserTools = async (): Promise<void> => {
     for (const pageId of Object.keys(pages)) {
       delete pages[pageId];
     }
+    // TODO: Add targeted page cleanup, including its browser-cache sequence.
   }
 };
 

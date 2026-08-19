@@ -2,7 +2,6 @@ import { pick } from 'radash';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
-// import { ConsoleLogger } from '@mastra/core/logger';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { type Tool, type ToolHooks } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
@@ -11,7 +10,7 @@ import { LibSQLStore } from '@mastra/libsql';
 import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { hash } from './util.js';
-import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
+import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
 import {
   runtimeInstrument,
@@ -103,13 +102,11 @@ export const defaultMastra = async (): Promise<{
   ];
 
   const allTools = await instrument({
-    fetchTool,
-    viewDocumentTool,
+    ...fetchTools,
     ...browserTools,
   } as Record<string, any>);
   const fetchResearchTools = await instrument({
-    fetchTool,
-    viewDocumentTool,
+    ...fetchTools,
   } as Record<string, any>);
   const browserResearchTools = await instrument({
     ...browserTools,

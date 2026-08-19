@@ -30,21 +30,18 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
           let hit = false;
           let cached;
           if (pageId && pageStatus[pageId] == 'cached') {
-            console.log('Checking tool call for:', pageId, tool.id);
             const r = await cache.checkToolCall(pageId, tool.id, input as Record<string, any>);
 
             if (r.hit) {
               hit = true;
               cached = r.cached;
-              console.log('Instrument got cached browser data:', cached);
             } else {
               pageStatus[pageId] = 'live';
             }
 
             if (r.steps.length > 0) {
-              console.log('Instrument got replay steps:', r.steps);
               try {
-                await replay(pageId, r.steps, context);
+                await replay(pageId, r.steps);
               } catch (e) {
                 // We did not restore page the live. Try again next time.
                 pageStatus[pageId] = 'cached';
@@ -52,8 +49,6 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
               }
             }
           }
-
-          console.log('Execute browser tool:', pageId);
 
           const output = hit ? cached : await execute(input, context);
           // Only cache successful executions and completed cache hits.
