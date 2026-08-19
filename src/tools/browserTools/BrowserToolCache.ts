@@ -1,5 +1,4 @@
 import { omit } from 'radash';
-import { chromium, type Browser, type Page } from 'playwright';
 import { DiskCache } from '../../cache/DiskCache.js';
 import { hash } from '../../util.js';
 
@@ -17,14 +16,14 @@ export class BrowserToolCache {
     pageId: string,
     toolId: string,
     input: Record<string, any>
-  ): Promise<unknown> {
+  ): Promise<{ cached: any; steps: any[] }> {
     const sequence = this.sequences[pageId];
     if (!sequence) {
-      return null;
+      return { cached: null, steps: [] };
     }
 
+    // TODO: pull out helper for this part, use it in recordToolCall
     input = omit(input, ['pageId']);
-
     const inputs = sequence.map((it) => ({
       toolId: it.toolId,
       input: it.input,
@@ -33,15 +32,17 @@ export class BrowserToolCache {
     const key = hash(inputs);
 
     const cached = await this.cache.get(key);
+    // const cached = inputs.length == 2 ? null : await this.cache.get(key);
 
     console.log('Check tool for inputs:', key, inputs);
     console.log('Check tool call gave:', key, cached);
 
-    return cached;
-  }
-
-  replayToolCalls(pageId: string, page: Page): Promise<unknown> {
-    return Promise.resolve('todo');
+    if (cached) {
+      return { cached, steps: [] };
+    } else {
+      inputs.pop();
+      return { cached: null, steps: inputs };
+    }
   }
 
   async recordToolCall(

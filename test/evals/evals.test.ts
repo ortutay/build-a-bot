@@ -20,9 +20,7 @@ describe('Dogfood Builder Tests', () => {
   it('should plan browser for pokemon', async () => {
     const { mastra, cleanup } = await defaultMastra();
     try {
-      console.log('Mastra:', mastra);
       console.log('browser pokemon plan');
-      console.log('browserPlanStep:', browserPlanStep);
       const out = await browserPlanStep.execute({
         inputData: pokemonTarget,
         mastra,
@@ -31,10 +29,6 @@ describe('Dogfood Builder Tests', () => {
     } finally {
       await cleanup();
     }
-
-    // const ws = new Workshop();
-    // const out = await ws.plan(pokemonTarget);
-    // console.log('Plan out:', out);
   }, 180_000);
 
   it('should plan for pokemon', async () => {

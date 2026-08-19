@@ -2,36 +2,47 @@ import { type Tool } from '@mastra/core/tools';
 import { BrowserToolCache } from './BrowserToolCache.js';
 
 const cache = new BrowserToolCache();
-const instrumented: Record<string, Tool> = {};
 
-export const browserCacheInstrument = async (tool: Tool): Promise<Tool> => {
-  const execute = tool.execute;
-  if (!execute) {
-    return tool;
-  }
-
-  instrumented[tool.id] = tool;
-  tool.execute = async (input, context) => {
-    const pageId: string | null =
-      input && typeof input == 'object' && 'pageId' in input && typeof input.pageId === 'string'
-        ? input.pageId
-        : null;
-
-    if (pageId) {
-      console.log('Checking tool call for:', pageId, tool.id);
-      const cached = await cache.checkToolCall(pageId, tool.id, input as Record<string, any>);
-      console.log('Instrument got cached browser data:', cached);
+export const browserCacheInstrument =
+  (replay: any) =>
+  async (tool: Tool): Promise<Tool> => {
+    const execute = tool.execute;
+    if (!execute) {
+      return tool;
     }
 
-    console.log('TODO: browserCacheInstrument:', input, tool, context);
-    const output = await execute(input, context);
+    return {
+      ...tool,
+      execute: async (input, context) => {
+        console.log('instrument TOOL:', tool);
+        console.log('instrument CONTEXT:', context);
 
-    if (pageId) {
-      await cache.recordToolCall(pageId, tool.id, input as Record<string, any>, output);
-    }
+        const pageId: string | null =
+          input && typeof input == 'object' && 'pageId' in input && typeof input.pageId === 'string'
+            ? input.pageId
+            : null;
 
-    return output;
+        let cached;
+        if (pageId) {
+          console.log('Checking tool call for:', pageId, tool.id);
+          const r = await cache.checkToolCall(pageId, tool.id, input as Record<string, any>);
+          if (r.steps.length > 0) {
+            console.log('Instrument got replay steps:', r.steps);
+            await replay(pageId, r.steps, context);
+          } else {
+            console.log('Instrument got cached browser data:', cached);
+            cached = r.cached;
+          }
+        }
+
+        console.log('Execute browser tool:', pageId);
+        const output = cached ?? (await execute(input, context));
+
+        if (pageId) {
+          await cache.recordToolCall(pageId, tool.id, input as Record<string, any>, output);
+        }
+
+        return output;
+      },
+    };
   };
-
-  return tool;
-};

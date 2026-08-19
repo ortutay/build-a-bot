@@ -13,11 +13,13 @@ import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
 import {
-  newPageTool,
-  clickTool,
-  gotoTool,
-  contentTool,
-  waitForSelectorTool,
+  tools as browserTools,
+
+  // newPageTool,
+  // clickTool,
+  // gotoTool,
+  // contentTool,
+  // waitForSelectorTool,
 
   // hooks as browserHooks,
   // type MiddlewareToolHooks,
@@ -124,20 +126,23 @@ export const defaultMastra = async (): Promise<{
   const allTools = await instrument({
     fetchTool,
     viewDocumentTool,
-    newPageTool,
-    gotoTool,
-    contentTool,
+    ...browserTools,
+
+    // newPageTool,
+    // gotoTool,
+    // contentTool,
     // waitForSelectorTool,
-    clickTool,
+    // clickTool,
   } as Record<string, any>);
   const fetchResearchTools = await instrument({
     fetchTool,
     viewDocumentTool,
   } as Record<string, any>);
   const browserResearchTools = await instrument({
-    newPageTool,
-    gotoTool,
-    contentTool,
+    ...browserTools,
+    // newPageTool,
+    // gotoTool,
+    // contentTool,
     // waitForSelectorTool,
     // clickTool,
   } as Record<string, any>);
@@ -169,7 +174,7 @@ export const defaultMastra = async (): Promise<{
     },
 
     afterToolCall: async (it) => {
-      console.log('afterToolCall:', it);
+      // console.log('afterToolCall:', it);
 
       const { toolName, error, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
