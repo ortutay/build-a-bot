@@ -56,7 +56,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
 
       const cached = await cache.get(key);
       if (cached !== null && cached !== undefined) {
-        log.info(`Cache hit for ${key}, tool=${tool.id}`);
+        log.info(`Cache hit for ${key}, tool=${tool.id}, type=${cached.type}`);
         if (cached.type === 'error') {
           throw new CachedError(cached.error);
         }
@@ -93,12 +93,22 @@ const metricsFrom = (output: unknown): Record<string, unknown> => {
     typeof output !== 'object' ||
     output === null ||
     Array.isArray(output) ||
-    !('metrics' in output)
+    !('instruments' in output)
   ) {
     return {};
   }
 
-  const metrics = output.metrics;
+  const instruments = output.instruments;
+  if (
+    typeof instruments !== 'object' ||
+    instruments === null ||
+    Array.isArray(instruments) ||
+    !('metrics' in instruments)
+  ) {
+    return {};
+  }
+
+  const metrics = instruments.metrics;
   return typeof metrics === 'object' && metrics !== null && !Array.isArray(metrics)
     ? { ...metrics }
     : {};

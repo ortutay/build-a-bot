@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ConsoleLogger } from '@mastra/core/logger';
-import { type Tool, type ToolHooks } from '@mastra/core/tools';
+import { type ToolHooks } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
@@ -12,24 +12,11 @@ import { log } from './logger.js';
 import { hash } from './util.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
-import {
-  runtimeInstrument,
-  cacheInstrument,
-  concurrencyInstrument,
-  brightdataCostInstrument,
-  firecrawlCostInstrument,
-  scrapingbeeCostInstrument,
-  type Instrument,
-} from './instruments/index.js';
+import { createBrightdataTools } from './tools/brightdataTools/index.js';
+import { createFirecrawlTools } from './tools/firecrawlTools/index.js';
+import { createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
 import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
-
-const firecrawlToolNames = new Set([
-  'firecrawl_firecrawl_scrape',
-  'firecrawl_firecrawl_map',
-  'firecrawl_firecrawl_crawl',
-  'firecrawl_firecrawl_check_crawl_status',
-]);
 
 const cacheBuster = '4';
 
@@ -59,16 +46,12 @@ export const defaultMastra = async (): Promise<{
     },
   });
 
-  // const mcpTools = await mcpClient.listTools();
-  // const rawTools: Record<string, any> = {
-  //   fetchTool,
-  //   viewDocumentTool,
-  //   // ...Object.fromEntries(
-  //   //   Object.entries(mcpTools).filter(
-  //   //     ([name]) => !name.startsWith('firecrawl_') || firecrawlToolNames.has(name)
-  //   //   )
-  //   // ),
-  // };
+  const mcpToolsets = await mcpClient.listToolsets();
+  const [brightdataTools, firecrawlTools, scrapingbeeTools] = await Promise.all([
+    createBrightdataTools(mcpToolsets.brightdata || {}),
+    createFirecrawlTools(mcpToolsets.firecrawl || {}),
+    createScrapingbeeTools(mcpToolsets.scrapingbee || {}),
+  ]);
 
   // model: 'google/gemini-3.5-flash',
   // model: 'google/gemini-3.6-flash',
@@ -101,16 +84,19 @@ export const defaultMastra = async (): Promise<{
     }),
   ];
 
-  const allTools = await instrument({
+  const allTools = {
     ...fetchTools,
     ...browserTools,
-  } as Record<string, any>);
-  const fetchResearchTools = await instrument({
+    ...brightdataTools,
+    ...firecrawlTools,
+    ...scrapingbeeTools,
+  };
+  const fetchResearchTools = {
     ...fetchTools,
-  } as Record<string, any>);
-  const browserResearchTools = await instrument({
+  };
+  const browserResearchTools = {
     ...browserTools,
-  } as Record<string, any>);
+  };
 
   const hooks: ToolHooks = {
     beforeToolCall: async (it) => {
@@ -228,32 +214,4 @@ const serializePrompt = (prompt: any) => {
     })
     .sort((a: any, b: any) => hash(a).localeCompare(hash(b)));
   return asText;
-};
-
-const instrument = async (rawTools: Record<string, Tool>): Promise<Record<string, Tool>> => {
-  return rawTools;
-
-  const tools: Record<string, Tool> = {};
-
-  const instruments: Instrument[] = [
-    // Cache the runtime-instrumented result to retain the original runtime metric.
-    runtimeInstrument,
-    // cacheInstrument,
-    // concurrencyInstrument,
-    firecrawlCostInstrument,
-    brightdataCostInstrument,
-    scrapingbeeCostInstrument,
-  ];
-
-  for (const [name, tool] of Object.entries(rawTools)) {
-    tools[name] = tool;
-  }
-
-  for (const instrument of instruments) {
-    for (const [name, tool] of Object.entries(tools)) {
-      tools[name] = await instrument(tool);
-    }
-  }
-
-  return tools;
 };

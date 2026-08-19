@@ -159,7 +159,11 @@ describe('browser tools', () => {
       if (!tool?.execute) {
         throw new Error(`Missing executable browser tool: ${name}`);
       }
-      return tool.execute(input, {} as any);
+      const result = await tool.execute(input, {} as any);
+      if (typeof result !== 'object' || result === null || !('instruments' in result)) {
+        throw new Error(`Browser tool did not return runtime metrics: ${name}`);
+      }
+      return result;
     };
 
     beforeEach(async () => {
@@ -188,8 +192,9 @@ describe('browser tools', () => {
       });
       const secondContent = await execute('content', { pageId: secondPage.pageId });
 
-      expect(secondGoto).toEqual(firstGoto);
-      expect(secondContent).toBe(firstContent);
+      expect(secondGoto).toMatchObject({ ok: firstGoto.ok, status: firstGoto.status });
+      expect(secondContent.content).toBe(firstContent.content);
+      expect(firstContent.instruments.metrics.runtime).toEqual(expect.any(Number));
       expect(site.requestCount('/products/footwear-1')).toBe(1);
     });
 
@@ -218,8 +223,8 @@ describe('browser tools', () => {
       const firstContent = await execute('content', { pageId: replayedPage.pageId });
       const secondContent = await execute('content', { pageId: replayedPage.pageId });
 
-      expect(firstContent).toContain('data-cart-updated="true"');
-      expect(secondContent).toContain('data-cart-updated="true"');
+      expect(firstContent.content).toContain('data-cart-updated="true"');
+      expect(secondContent.content).toContain('data-cart-updated="true"');
       expect(site.requestCount('/')).toBe(2);
     });
 
@@ -244,8 +249,8 @@ describe('browser tools', () => {
 
       const content = await execute('content', { pageId: cachedPage.pageId });
 
-      expect(content).toContain('data-cart-updated="true"');
-      expect(content).toContain('<span id="cart-count">1</span>');
+      expect(content.content).toContain('data-cart-updated="true"');
+      expect(content.content).toContain('<span id="cart-count">1</span>');
       expect(site.requestCount('/')).toBe(2);
     });
   });

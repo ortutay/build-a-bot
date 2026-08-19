@@ -1,14 +1,16 @@
 import { type Tool } from '@mastra/core/tools';
-import { addMetric } from './shared.js';
+import { z } from 'zod';
+import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
 
 export const brightdataCostInstrument = async (tool: Tool): Promise<Tool> => {
   const results = brightdataResults(tool.id);
-  if (!results) {
+  if (!results || tool.outputSchema === undefined || tool.outputSchema === null) {
     return tool;
   }
 
   return {
     ...tool,
+    outputSchema: instrumentOutputSchema(tool.outputSchema, z.object({ cost: z.unknown() })),
     execute: async (input, context) => {
       let output;
       if (tool.execute) {

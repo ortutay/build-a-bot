@@ -3,9 +3,6 @@ import { type Tool } from '@mastra/core/tools';
 export * from './runtime.js';
 export * from './cacheInstrument.js';
 export * from './concurrency.js';
-export * from './brightdata.js';
-export * from './firecrawl.js';
-export * from './scrapingbee.js';
 
 export type Instrument = (tool: Tool) => Promise<Tool>;
 
@@ -17,7 +14,7 @@ export const addInstruments = async (
 ): Promise<AnyTool> => {
   let instrumented = tool;
   for (const instrument of instruments) {
-    instrumented = await instrument(tool);
+    instrumented = await instrument(instrumented);
   }
   return instrumented;
 };

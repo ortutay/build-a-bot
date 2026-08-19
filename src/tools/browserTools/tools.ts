@@ -5,7 +5,7 @@ import { DiskCache } from '../../cache/DiskCache.js';
 import { log } from '../../logger.js';
 import { srid } from '../../util.js';
 
-import { addInstruments } from '../../instruments/index.js';
+import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
 
@@ -141,8 +141,10 @@ const contentTool = createTool({
   inputSchema: z.object({
     pageId: z.string(),
   }),
-  outputSchema: z.string(),
-  execute: executors.contentTool,
+  outputSchema: z.object({
+    content: z.string(),
+  }),
+  execute: async (input) => ({ content: await executors.contentTool(input) }),
 });
 
 const waitForSelectorTool = createTool({
@@ -181,10 +183,11 @@ export const createBrowserTools = async (
 ): Promise<Record<string, Tool>> => {
   const instrument = browserCacheInstrument(replay, cache);
   return Object.fromEntries(
-    (await Promise.all(internal.map((tool) => addInstruments([instrument], tool)))).map((tool) => [
-      tool.id,
-      tool,
-    ])
+    (
+      await Promise.all(
+        internal.map((tool) => addInstruments([instrument, runtimeInstrument], tool))
+      )
+    ).map((tool) => [tool.id, tool])
   );
 };
 
