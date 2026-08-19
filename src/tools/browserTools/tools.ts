@@ -1,9 +1,11 @@
 import { createTool, type Tool } from '@mastra/core/tools';
-import { chromium, type Browser, type Page, type LaunchOptions } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { z } from 'zod';
+import { DiskCache } from '../../cache/DiskCache.js';
 import { srid } from '../../util.js';
 
 import { addInstruments } from '../../instruments/index.js';
+import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
 
 let browser: Browser | undefined;
@@ -66,7 +68,7 @@ const replay = async (pageId: string, steps: any[], context: any) => {
   }
 };
 
-const executors: Record<string, any> = {
+export const executors: Record<string, any> = {
   newPageTool: async () => createPage(null),
   gotoTool: async ({ pageId, url }: { pageId: string; url: string }) => {
     const page = await getPage(pageId);
@@ -172,12 +174,32 @@ const clickTool = createTool({
 });
 
 const internal = [newPageTool, gotoTool, contentTool, waitForSelectorTool, clickTool];
-const _instrumented: Record<string, Tool> = Object.fromEntries(
-  (
-    await Promise.all(
-      internal.map((tool) => addInstruments([browserCacheInstrument(replay)], tool))
-    )
-  ).map((tool) => [tool.id, tool])
-);
 
-export const tools = _instrumented;
+export const createBrowserTools = async (
+  cache: BrowserToolCache
+): Promise<Record<string, Tool>> => {
+  const instrument = browserCacheInstrument(replay, cache);
+  return Object.fromEntries(
+    (await Promise.all(internal.map((tool) => addInstruments([instrument], tool)))).map((tool) => [
+      tool.id,
+      tool,
+    ])
+  );
+};
+
+export const closeBrowserTools = async (): Promise<void> => {
+  try {
+    if (browser) {
+      await browser.close();
+    }
+  } finally {
+    browser = undefined;
+    for (const pageId of Object.keys(pages)) {
+      delete pages[pageId];
+    }
+  }
+};
+
+export const tools = await createBrowserTools(
+  new BrowserToolCache(new DiskCache('/tmp/builder/BrowserToolCache'))
+);

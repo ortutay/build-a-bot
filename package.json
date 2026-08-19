@@ -28,8 +28,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --dir test",
+    "test:watch": "vitest --dir test",
+    "eval": "vitest run --dir evals",
+    "eval:watch": "vitest --dir evals",
     "unused": "npm run typecheck -- --noUnusedLocals --noUnusedParameters",
     "format": "prettier --write .",
     "typecheck": "tsc -p tsconfig.test.json",

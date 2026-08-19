@@ -1,14 +1,11 @@
 import { type Tool } from '@mastra/core/tools';
 import { BrowserToolCache } from './BrowserToolCache.js';
 
-const cache = new BrowserToolCache();
+export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => {
+  const busy: Record<string, boolean> = {};
+  const pageStatus: Record<string, string> = {};
 
-const busy: Record<string, boolean> = {};
-const pageStatus: Record<string, string> = {};
-
-export const browserCacheInstrument =
-  (replay: any) =>
-  async (tool: Tool): Promise<Tool> => {
+  return async (tool: Tool): Promise<Tool> => {
     const execute = tool.execute;
     if (!execute) {
       return tool;
@@ -30,12 +27,14 @@ export const browserCacheInstrument =
           pageStatus[pageId] ||= 'cached';
         }
         try {
+          let hit = false;
           let cached;
           if (pageId && pageStatus[pageId] == 'cached') {
             console.log('Checking tool call for:', pageId, tool.id);
             const r = await cache.checkToolCall(pageId, tool.id, input as Record<string, any>);
 
             if (r.hit) {
+              hit = true;
               cached = r.cached;
               console.log('Instrument got cached browser data:', cached);
             } else {
@@ -56,19 +55,10 @@ export const browserCacheInstrument =
 
           console.log('Execute browser tool:', pageId);
 
-          let output;
-          if (cached) {
-            output = cached;
-          } else {
-            try {
-              output = await execute(input, context);
-              // Only cache successful executions
-              if (pageId) {
-                await cache.recordToolCall(pageId, tool.id, input as Record<string, any>, output);
-              }
-            } catch (e) {
-              throw e;
-            }
+          const output = hit ? cached : await execute(input, context);
+          // Only cache successful executions and completed cache hits.
+          if (pageId) {
+            await cache.recordToolCall(pageId, tool.id, input as Record<string, any>, output);
           }
 
           return output;
@@ -80,3 +70,4 @@ export const browserCacheInstrument =
       },
     };
   };
+};

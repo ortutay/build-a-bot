@@ -1,13 +1,15 @@
 import { omit } from 'radash';
-import { DiskCache } from '../../cache/DiskCache.js';
+import { type DiskCache } from '../../cache/DiskCache.js';
 import { hash } from '../../util.js';
 
+type CacheBackend = Pick<DiskCache, 'get' | 'set'>;
+
 export class BrowserToolCache {
-  cache: DiskCache;
+  cache: CacheBackend;
   sequences: Record<string, { toolId: string; input: any; output: any }[]>;
 
-  constructor() {
-    this.cache = new DiskCache('/tmp/builder/BrowserToolCache');
+  constructor(cache: CacheBackend) {
+    this.cache = cache;
 
     this.sequences = {};
   }
