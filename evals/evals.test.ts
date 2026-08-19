@@ -22,7 +22,7 @@ describe('Dogfood Builder Tests', () => {
     try {
       console.log('browser pokemon plan');
       const out = await browserPlanStep.execute({
-        inputData: pokemonTarget,
+        inputData: { url: pokemonTarget.url, goal: pokemonTarget.prompt },
         mastra,
       });
       console.log('Step out:', out.report);

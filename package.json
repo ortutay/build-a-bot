@@ -28,9 +28,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "vitest run --dir test",
+    "test": "ENV=test vitest run --dir test",
     "test:watch": "vitest --dir test",
-    "eval": "vitest run --dir evals",
+    "eval": "ENV=test vitest run --dir evals",
     "eval:watch": "vitest --dir evals",
     "unused": "npm run typecheck -- --noUnusedLocals --noUnusedParameters",
     "format": "prettier --write .",

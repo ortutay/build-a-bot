@@ -12,24 +12,7 @@ import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastr
 import { log } from './logger.js';
 import { hash } from './util.js';
 import { fetchTool, viewDocumentTool } from './tools/fetchTools.js';
-import {
-  tools as browserTools,
-
-  // newPageTool,
-  // clickTool,
-  // gotoTool,
-  // contentTool,
-  // waitForSelectorTool,
-
-  // hooks as browserHooks,
-  // type MiddlewareToolHooks,
-
-  // attributeTool,
-  // getLinksTool,
-  // innerHTMLTool,
-  // queryAllTool,
-  // textContentTool,
-} from './tools/browserTools/index.js';
+import { tools as browserTools } from './tools/browserTools/index.js';
 import {
   runtimeInstrument,
   cacheInstrument,
@@ -113,26 +96,16 @@ export const defaultMastra = async (): Promise<{
         // console.log('Hashing:', JSON.stringify(hh, null, 2));
         const h = hash(hh);
         const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
-        log.info(`Cache key: ${key}`);
+        log.info(`Response cache key: ${key}`);
         return key;
       },
     }),
   ];
 
-  // const middlewareHooks: MiddlewareToolHooks[] = [
-  //   // browserHooks,
-  // ];
-
   const allTools = await instrument({
     fetchTool,
     viewDocumentTool,
     ...browserTools,
-
-    // newPageTool,
-    // gotoTool,
-    // contentTool,
-    // waitForSelectorTool,
-    // clickTool,
   } as Record<string, any>);
   const fetchResearchTools = await instrument({
     fetchTool,
@@ -140,42 +113,16 @@ export const defaultMastra = async (): Promise<{
   } as Record<string, any>);
   const browserResearchTools = await instrument({
     ...browserTools,
-    // newPageTool,
-    // gotoTool,
-    // contentTool,
-    // waitForSelectorTool,
-    // clickTool,
   } as Record<string, any>);
 
   const hooks: ToolHooks = {
     beforeToolCall: async (it) => {
-      // // TODO: consolidate duped code w/ after
-      // let tool: Tool | null = null;
-      // for (const toolName of Object.keys(allTools)) {
-      //   if (toolName == it.toolName) {
-      //     tool = allTools[toolName];
-      //   }
-      // }
-      // console.log('Found tool:', it.toolName, tool);
-      // if (!tool) {
-      //   throw new Error(`Could not find tool: ${it.toolName}`);
-      // }
-      // for (const h of middlewareHooks) {
-      //   console.log('middlewareHooks before:', h);
-      //   if (!h.beforeToolCall) {
-      //     continue;
-      //   }
-      //   await h.beforeToolCall(it, tool);
-      // }
-
       const { toolName, input, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
       log.info(`Tool start: id=${toolCallId} ${toolName}(${JSON.stringify(input)})`);
     },
 
     afterToolCall: async (it) => {
-      // console.log('afterToolCall:', it);
-
       const { toolName, error, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
       if (error) {
@@ -183,26 +130,6 @@ export const defaultMastra = async (): Promise<{
       } else {
         log.info(`Tool done:  id=${toolCallId} ${toolName}`);
       }
-
-      // let tool: Tool | null = null;
-      // for (const toolName of Object.keys(allTools)) {
-      //   if (toolName == it.toolName) {
-      //     tool = allTools[toolName];
-      //   }
-      // }
-      // console.log('Found tool:', it.toolName, tool);
-      // if (!tool) {
-      //   throw new Error(`Could not find tool: ${it.toolName}`);
-      // }
-      // for (const h of middlewareHooks) {
-      //   console.log('middlewareHooks after:', h);
-      //   if (!h.afterToolCall) {
-      //     continue;
-      //   }
-      //   await h.afterToolCall(it, tool);
-      // }
-
-      // throw new Error('STOP');
     },
   };
 
@@ -236,17 +163,6 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
-  // const planningAgent = new Agent({
-  //   id: 'planning-agent',
-  //   name: 'Planning Agent',
-  //   instructions: 'You are researching how to scrape a target.',
-  //   agents: {
-  //     fetchResearchAgent,
-  //     browserResearchAgent,
-  //   },
-  //   ...shared,
-  // });
-
   const storage = new LibSQLStore({
     id: 'libsql-storage',
     url: 'file:./db/mastra-storage.db',
@@ -255,7 +171,6 @@ export const defaultMastra = async (): Promise<{
   const mastra = new Mastra({
     agents: {
       buildAgent,
-      // planningAgent,
       fetchResearchAgent,
       browserResearchAgent,
     },
@@ -290,30 +205,27 @@ const serializePrompt = (prompt: any) => {
         if (typeof content == 'string') {
           val = content;
         } else if (Array.isArray(content)) {
-          val = content.map((c) =>
-            pick(c as unknown as Record<string, unknown>, [
+          val = content.map((c) => {
+            return pick(c as unknown as Record<string, unknown>, [
               'toolName',
               'input',
               'output',
               'type',
               'text',
-            ])
-          );
+            ]);
+          });
         } else {
           log.error(`Unknown message type for hashing: ${content}`);
 
           // TODO: strict / lenient modes
           throw new Error('STOP');
-
           val = hash('' + Math.random());
         }
         return val;
       } catch (e) {
         console.error('Error while generating cache key:', e);
-
         // TODO: strict / lenient modes
         throw e;
-
         return hash('' + Math.random());
       }
     })
