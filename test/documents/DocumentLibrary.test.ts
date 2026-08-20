@@ -1,5 +1,12 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DiskLibraryBackend } from '../../src/documents/DiskLibraryBackend.js';
 import { DocumentLibrary, type DocumentId } from '../../src/documents/DocumentLibrary.js';
+import { MemoryLibraryBackend } from '../../src/documents/MemoryLibraryBackend.js';
+
+const createMemoryLibrary = () => new DocumentLibrary(new MemoryLibraryBackend());
 
 const saveHtml = (library: DocumentLibrary, url = 'https://example.test/page'): DocumentId =>
   library.save({
@@ -13,7 +20,7 @@ const saveHtml = (library: DocumentLibrary, url = 'https://example.test/page'): 
 
 describe('DocumentLibrary', () => {
   it('saves document metadata, headers, and byte size', () => {
-    const library = new DocumentLibrary();
+    const library = createMemoryLibrary();
     const headers = { 'x-request-id': 'abc123' };
     const id = library.save({
       url: 'https://example.test/data',
@@ -40,7 +47,7 @@ describe('DocumentLibrary', () => {
   });
 
   it('applies HTML formats and collapse transforms independently through formats.ts', () => {
-    const library = new DocumentLibrary();
+    const library = createMemoryLibrary();
     const id = saveHtml(library);
 
     expect(library.get(id, 'raw')?.content).toContain('ignored()');
@@ -52,7 +59,7 @@ describe('DocumentLibrary', () => {
   });
 
   it('collapses long JSON arrays while retaining their head and tail', () => {
-    const library = new DocumentLibrary();
+    const library = createMemoryLibrary();
     const content = JSON.stringify({ items: Array.from({ length: 20 }, (_, index) => index) });
     const id = library.save({
       url: 'https://example.test/data.json',
@@ -86,7 +93,7 @@ describe('DocumentLibrary', () => {
   });
 
   it('lists serializable subsets with offset and a bounded limit', () => {
-    const library = new DocumentLibrary();
+    const library = createMemoryLibrary();
     const first = saveHtml(library, 'https://example.test/catalog/one');
     const second = library.save({
       url: 'https://example.test/api/two',
@@ -110,7 +117,7 @@ describe('DocumentLibrary', () => {
   });
 
   it('returns null for missing documents and rejects unavailable formats', () => {
-    const library = new DocumentLibrary();
+    const library = createMemoryLibrary();
     const id = library.save({
       url: 'https://example.test/data.json',
       origin: 'fetch',
@@ -124,5 +131,21 @@ describe('DocumentLibrary', () => {
     expect(() => library.get(id, 'slimHtml')).toThrow(
       'Format "slimHtml" is unavailable for application/json'
     );
+  });
+
+  it('uses the configured path for persistent documents', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'builder-documents-'));
+    try {
+      const writer = new DocumentLibrary(new DiskLibraryBackend(directory));
+      const id = saveHtml(writer);
+      const reader = new DocumentLibrary(new DiskLibraryBackend(directory));
+
+      expect(reader.summary(id)).toEqual(writer.summary(id));
+      expect(reader.get(id)).toMatchObject({
+        content: expect.stringContaining('Nested content'),
+      });
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

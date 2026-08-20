@@ -2,6 +2,7 @@ import './env.js';
 
 export const env = process.env.ENV || 'dev';
 export const deterministicRandom = env === 'test';
+export const documentLibraryPath = process.env.DOCUMENT_LIBRARY_PATH;
 
 export const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 export const openaiApiKey = process.env.OPENAI_API_KEY;

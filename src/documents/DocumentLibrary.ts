@@ -1,6 +1,7 @@
 import { collapseHtml, collapseJson, remove, slimHtml } from '../formats.js';
 import { log } from '../logger.js';
 import { srid } from '../util/index.js';
+import { MemoryLibraryBackend } from './MemoryLibraryBackend.js';
 
 export type DocumentId = string;
 
@@ -50,9 +51,15 @@ export type DocumentListQuery = {
   limit?: number;
 };
 
-type StoredDocument = DocumentInput & {
+export type StoredDocument = DocumentInput & {
   id: DocumentId;
   bytes: number;
+};
+
+export type DocumentLibraryBackend = {
+  save(document: StoredDocument): void;
+  get(id: DocumentId): StoredDocument | null;
+  list(): StoredDocument[];
 };
 
 const maxListLimit = 50;
@@ -62,7 +69,7 @@ const isHtml = (contentType: ContentType): boolean => contentType === 'text/html
 const isJson = (contentType: ContentType): boolean => contentType === 'application/json';
 
 export class DocumentLibrary {
-  private documents = new Map<DocumentId, StoredDocument>();
+  constructor(private backend: DocumentLibraryBackend = new MemoryLibraryBackend()) {}
 
   save(input: DocumentInput): DocumentId {
     const id = `doc:${srid()}`;
@@ -73,13 +80,13 @@ export class DocumentLibrary {
       bytes: Buffer.byteLength(input.content, 'utf8'),
     };
 
-    this.documents.set(id, document);
+    this.backend.save(document);
     log.info(`Saved document: id=${id}, contentType=${input.contentType}, url=${input.url}`);
     return id;
   }
 
   summary(id: DocumentId): DocumentSummary | null {
-    const document = this.documents.get(id);
+    const document = this.backend.get(id);
     return document ? this.toSummary(document) : null;
   }
 
@@ -88,7 +95,7 @@ export class DocumentLibrary {
     format: (typeof documentFormats)[number] = 'raw',
     transform: (typeof documentTransforms)[number] = 'none'
   ): Document | null {
-    const document = this.documents.get(id);
+    const document = this.backend.get(id);
     if (!document) {
       log.info(`Get document: id=${id}, status=missing`);
       return null;
@@ -110,7 +117,8 @@ export class DocumentLibrary {
     const offset = this.listOffset(query.offset);
     const limit = this.listLimit(query.limit);
 
-    const documents = [...this.documents.values()]
+    const documents = this.backend
+      .list()
       .filter((document) => {
         if (ids && !ids.has(document.id)) return false;
         if (query.origin && document.origin !== query.origin) return false;
