@@ -4,7 +4,7 @@ import { z } from 'zod';
 import * as templates from '../prompts/templates.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 
-const planStep = (id: string, agentId: string) =>
+const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
     id,
     inputSchema: z.object({
@@ -65,9 +65,9 @@ const planStep = (id: string, agentId: string) =>
 export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
 export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
 export const planSteps = [
-  fetchPlanStep as any,
+  fetchPlanStep,
   // browserPlanStep as any,
-];
+] as const;
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',
@@ -90,10 +90,11 @@ export const writePlanStep = createStep({
   }),
   execute: async ({ inputData, mastra }) => {
     const agent = mastra!.getAgentById('build-agent');
-    const { url, goal } = inputData as any;
     log.debug(`Write plan input: ${JSON.stringify(inputData)}`);
 
-    const reports = Object.keys(inputData).map((key) => inputData[key].report);
+    const plans = Object.values(inputData);
+    const { url, goal } = plans[0];
+    const reports = plans.map((plan) => plan.report);
     log.debug(`Reports to consolidate: ${JSON.stringify(reports)}`);
 
     const prompt = templates.consolidateIntoPlan.render({

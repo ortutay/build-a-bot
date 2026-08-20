@@ -97,7 +97,7 @@ export class Workshop {
     // } finally {
     //   await cleanup();
     // }
-    return new Bot({});
+    throw new Error('Bot generation is not implemented');
   }
 
   async plan(options: BuildOptions): Promise<string> {
