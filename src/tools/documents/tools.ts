@@ -5,6 +5,7 @@ import {
   documentFormats,
   documentLibrary,
   documentOrigins,
+  documentRequestModes,
   documentTransforms,
   type DocumentId,
   type DocumentListQuery,
@@ -24,6 +25,7 @@ const documentSummarySchema = z.object({
   url: z.string(),
   origin: z.enum(documentOrigins),
   contentType: z.enum(documentContentTypes),
+  status: z.number().int().nonnegative().nullable(),
   bytes: z.number().int().nonnegative(),
 });
 
@@ -43,7 +45,10 @@ const listTool = createTool({
   description: 'List saved documents and their metadata without returning document content.',
   inputSchema: z.object({
     documentIds: z.array(z.string()).optional(),
-    origin: z.enum(documentOrigins).optional(),
+    origin: z
+      .enum(documentOrigins)
+      .optional()
+      .describe('Use navigation for original page loads; use dynamic for XHR/fetch requests.'),
     contentType: z.enum(documentContentTypes).optional(),
     urlPrefix: z.string().optional(),
     offset: z.number().int().nonnegative().optional(),
@@ -77,6 +82,12 @@ Treat raw full HTML and raw full JSON as fallbacks when the compact view omits i
   }),
   outputSchema: documentSummarySchema.extend({
     headers: z.record(z.string(), z.string()),
+    request: z.object({
+      timestamp: z.string(),
+      headers: z.record(z.string(), z.string()),
+      proxy: z.string().nullable(),
+      mode: z.enum(documentRequestModes),
+    }),
     format: z.enum(documentFormats),
     transform: z.enum(documentTransforms),
     content: z.string(),

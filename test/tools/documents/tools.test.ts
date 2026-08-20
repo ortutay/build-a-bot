@@ -6,9 +6,16 @@ describe('document tools', () => {
   it('lists saved documents and gets a selected representation', async () => {
     const documentId = documentLibrary.save({
       url: 'https://example.test/catalog',
-      origin: 'page',
+      origin: 'navigation',
       contentType: 'text/html',
+      status: 200,
       headers: { 'x-source': 'test' },
+      request: {
+        timestamp: '2026-08-20T00:00:00.000Z',
+        headers: {},
+        proxy: null,
+        mode: 'browser',
+      },
       content: '<html><body><h1>Catalog</h1></body></html>',
     });
 
@@ -17,8 +24,9 @@ describe('document tools', () => {
         expect.objectContaining({
           id: documentId,
           url: 'https://example.test/catalog',
-          origin: 'page',
+          origin: 'navigation',
           contentType: 'text/html',
+          status: 200,
         }),
       ],
     });
@@ -27,6 +35,12 @@ describe('document tools', () => {
     ).resolves.toMatchObject({
       id: documentId,
       headers: { 'x-source': 'test' },
+      request: {
+        timestamp: '2026-08-20T00:00:00.000Z',
+        headers: {},
+        proxy: null,
+        mode: 'browser',
+      },
       format: 'slimHtml',
       transform: 'none',
       content: expect.stringContaining('Catalog'),

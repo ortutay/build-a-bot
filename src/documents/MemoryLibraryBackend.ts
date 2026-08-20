@@ -3,6 +3,10 @@ import type { DocumentId, DocumentLibraryBackend, StoredDocument } from './Docum
 const clone = (document: StoredDocument): StoredDocument => ({
   ...document,
   headers: { ...document.headers },
+  request: {
+    ...document.request,
+    headers: { ...document.request.headers },
+  },
 });
 
 export class MemoryLibraryBackend implements DocumentLibraryBackend {

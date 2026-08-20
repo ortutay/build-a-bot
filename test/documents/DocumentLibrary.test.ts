@@ -3,17 +3,30 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DiskLibraryBackend } from '../../src/documents/DiskLibraryBackend.js';
-import { DocumentLibrary, type DocumentId } from '../../src/documents/DocumentLibrary.js';
+import {
+  DocumentLibrary,
+  type DocumentId,
+  type DocumentRequest,
+} from '../../src/documents/DocumentLibrary.js';
 import { MemoryLibraryBackend } from '../../src/documents/MemoryLibraryBackend.js';
 
 const createMemoryLibrary = () => new DocumentLibrary(new MemoryLibraryBackend());
 
+const request = (mode: DocumentRequest['mode'] = 'fetch'): DocumentRequest => ({
+  timestamp: '2026-08-20T00:00:00.000Z',
+  headers: { 'x-request-header': 'original' },
+  proxy: mode === 'fetch' ? 'unblock' : null,
+  mode,
+});
+
 const saveHtml = (library: DocumentLibrary, url = 'https://example.test/page'): DocumentId =>
   library.save({
     url,
-    origin: 'fetch',
+    origin: 'dynamic',
     contentType: 'text/html',
+    status: 200,
     headers: { 'content-type': 'text/html' },
+    request: request(),
     content:
       '<html><body><script>ignored()</script><svg></svg><div><div>Nested content</div></div><a href="/next">Next</a></body></html>',
   });
@@ -22,24 +35,35 @@ describe('DocumentLibrary', () => {
   it('saves document metadata, headers, and byte size', () => {
     const library = createMemoryLibrary();
     const headers = { 'x-request-id': 'abc123' };
+    const documentRequest = request();
     const id = library.save({
       url: 'https://example.test/data',
-      origin: 'fetch',
+      origin: 'dynamic',
       contentType: 'application/json',
+      status: 201,
       headers,
+      request: documentRequest,
       content: 'héllo',
     });
     headers['x-request-id'] = 'changed';
+    documentRequest.headers['x-request-header'] = 'changed';
 
     expect(library.summary(id)).toEqual({
       id,
       url: 'https://example.test/data',
-      origin: 'fetch',
+      origin: 'dynamic',
       contentType: 'application/json',
+      status: 201,
       bytes: Buffer.byteLength('héllo', 'utf8'),
     });
     expect(library.get(id)).toMatchObject({
       headers: { 'x-request-id': 'abc123' },
+      request: {
+        timestamp: '2026-08-20T00:00:00.000Z',
+        headers: { 'x-request-header': 'original' },
+        proxy: 'unblock',
+        mode: 'fetch',
+      },
       format: 'raw',
       transform: 'none',
       content: 'héllo',
@@ -63,9 +87,11 @@ describe('DocumentLibrary', () => {
     const content = JSON.stringify({ items: Array.from({ length: 20 }, (_, index) => index) });
     const id = library.save({
       url: 'https://example.test/data.json',
-      origin: 'page',
+      origin: 'navigation',
       contentType: 'application/json',
+      status: 200,
       headers: {},
+      request: request('browser'),
       content,
     });
 
@@ -97,9 +123,11 @@ describe('DocumentLibrary', () => {
     const first = saveHtml(library, 'https://example.test/catalog/one');
     const second = library.save({
       url: 'https://example.test/api/two',
-      origin: 'page',
+      origin: 'navigation',
       contentType: 'application/json',
+      status: 200,
       headers: {},
+      request: request('browser'),
       content: '{}',
     });
     const third = saveHtml(library, 'https://other.test/catalog/three');
@@ -108,9 +136,9 @@ describe('DocumentLibrary', () => {
       library.summary(first),
       library.summary(second),
     ]);
-    expect(library.list({ origin: 'fetch', urlPrefix: 'https://example.test/', limit: 1 })).toEqual(
-      [library.summary(first)]
-    );
+    expect(
+      library.list({ origin: 'dynamic', urlPrefix: 'https://example.test/', limit: 1 })
+    ).toEqual([library.summary(first)]);
     expect(library.list({ contentType: 'text/html', offset: 1 })).toEqual([library.summary(third)]);
     expect(library.list({ contentType: 'text/html' })).not.toContainEqual(library.summary(second));
     expect(library.list({ documentIds: [third], limit: 0 })).toEqual([]);
@@ -120,9 +148,11 @@ describe('DocumentLibrary', () => {
     const library = createMemoryLibrary();
     const id = library.save({
       url: 'https://example.test/data.json',
-      origin: 'fetch',
+      origin: 'dynamic',
       contentType: 'application/json',
+      status: 200,
       headers: {},
+      request: request(),
       content: '{}',
     });
 

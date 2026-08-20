@@ -78,6 +78,7 @@ export const defaultMastra = async (): Promise<{
   };
   const fetchResearchTools = {
     ...fetchTools,
+    ...documentTools,
   };
   const browserResearchTools = {
     ...browserTools,

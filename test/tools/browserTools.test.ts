@@ -113,8 +113,15 @@ describe('browser tools', () => {
       const result = await executors.contentTool({ cursorId });
       expect(result).toEqual({ documentId: expect.stringMatching(/^doc:/) });
       expect(documentLibrary.get(result.documentId)).toMatchObject({
+        origin: 'navigation',
         contentType: 'text/html',
+        status: 200,
         headers: { 'content-type': 'text/html; charset=utf-8' },
+        request: {
+          timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+          proxy: null,
+          mode: 'browser',
+        },
       });
       expect(documentContent(result.documentId)).toContain('Red Sneakers');
     });

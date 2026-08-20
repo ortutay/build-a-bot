@@ -7,6 +7,7 @@ import {
   documentLibrary,
   type ContentType,
   type DocumentHeaders,
+  type DocumentRequest,
 } from '../../documents/index.js';
 import { log } from '../../logger.js';
 import { srid } from '../../util/index.js';
@@ -19,6 +20,7 @@ let browser: Browser | undefined;
 type Cursor = {
   page: Page;
   lastResponse?: Response;
+  lastRequest?: DocumentRequest;
 };
 const cursors: Record<string, Cursor | string> = {};
 
@@ -93,11 +95,18 @@ export const executors: Record<string, any> = {
   newPageTool: async () => createCursor(null),
   gotoTool: async ({ cursorId, url }: { cursorId: string; url: string }) => {
     const cursor = await getCursor(cursorId);
+    const timestamp = new Date().toISOString();
     const resp = await cursor.page.goto(url);
     if (!resp) {
       throw new Error(`Navigation did not return a response for: ${url}`);
     }
     cursor.lastResponse = resp;
+    cursor.lastRequest = {
+      timestamp,
+      headers: await resp.request().allHeaders(),
+      proxy: null,
+      mode: 'browser',
+    };
     return {
       status: resp.status(),
       ok: resp.ok(),
@@ -111,9 +120,16 @@ export const executors: Record<string, any> = {
       : {};
     const documentId = documentLibrary.save({
       url: cursor.page.url(),
-      origin: 'page',
+      origin: 'navigation',
       contentType: contentTypeFromHeaders(headers),
+      status: cursor.lastResponse?.status() ?? null,
       headers,
+      request: cursor.lastRequest ?? {
+        timestamp: new Date().toISOString(),
+        headers: {},
+        proxy: null,
+        mode: 'browser',
+      },
       content,
     });
     return { documentId };

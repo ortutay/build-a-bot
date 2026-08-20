@@ -1,20 +1,24 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { slimHtml } from '../../formats.js';
+import {
+  documentContentTypes,
+  documentLibrary,
+  type ContentType,
+  type DocumentHeaders,
+} from '../../documents/index.js';
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
-import { hash } from '../../util/index.js';
 import { names as proxyNames, proxyFetch } from '../../proxy.js';
 
-type FetchResponse = {
-  url: string;
-  ok: boolean;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: string;
-};
+const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
+  const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
+  if (!contentType) return 'text/html';
 
-const docs: Record<string, FetchResponse> = {};
+  const supportedContentType = documentContentTypes.find((type) => type === contentType);
+  if (!supportedContentType) {
+    throw new Error(`Unsupported fetch content type: ${contentType}`);
+  }
+  return supportedContentType;
+};
 
 const fetchTool = createTool({
   id: 'fetchTool',
@@ -36,59 +40,37 @@ const fetchTool = createTool({
     documentId: z.string(),
   }),
   execute: async ({ url, proxy }) => {
-    const documentId =
-      'doc:' +
-      hash({ url, proxy }).substring(0, 8) +
-      ':' +
-      url.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
+    const timestamp = new Date().toISOString();
+    const requestHeaders: DocumentHeaders = {};
     const resp = await proxyFetch(url, proxy);
-    const out: FetchResponse = {
+    const headers = Object.fromEntries(resp.headers);
+    const content = await resp.text();
+    const documentId = documentLibrary.save({
+      url: resp.url,
+      origin: 'dynamic',
+      contentType: contentTypeFromHeaders(headers),
+      status: resp.status,
+      headers,
+      request: {
+        timestamp,
+        headers: requestHeaders,
+        proxy,
+        mode: 'fetch',
+      },
+      content,
+    });
+
+    return {
+      documentId,
       url: resp.url,
       ok: resp.ok,
       status: resp.status,
       statusText: resp.statusText,
-      headers: Object.fromEntries(resp.headers),
-      body: await resp.text(),
-    };
-
-    docs[documentId] = out;
-
-    return {
-      documentId,
-      url: out.url,
-      ok: out.ok,
-      status: out.status,
-      statusText: out.statusText,
     };
   },
 });
 
-const viewDocumentTool = createTool({
-  id: 'viewDocumentTool',
-  description: 'Get HTML for a previously loaded URL.',
-  inputSchema: z.object({
-    documentId: z.string().describe('Document ID to view, provided by a document loader tool.'),
-    mode: z.enum(['html', 'slim']).describe(`How to view the document.
-"html": Gives the complete response HTML.
-"slim": Gives cleaned HTML for efficient inspection and data extraction.`),
-  }),
-  outputSchema: z.object({
-    headers: z.record(z.string(), z.string()),
-    body: z.string(),
-  }),
-  execute: async ({ documentId, mode }) => {
-    const document = docs[documentId];
-    if (!document) throw new Error(`Unknown document ID: ${documentId}`);
-
-    return {
-      headers: document.headers,
-      body: mode === 'slim' ? slimHtml({ html: document.body, url: document.url }) : document.body,
-    };
-  },
-});
-
-const internal = [fetchTool, viewDocumentTool];
+const internal = [fetchTool];
 
 export const createFetchTools = async (): Promise<Record<string, Tool>> => {
   return Object.fromEntries(

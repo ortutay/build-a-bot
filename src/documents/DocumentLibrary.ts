@@ -5,7 +5,11 @@ import { MemoryLibraryBackend } from './MemoryLibraryBackend.js';
 
 export type DocumentId = string;
 
-export const documentOrigins = ['page', 'fetch'] as const;
+/**
+ * `navigation` is content captured from the original browser page navigation.
+ * `dynamic` is content returned by an independent dynamic XHR/fetch request.
+ */
+export const documentOrigins = ['navigation', 'dynamic'] as const;
 
 export type Origin = (typeof documentOrigins)[number];
 
@@ -15,6 +19,15 @@ export type ContentType = (typeof documentContentTypes)[number];
 
 export type DocumentHeaders = Record<string, string>;
 
+export const documentRequestModes = ['fetch', 'browser'] as const;
+
+export type DocumentRequest = {
+  timestamp: string;
+  headers: DocumentHeaders;
+  proxy: string | null;
+  mode: (typeof documentRequestModes)[number];
+};
+
 export const documentFormats = ['raw', 'html', 'slimHtml'] as const;
 
 export const documentTransforms = ['none', 'collapse'] as const;
@@ -23,7 +36,9 @@ export type DocumentInput = {
   url: string;
   origin: Origin;
   contentType: ContentType;
+  status: number | null;
   headers: DocumentHeaders;
+  request: DocumentRequest;
   content: string;
 };
 
@@ -32,11 +47,13 @@ export type DocumentSummary = {
   url: string;
   origin: Origin;
   contentType: ContentType;
+  status: number | null;
   bytes: number;
 };
 
 export type Document = DocumentSummary & {
   headers: DocumentHeaders;
+  request: DocumentRequest;
   format: (typeof documentFormats)[number];
   transform: (typeof documentTransforms)[number];
   content: string;
@@ -77,11 +94,17 @@ export class DocumentLibrary {
       ...input,
       id,
       headers: { ...input.headers },
+      request: {
+        ...input.request,
+        headers: { ...input.request.headers },
+      },
       bytes: Buffer.byteLength(input.content, 'utf8'),
     };
 
     this.backend.save(document);
-    log.info(`Saved document: id=${id}, contentType=${input.contentType}, url=${input.url}`);
+    log.info(
+      `Saved document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
+    );
     return id;
   }
 
@@ -106,6 +129,10 @@ export class DocumentLibrary {
     return {
       ...this.toSummary(document),
       headers: { ...document.headers },
+      request: {
+        ...document.request,
+        headers: { ...document.request.headers },
+      },
       format,
       transform,
       content: this.render(document, format, transform),
@@ -139,6 +166,7 @@ export class DocumentLibrary {
       url: document.url,
       origin: document.origin,
       contentType: document.contentType,
+      status: document.status,
       bytes: document.bytes,
     };
   }
