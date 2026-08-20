@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeBrowserTools, createBrowserTools } from '../../src/tools/browserTools/index.js';
 import { BrowserToolCache } from '../../src/tools/browserTools/BrowserToolCache.js';
+import { createDocumentTools } from '../../src/tools/documents/index.js';
 import { browserPlanStep } from '../../src/workshop/steps.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
@@ -21,19 +22,22 @@ describe('browser plan cache', () => {
     const wait = 1_000;
     const url = `${site.baseUrl}/?wait=${wait}`;
     const tools = await createBrowserTools(new BrowserToolCache(new MemoryCache()));
+    const documentTools = await createDocumentTools();
 
     const browserAgent = {
       generate: async () => {
         const newPage = tools.browserTools_newPageTool.execute;
         const goto = tools.browserTools_gotoTool.execute;
         const content = tools.browserTools_contentTool.execute;
-        if (!newPage || !goto || !content) {
+        const getDocument = documentTools.documentTools_getTool.execute;
+        if (!newPage || !goto || !content || !getDocument) {
           throw new Error('Browser planning tools are not executable');
         }
 
-        const { pageId } = (await newPage({}, {} as any)) as any;
-        await goto({ pageId, url }, {} as any);
-        const page = (await content({ pageId }, {} as any)) as any;
+        const { cursorId } = (await newPage({}, {} as any)) as any;
+        await goto({ cursorId, url }, {} as any);
+        const { documentId } = (await content({ cursorId }, {} as any)) as any;
+        const page = (await getDocument({ documentId }, {} as any)) as any;
         return { text: `Catalog page: ${page.content}` };
       },
     };

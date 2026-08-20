@@ -12,6 +12,7 @@ import { hash } from './util/index.js';
 import { cb } from './cache/busters.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
+import { tools as documentTools } from './tools/documents/index.js';
 import { createTools as createBrightdataTools } from './tools/brightdataTools/index.js';
 import { createTools as createFirecrawlTools } from './tools/firecrawlTools/index.js';
 import { createTools as createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
@@ -70,6 +71,7 @@ export const defaultMastra = async (): Promise<{
   const allTools = {
     ...fetchTools,
     ...browserTools,
+    ...documentTools,
     ...brightdataTools,
     // ...firecrawlTools,
     ...scrapingbeeTools,
@@ -79,6 +81,7 @@ export const defaultMastra = async (): Promise<{
   };
   const browserResearchTools = {
     ...browserTools,
+    ...documentTools,
   };
 
   const hooks: ToolHooks = {

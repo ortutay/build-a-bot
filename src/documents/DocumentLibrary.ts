@@ -1,11 +1,16 @@
 import { collapseHtml, collapseJson, remove, slimHtml } from '../formats.js';
+import { log } from '../logger.js';
 import { srid } from '../util/index.js';
 
 export type DocumentId = string;
 
-export type Origin = 'page' | 'fetch';
+export const documentOrigins = ['page', 'fetch'] as const;
 
-export type ContentType = 'text/html' | 'application/json';
+export type Origin = (typeof documentOrigins)[number];
+
+export const documentContentTypes = ['text/html', 'application/json'] as const;
+
+export type ContentType = (typeof documentContentTypes)[number];
 
 export type DocumentHeaders = Record<string, string>;
 
@@ -69,6 +74,7 @@ export class DocumentLibrary {
     };
 
     this.documents.set(id, document);
+    log.info(`Saved document: id=${id}, contentType=${input.contentType}, url=${input.url}`);
     return id;
   }
 
@@ -83,7 +89,12 @@ export class DocumentLibrary {
     transform: (typeof documentTransforms)[number] = 'none'
   ): Document | null {
     const document = this.documents.get(id);
-    if (!document) return null;
+    if (!document) {
+      log.info(`Get document: id=${id}, status=missing`);
+      return null;
+    }
+
+    log.info(`Get document: id=${id}, format=${format}, transform=${transform}`);
 
     return {
       ...this.toSummary(document),
@@ -99,7 +110,7 @@ export class DocumentLibrary {
     const offset = this.listOffset(query.offset);
     const limit = this.listLimit(query.limit);
 
-    return [...this.documents.values()]
+    const documents = [...this.documents.values()]
       .filter((document) => {
         if (ids && !ids.has(document.id)) return false;
         if (query.origin && document.origin !== query.origin) return false;
@@ -109,6 +120,9 @@ export class DocumentLibrary {
       })
       .slice(offset, offset + limit)
       .map((document) => this.toSummary(document));
+
+    log.info(`List documents: offset=${offset}, limit=${limit}, count=${documents.length}`);
+    return documents;
   }
 
   private toSummary(document: StoredDocument): DocumentSummary {

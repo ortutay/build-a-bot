@@ -1,8 +1,13 @@
 import { createTool, type Tool } from '@mastra/core/tools';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Page, type Response } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../cache/DiskCache.js';
-import { DocumentLibrary } from '../../documents/DocumentLibrary.js';
+import {
+  documentContentTypes,
+  documentLibrary,
+  type ContentType,
+  type DocumentHeaders,
+} from '../../documents/index.js';
 import { log } from '../../logger.js';
 import { srid } from '../../util/index.js';
 
@@ -11,50 +16,64 @@ import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
 
 let browser: Browser | undefined;
-const pages: Record<string, Page | string> = {};
-const documents = new DocumentLibrary();
+type Cursor = {
+  page: Page;
+  lastResponse?: Response;
+};
+const cursors: Record<string, Cursor | string> = {};
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
-const createPage = async (pageId: string | null): Promise<{ pageId: string }> => {
-  if (!pageId) {
-    pageId = srid();
+const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
+  const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
+  if (!contentType) return 'text/html';
+
+  const supportedContentType = documentContentTypes.find((type) => type === contentType);
+  if (!supportedContentType) {
+    throw new Error(`Unsupported page content type: ${contentType}`);
   }
-  pages[pageId] = 'allocated';
-  return { pageId };
+  return supportedContentType;
 };
 
-const resetPageToAllocated = async (pageId: string) => {
-  const page = pages[pageId];
-  if (page != 'allocated') {
-    await (page as Page).close();
+const createCursor = async (cursorId: string | null): Promise<{ cursorId: string }> => {
+  if (!cursorId) {
+    cursorId = srid();
   }
-  pages[pageId] = 'allocated';
+  cursors[cursorId] = 'allocated';
+  return { cursorId };
 };
 
-const getPage = async (pageId: string): Promise<Page> => {
-  let record = pages[pageId];
-  let page: Page;
+const resetCursorToAllocated = async (cursorId: string) => {
+  const cursor = cursors[cursorId];
+  if (cursor != 'allocated') {
+    await (cursor as Cursor).page.close();
+  }
+  cursors[cursorId] = 'allocated';
+};
+
+const getCursor = async (cursorId: string): Promise<Cursor> => {
+  let record = cursors[cursorId];
+  let cursor: Cursor;
 
   if (record == 'allocated') {
     if (!browser) {
       browser = await chromium.launch({ headless: true });
     }
-    page = await browser.newPage();
-    pages[pageId] = page;
+    cursor = { page: await browser.newPage() };
+    cursors[cursorId] = cursor;
   } else if (record && typeof record != 'string') {
-    page = record;
+    cursor = record;
   } else {
-    throw new Error(`Unknown page ID: ${pageId}`);
+    throw new Error(`Unknown cursor ID: ${cursorId}`);
   }
 
-  return page;
+  return cursor;
 };
 
-const replay = async (pageId: string, steps: any[]) => {
+const replay = async (cursorId: string, steps: any[]) => {
   log.info(`Browser cache replay: prefixLength=${steps.length}`);
   try {
-    await createPage(pageId);
+    await createCursor(cursorId);
     for (const step of steps) {
       const toolId = step.toolId;
       const name = toolId.replace(prefix(''), '');
@@ -62,63 +81,72 @@ const replay = async (pageId: string, steps: any[]) => {
       if (!fn) {
         throw new Error(`Could not find browser tool executor: ${name}, ${toolId}`);
       }
-      await fn({ ...step.input, pageId });
+      await fn({ ...step.input, cursorId });
     }
   } catch (e) {
-    await resetPageToAllocated(pageId);
+    await resetCursorToAllocated(cursorId);
     throw e;
   }
 };
 
 export const executors: Record<string, any> = {
-  newPageTool: async () => createPage(null),
-  gotoTool: async ({ pageId, url }: { pageId: string; url: string }) => {
-    const page = await getPage(pageId);
-    const resp = await page.goto(url);
+  newPageTool: async () => createCursor(null),
+  gotoTool: async ({ cursorId, url }: { cursorId: string; url: string }) => {
+    const cursor = await getCursor(cursorId);
+    const resp = await cursor.page.goto(url);
     if (!resp) {
       throw new Error(`Navigation did not return a response for: ${url}`);
     }
+    cursor.lastResponse = resp;
     return {
       status: resp.status(),
       ok: resp.ok(),
     };
   },
-  contentTool: async ({ pageId }: { pageId: string }) => {
-    const page = await getPage(pageId);
-    const content = await page.content();
-    const documentId = documents.save({
-      url: page.url(),
+  contentTool: async ({ cursorId }: { cursorId: string }) => {
+    const cursor = await getCursor(cursorId);
+    const content = await cursor.page.content();
+    const headers: DocumentHeaders = cursor.lastResponse
+      ? await cursor.lastResponse.allHeaders()
+      : {};
+    const documentId = documentLibrary.save({
+      url: cursor.page.url(),
       origin: 'page',
-      contentType: 'text/html',
-      headers: {},
+      contentType: contentTypeFromHeaders(headers),
+      headers,
       content,
     });
-    return { documentId, content };
+    return { documentId };
   },
   waitForSelectorTool: async ({
-    pageId,
+    cursorId,
     selector,
     state,
     timeout,
   }: {
-    pageId: string;
+    cursorId: string;
     selector: string;
     state?: 'attached' | 'detached' | 'visible' | 'hidden';
     timeout?: number;
   }) => {
-    const element = await (await getPage(pageId)).waitForSelector(selector, { state, timeout });
+    const element = await (
+      await getCursor(cursorId)
+    ).page.waitForSelector(selector, {
+      state,
+      timeout,
+    });
     return { found: element !== null };
   },
   clickTool: async ({
-    pageId,
+    cursorId,
     selector,
     timeout,
   }: {
-    pageId: string;
+    cursorId: string;
     selector: string;
     timeout?: number;
   }) => {
-    await (await getPage(pageId)).locator(selector).click({ timeout });
+    await (await getCursor(cursorId)).page.locator(selector).click({ timeout });
     return { ok: true };
   },
 };
@@ -128,7 +156,7 @@ const newPageTool = createTool({
   description: 'Launch a new browser page.',
   inputSchema: z.object({}),
   outputSchema: z.object({
-    pageId: z.string(),
+    cursorId: z.string(),
   }),
   execute: executors.newPageTool,
 });
@@ -137,7 +165,7 @@ const gotoTool = createTool({
   id: prefix('gotoTool'),
   description: 'Go to a URL.',
   inputSchema: z.object({
-    pageId: z.string(),
+    cursorId: z.string(),
     url: z.string(),
   }),
   outputSchema: z.object({
@@ -149,13 +177,12 @@ const gotoTool = createTool({
 
 const contentTool = createTool({
   id: prefix('contentTool'),
-  description: 'Get page content',
+  description: 'Save page content and return its document ID.',
   inputSchema: z.object({
-    pageId: z.string(),
+    cursorId: z.string(),
   }),
   outputSchema: z.object({
     documentId: z.string(),
-    content: z.string(),
   }),
   execute: executors.contentTool,
 });
@@ -164,7 +191,7 @@ const waitForSelectorTool = createTool({
   id: prefix('waitForSelectorTool'),
   description: 'Wait for an element matching a selector to reach a given state.',
   inputSchema: z.object({
-    pageId: z.string(),
+    cursorId: z.string(),
     selector: z.string(),
     state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
     timeout: z.number().int().positive().max(60_000).optional(),
@@ -179,7 +206,7 @@ const clickTool = createTool({
   id: prefix('clickTool'),
   description: 'Click an element matching a selector.',
   inputSchema: z.object({
-    pageId: z.string(),
+    cursorId: z.string(),
     selector: z.string(),
     timeout: z.number().int().positive().max(60_000).optional(),
   }),
@@ -211,8 +238,8 @@ export const closeBrowserTools = async (): Promise<void> => {
     }
   } finally {
     browser = undefined;
-    for (const pageId of Object.keys(pages)) {
-      delete pages[pageId];
+    for (const cursorId of Object.keys(cursors)) {
+      delete cursors[cursorId];
     }
     // TODO: Add targeted page cleanup, including its browser-cache sequence.
   }

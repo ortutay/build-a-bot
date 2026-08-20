@@ -17,14 +17,14 @@ export class BrowserToolCache {
   }
 
   async checkToolCall(
-    pageId: string,
+    cursorId: string,
     toolId: string,
     input: Record<string, any>
   ): Promise<{ cached: any; hit: boolean; steps: any[] }> {
-    const sequence = this.sequences[pageId] || [];
+    const sequence = this.sequences[cursorId] || [];
 
     // TODO: pull out helper for this part, use it in recordToolCall
-    input = omit(input, ['pageId']);
+    input = omit(input, ['cursorId']);
     const inputs = sequence.map((it) => ({
       toolId: it.toolId,
       input: it.input,
@@ -50,16 +50,16 @@ export class BrowserToolCache {
   }
 
   async recordToolCall(
-    pageId: string,
+    cursorId: string,
     toolId: string,
     input: Record<string, any>,
     output: unknown
   ) {
-    this.sequences[pageId] ||= [];
-    const sequence = this.sequences[pageId];
+    this.sequences[cursorId] ||= [];
+    const sequence = this.sequences[cursorId];
     sequence.push({
       toolId,
-      input: omit(input, ['pageId']),
+      input: omit(input, ['cursorId']),
       output,
     });
 
