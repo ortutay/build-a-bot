@@ -102,7 +102,9 @@ describe('browser tools', () => {
       await expect(
         executors.gotoTool({ pageId, url: `${site.baseUrl}/products/footwear-1` })
       ).resolves.toEqual({ status: 200, ok: true });
-      await expect(executors.contentTool({ pageId })).resolves.toContain('Red Sneakers');
+      await expect(executors.contentTool({ pageId })).resolves.toMatchObject({
+        content: expect.stringContaining('Red Sneakers'),
+      });
     });
 
     it('shows ten products per category page', async () => {
@@ -110,13 +112,13 @@ describe('browser tools', () => {
       await executors.gotoTool({ pageId, url: `${site.baseUrl}/categories/footwear?page=1` });
       const firstPage = await executors.contentTool({ pageId });
 
-      expect(firstPage.match(/class="product-card"/g)).toHaveLength(10);
-      expect(firstPage).toContain('Page 1 of 2');
+      expect(firstPage.content.match(/class="product-card"/g)).toHaveLength(10);
+      expect(firstPage.content).toContain('Page 1 of 2');
 
       await executors.gotoTool({ pageId, url: `${site.baseUrl}/categories/footwear?page=2` });
       const secondPage = await executors.contentTool({ pageId });
-      expect(secondPage.match(/class="product-card"/g)).toHaveLength(2);
-      expect(secondPage).toContain('Page 2 of 2');
+      expect(secondPage.content.match(/class="product-card"/g)).toHaveLength(2);
+      expect(secondPage.content).toContain('Page 2 of 2');
     });
 
     it('searches product names using a case-insensitive substring', async () => {
@@ -124,10 +126,10 @@ describe('browser tools', () => {
       await executors.gotoTool({ pageId, url: `${site.baseUrl}/search?q=SNEAKERS` });
       const content = await executors.contentTool({ pageId });
 
-      expect(content).toContain('Red Sneakers');
-      expect(content).toContain('Canvas Sneakers');
-      expect(content).toContain('High-Top Sneakers');
-      expect(content).not.toContain('Trail Boots');
+      expect(content.content).toContain('Red Sneakers');
+      expect(content.content).toContain('Canvas Sneakers');
+      expect(content.content).toContain('High-Top Sneakers');
+      expect(content.content).not.toContain('Trail Boots');
     });
 
     it('waits for selectors and clicks elements', async () => {
@@ -146,8 +148,8 @@ describe('browser tools', () => {
       ).resolves.toEqual({ ok: true });
 
       const content = await executors.contentTool({ pageId });
-      expect(content).toContain('data-cart-updated="true"');
-      expect(content).toContain('<span id="cart-count">1</span>');
+      expect(content.content).toContain('data-cart-updated="true"');
+      expect(content.content).toContain('<span id="cart-count">1</span>');
     });
   });
 

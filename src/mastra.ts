@@ -187,13 +187,24 @@ const serializePrompt = (prompt: any) => {
           val = content;
         } else if (Array.isArray(content)) {
           val = content.map((c) => {
-            return pick(c as unknown as Record<string, unknown>, [
+            const clean = pick({ ...c } as unknown as Record<string, unknown>, [
               'toolName',
               'input',
               'output',
               'type',
               'text',
             ]);
+
+            if ((clean as any).output?.value?.instruments) {
+              log.debug('Removing instruments data for cache key');
+              delete (clean as any).output.value.instruments;
+            }
+            if ((clean as any).output?.instruments) {
+              log.debug('Removing instruments data for cache key');
+              delete (clean as any).output.instruments;
+            }
+
+            return clean;
           });
         } else {
           log.error(`Unknown message type for hashing: ${content}`);

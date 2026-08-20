@@ -4,7 +4,7 @@ import { log } from '../../logger.js';
 import { hash } from '../../util.js';
 
 type CacheBackend = Pick<DiskCache, 'get' | 'set'>;
-const cacheVersion = 1;
+const cacheVersion = 10; //Math.random();
 
 export class BrowserToolCache {
   cache: CacheBackend;

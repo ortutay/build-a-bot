@@ -56,8 +56,35 @@ export class ContextCompressionProcessor implements Processor<'context-compressi
   }
 
   private compressResult(result: unknown): unknown {
-    const text = typeof result === 'string' ? result : JSON.stringify(result);
-    if (text.length <= this.#maxCharsPerToolResult) return result;
+    if (typeof result === 'string') return this.compressText(result);
+
+    if (Array.isArray(result)) {
+      let changed = false;
+      const compressed = result.map((item) => {
+        const value = this.compressResult(item);
+        if (value !== item) changed = true;
+        return value;
+      });
+
+      return changed ? compressed : result;
+    }
+
+    if (!this.isPlainObject(result)) return result;
+
+    let changed = false;
+    const compressed = Object.fromEntries(
+      Object.entries(result).map(([key, value]) => {
+        const compressedValue = this.compressResult(value);
+        if (compressedValue !== value) changed = true;
+        return [key, compressedValue];
+      })
+    );
+
+    return changed ? compressed : result;
+  }
+
+  private compressText(text: string): string {
+    if (text.length <= this.#maxCharsPerToolResult) return text;
 
     const marker = `[context compressed: ${text.length} characters]`;
     // Account for the newline after the marker and the newline-plus-ellipsis
@@ -67,5 +94,12 @@ export class ContextCompressionProcessor implements Processor<'context-compressi
     const tailLength = remaining - headLength;
 
     return `${marker}\n${text.slice(0, headLength)}\n…${text.slice(-tailLength)}`;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (value === null || typeof value !== 'object') return false;
+
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
   }
 }

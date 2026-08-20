@@ -82,7 +82,10 @@ export const executors: Record<string, any> = {
       ok: resp.ok(),
     };
   },
-  contentTool: async ({ pageId }: { pageId: string }) => (await getPage(pageId)).content(),
+  contentTool: async ({ pageId }: { pageId: string }) => {
+    const content = await getPage(pageId).then((page) => page.content());
+    return { content };
+  },
   waitForSelectorTool: async ({
     pageId,
     selector,
@@ -144,7 +147,7 @@ const contentTool = createTool({
   outputSchema: z.object({
     content: z.string(),
   }),
-  execute: async (input) => ({ content: await executors.contentTool(input) }),
+  execute: executors.contentTool,
 });
 
 const waitForSelectorTool = createTool({
