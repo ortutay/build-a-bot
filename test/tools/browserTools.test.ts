@@ -178,6 +178,49 @@ describe('browser tools', () => {
       await closeBrowserTools();
     });
 
+    it('orders concurrent operations submitted for one page', async () => {
+      const page = await execute('newPage');
+
+      const results = await Promise.allSettled([
+        execute('goto', {
+          pageId: page.pageId,
+          url: `${site.baseUrl}/products/footwear-1`,
+        }),
+        execute('content', { pageId: page.pageId }),
+      ]);
+
+      expect(results).toEqual([
+        {
+          status: 'fulfilled',
+          value: expect.objectContaining({ ok: true, status: 200 }),
+        },
+        {
+          status: 'fulfilled',
+          value: expect.objectContaining({ content: expect.stringContaining('Red Sneakers') }),
+        },
+      ]);
+    });
+
+    it('runs operations for different page IDs independently', async () => {
+      const warmPage = await execute('newPage');
+      await execute('content', { pageId: warmPage.pageId });
+
+      const slowPage = await execute('newPage');
+      const fastPage = await execute('newPage');
+      const timeout = 250;
+      const startedAt = performance.now();
+      const slow = execute('waitForSelector', {
+        pageId: slowPage.pageId,
+        selector: '#does-not-exist',
+        timeout,
+      });
+      const fast = execute('content', { pageId: fastPage.pageId });
+
+      await expect(fast).resolves.toEqual(expect.objectContaining({ content: expect.any(String) }));
+      expect(performance.now() - startedAt).toBeLessThan(timeout / 2);
+      await expect(slow).rejects.toThrow();
+    });
+
     it('serves a complete cached sequence without revisiting the site', async () => {
       const firstPage = await execute('newPage');
       const firstGoto = await execute('goto', {

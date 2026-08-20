@@ -3,6 +3,7 @@ import { memo } from 'radash';
 import { z } from 'zod';
 import { scrapingbeeApiKey } from '../../constants.js';
 import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
+import { getOrNull } from '../../util/index.js';
 
 export const scrapingbeeCostInstrument = async (tool: Tool): Promise<Tool> => {
   const credits = scrapingbeeCredits(tool.id);
@@ -68,12 +69,8 @@ const getScrapingbeePricePerCredit = memo(async (): Promise<number | undefined> 
   }
 });
 
-const getPlanCredits = (body: unknown): number | undefined => {
-  if (typeof body !== 'object' || body === null || !('max_api_credit' in body)) {
-    return undefined;
-  }
-  return typeof body.max_api_credit === 'number' ? body.max_api_credit : undefined;
-};
+const getPlanCredits = (body: unknown): number | undefined =>
+  getOrNull<number>(body, 'max_api_credit') ?? undefined;
 
 const scrapingbeeCredits = (toolId: string): ((input: unknown) => number) | undefined => {
   switch (toolId) {

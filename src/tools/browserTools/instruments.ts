@@ -1,8 +1,10 @@
 import { type Tool } from '@mastra/core/tools';
+import { KeyedSerialQueue } from '../../util/KeyedSerialQueue.js';
+import { getOrNull } from '../../util/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 
 export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => {
-  const busy: Record<string, boolean> = {};
+  const pageQueue = new KeyedSerialQueue<string>();
   const pageStatus: Record<string, string> = {};
 
   return async (tool: Tool): Promise<Tool> => {
@@ -14,19 +16,13 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
     return {
       ...tool,
       execute: async (input, context) => {
-        let pageId: string | null =
-          input && typeof input == 'object' && 'pageId' in input && typeof input.pageId === 'string'
-            ? input.pageId
-            : null;
+        const pageId = getOrNull<string>(input, 'pageId');
 
-        if (pageId) {
-          if (busy[pageId]) {
-            throw new Error('Unexpected concurrent calls on a single pageId');
+        const run = async () => {
+          if (pageId) {
+            pageStatus[pageId] ||= 'cached';
           }
-          busy[pageId] = true;
-          pageStatus[pageId] ||= 'cached';
-        }
-        try {
+
           let hit = false;
           let cached;
           if (pageId && pageStatus[pageId] == 'cached') {
@@ -57,11 +53,9 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
           }
 
           return output;
-        } finally {
-          if (pageId) {
-            delete busy[pageId];
-          }
-        }
+        };
+
+        return pageId ? pageQueue.add(pageId, run) : run();
       },
     };
   };

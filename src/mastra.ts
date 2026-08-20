@@ -9,7 +9,8 @@ import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
 import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
-import { hash } from './util.js';
+import { hash } from './util/index.js';
+import { cb } from './cache/busters.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
 import { createBrightdataTools } from './tools/brightdataTools/index.js';
@@ -18,8 +19,6 @@ import { createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
 import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 
-const cacheBuster = '4';
-
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
@@ -27,7 +26,7 @@ export const defaultMastra = async (): Promise<{
   const redisClient = new Redis('redis://localhost:54321');
   const cache = new RedisServerCache(
     { client: redisClient },
-    { keyPrefix: 'cb:' + cacheBuster + ':' }
+    { keyPrefix: 'cb:' + cb.global + ':' }
   );
   // const cache = null;
 
@@ -47,9 +46,13 @@ export const defaultMastra = async (): Promise<{
   });
 
   const mcpToolsets = await mcpClient.listToolsets();
-  const [brightdataTools, firecrawlTools, scrapingbeeTools] = await Promise.all([
+  const [
+    brightdataTools,
+    // firecrawlTools,
+    scrapingbeeTools,
+  ] = await Promise.all([
     createBrightdataTools(mcpToolsets.brightdata || {}),
-    createFirecrawlTools(mcpToolsets.firecrawl || {}),
+    // createFirecrawlTools(mcpToolsets.firecrawl || {}),
     createScrapingbeeTools(mcpToolsets.scrapingbee || {}),
   ]);
 
@@ -69,7 +72,7 @@ export const defaultMastra = async (): Promise<{
       ttl: 3600,
       key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
         const h = hash({
-          cacheBuster,
+          cacheBuster: cb.mastraResponse,
           prompt: serializePrompt(prompt),
           tools: Object.entries(allTools).map(([key, tool]) =>
             [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
@@ -86,7 +89,7 @@ export const defaultMastra = async (): Promise<{
     ...fetchTools,
     ...browserTools,
     ...brightdataTools,
-    ...firecrawlTools,
+    // ...firecrawlTools,
     ...scrapingbeeTools,
   };
   const fetchResearchTools = {

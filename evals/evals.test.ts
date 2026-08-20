@@ -6,17 +6,9 @@ import { build } from '../src/index.js';
 import { Workshop } from '../src/workshop/Workshop.js';
 import { browserPlanStep } from '../src/workshop/steps.js';
 import { defaultMastra } from '../src/mastra.js';
+import { pokemonTarget } from './targets.js';
 
-describe('Dogfood Builder Tests', () => {
-  const pokemonTarget = {
-    url: 'https://pokemondb.net/pokedex/national',
-    prompt:
-      'scrape pokemon: name, number, basic stats including HP, and a list of move names. input is pokemon names, either single string or a list of names',
-    inputSchema: z.object({
-      names: z.array(z.string()).describe('list of pokemon to scrape'),
-    }),
-  };
-
+describe('dogfood builder evals', () => {
   it('should plan browser for pokemon', async () => {
     const { mastra, cleanup } = await defaultMastra();
     try {

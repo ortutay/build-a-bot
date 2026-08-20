@@ -1,6 +1,7 @@
 import { type Tool } from '@mastra/core/tools';
 import { DiskCache } from '../cache/DiskCache.js';
-import { hash } from '../util.js';
+import { cb } from '../cache/busters.js';
+import { hash } from '../util/index.js';
 import { addMetric, asJSONSchema } from './shared.js';
 import { log } from '../logger.js';
 
@@ -36,7 +37,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
     execute: async (input, context) => {
       const key = hash({
         instrument: 'cacheInstrument',
-        version: 6,
+        cacheBuster: cb.cacheInstrument,
         tool: {
           id: tool.id,
           description: tool.description,

@@ -3,7 +3,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../cache/DiskCache.js';
 import { log } from '../../logger.js';
-import { srid } from '../../util.js';
+import { srid } from '../../util/index.js';
 
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';

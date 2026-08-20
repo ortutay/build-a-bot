@@ -3,6 +3,7 @@ import { memo } from 'radash';
 import { z } from 'zod';
 import { firecrawlApiKey } from '../../constants.js';
 import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
+import { getOrNull } from '../../util/index.js';
 
 export const firecrawlCostInstrument = async (tool: Tool): Promise<Tool> => {
   const credits = firecrawlCredits(tool.id);
@@ -110,9 +111,5 @@ const hasJsonFormat = (input: unknown): boolean => {
   );
 };
 
-const getCrawlLimit = (input: unknown): number | undefined => {
-  if (typeof input !== 'object' || input === null || !('limit' in input)) {
-    return undefined;
-  }
-  return typeof input.limit === 'number' ? input.limit : undefined;
-};
+const getCrawlLimit = (input: unknown): number | undefined =>
+  getOrNull<number>(input, 'limit') ?? undefined;

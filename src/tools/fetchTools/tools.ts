@@ -2,7 +2,7 @@ import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { slimHtml } from '../../formats.js';
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
-import { hash } from '../../util.js';
+import { hash } from '../../util/index.js';
 import { names as proxyNames, proxyFetch } from '../../proxy.js';
 
 type FetchResponse = {

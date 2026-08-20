@@ -42,7 +42,6 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
 
       // TODO: add a non-tool step in case last response is a tool call, to avoid empty text issue
       const resp = await agent.generate(prompt, { maxSteps: 20 });
-      log.debug(`Plan response: ${JSON.stringify(resp)}`);
 
       let report: string;
       if (resp.text) {

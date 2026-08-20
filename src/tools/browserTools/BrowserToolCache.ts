@@ -1,10 +1,10 @@
 import { omit } from 'radash';
 import { type DiskCache } from '../../cache/DiskCache.js';
+import { cb } from '../../cache/busters.js';
 import { log } from '../../logger.js';
-import { hash } from '../../util.js';
+import { hash } from '../../util/index.js';
 
 type CacheBackend = Pick<DiskCache, 'get' | 'set'>;
-const cacheVersion = 10; //Math.random();
 
 export class BrowserToolCache {
   cache: CacheBackend;
@@ -30,7 +30,7 @@ export class BrowserToolCache {
       input: it.input,
     }));
     inputs.push({ toolId, input });
-    const key = hash({ cacheVersion, inputs });
+    const key = hash({ cacheBuster: cb.browserToolCache, inputs });
 
     const cached = await this.cache.get(key);
     const keyDigest = key.slice(0, 12);
@@ -67,7 +67,7 @@ export class BrowserToolCache {
       toolId: it.toolId,
       input: it.input,
     }));
-    const key = hash({ cacheVersion, inputs });
+    const key = hash({ cacheBuster: cb.browserToolCache, inputs });
     const cached = sequence.at(-1)?.output;
 
     log.debug(
