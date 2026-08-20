@@ -2,6 +2,7 @@ import { createTool, type Tool } from '@mastra/core/tools';
 import { chromium, type Browser, type Page } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../cache/DiskCache.js';
+import { DocumentLibrary } from '../../documents/DocumentLibrary.js';
 import { log } from '../../logger.js';
 import { srid } from '../../util/index.js';
 
@@ -11,6 +12,7 @@ import { browserCacheInstrument } from './instruments.js';
 
 let browser: Browser | undefined;
 const pages: Record<string, Page | string> = {};
+const documents = new DocumentLibrary();
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
@@ -36,7 +38,7 @@ const getPage = async (pageId: string): Promise<Page> => {
 
   if (record == 'allocated') {
     if (!browser) {
-      browser = await chromium.launch({ headless: false });
+      browser = await chromium.launch({ headless: true });
     }
     page = await browser.newPage();
     pages[pageId] = page;
@@ -82,8 +84,16 @@ export const executors: Record<string, any> = {
     };
   },
   contentTool: async ({ pageId }: { pageId: string }) => {
-    const content = await getPage(pageId).then((page) => page.content());
-    return { content };
+    const page = await getPage(pageId);
+    const content = await page.content();
+    const documentId = documents.save({
+      url: page.url(),
+      origin: 'page',
+      contentType: 'text/html',
+      headers: {},
+      content,
+    });
+    return { documentId, content };
   },
   waitForSelectorTool: async ({
     pageId,
@@ -144,6 +154,7 @@ const contentTool = createTool({
     pageId: z.string(),
   }),
   outputSchema: z.object({
+    documentId: z.string(),
     content: z.string(),
   }),
   execute: executors.contentTool,

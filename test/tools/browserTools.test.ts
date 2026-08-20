@@ -103,6 +103,7 @@ describe('browser tools', () => {
         executors.gotoTool({ pageId, url: `${site.baseUrl}/products/footwear-1` })
       ).resolves.toEqual({ status: 200, ok: true });
       await expect(executors.contentTool({ pageId })).resolves.toMatchObject({
+        documentId: expect.stringMatching(/^doc:/),
         content: expect.stringContaining('Red Sneakers'),
       });
     });
