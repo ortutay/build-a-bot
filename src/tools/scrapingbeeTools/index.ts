@@ -1,1 +1,1 @@
-export { createScrapingbeeTools } from './tools.js';
+export { createTools } from './tools.js';

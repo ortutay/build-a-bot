@@ -4,7 +4,6 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
-import { MCPClient } from '@mastra/mcp';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
 import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
@@ -13,10 +12,9 @@ import { hash } from './util/index.js';
 import { cb } from './cache/busters.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
-import { createBrightdataTools } from './tools/brightdataTools/index.js';
-import { createFirecrawlTools } from './tools/firecrawlTools/index.js';
-import { createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
-import { brightdataApiKey, firecrawlApiKey, scrapingbeeApiKey } from './constants.js';
+import { createTools as createBrightdataTools } from './tools/brightdataTools/index.js';
+import { createTools as createFirecrawlTools } from './tools/firecrawlTools/index.js';
+import { createTools as createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 
 export const defaultMastra = async (): Promise<{
@@ -30,30 +28,14 @@ export const defaultMastra = async (): Promise<{
   );
   // const cache = null;
 
-  const mcpClient = new MCPClient({
-    id: 'mcp-client',
-    servers: {
-      brightdata: {
-        url: new URL(`https://mcp.brightdata.com/mcp?token=${brightdataApiKey}`),
-      },
-      firecrawl: {
-        url: new URL(`https://mcp.firecrawl.dev/${firecrawlApiKey}/v2/mcp`),
-      },
-      scrapingbee: {
-        url: new URL(`https://mcp.scrapingbee.com/mcp?api_key=${scrapingbeeApiKey}`),
-      },
-    },
-  });
-
-  const mcpToolsets = await mcpClient.listToolsets();
   const [
     brightdataTools,
     // firecrawlTools,
     scrapingbeeTools,
   ] = await Promise.all([
-    createBrightdataTools(mcpToolsets.brightdata || {}),
-    // createFirecrawlTools(mcpToolsets.firecrawl || {}),
-    createScrapingbeeTools(mcpToolsets.scrapingbee || {}),
+    createBrightdataTools(),
+    // createFirecrawlTools(),
+    createScrapingbeeTools(),
   ]);
 
   // model: 'google/gemini-3.5-flash',
@@ -174,7 +156,7 @@ export const defaultMastra = async (): Promise<{
   });
 
   const cleanup = async () => {
-    await Promise.all([mcpClient.disconnect(), mastra.shutdown(), redisClient.disconnect()]);
+    await Promise.all([mastra.shutdown(), redisClient.disconnect()]);
   };
 
   return { mastra, cleanup };
