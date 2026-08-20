@@ -36,8 +36,7 @@ const getPage = async (pageId: string): Promise<Page> => {
 
   if (record == 'allocated') {
     if (!browser) {
-      // TODO: close it
-      browser = await chromium.launch({ headless: true });
+      browser = await chromium.launch({ headless: false });
     }
     page = await browser.newPage();
     pages[pageId] = page;

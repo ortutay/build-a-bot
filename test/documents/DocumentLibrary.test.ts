@@ -1,0 +1,128 @@
+import { describe, expect, it } from 'vitest';
+import { DocumentLibrary, type DocumentId } from '../../src/documents/DocumentLibrary.js';
+
+const saveHtml = (library: DocumentLibrary, url = 'https://example.test/page'): DocumentId =>
+  library.save({
+    url,
+    origin: 'fetch',
+    contentType: 'text/html',
+    headers: { 'content-type': 'text/html' },
+    content:
+      '<html><body><script>ignored()</script><svg></svg><div><div>Nested content</div></div><a href="/next">Next</a></body></html>',
+  });
+
+describe('DocumentLibrary', () => {
+  it('saves document metadata, headers, and byte size', () => {
+    const library = new DocumentLibrary();
+    const headers = { 'x-request-id': 'abc123' };
+    const id = library.save({
+      url: 'https://example.test/data',
+      origin: 'fetch',
+      contentType: 'application/json',
+      headers,
+      content: 'héllo',
+    });
+    headers['x-request-id'] = 'changed';
+
+    expect(library.summary(id)).toEqual({
+      id,
+      url: 'https://example.test/data',
+      origin: 'fetch',
+      contentType: 'application/json',
+      bytes: Buffer.byteLength('héllo', 'utf8'),
+    });
+    expect(library.get(id)).toMatchObject({
+      headers: { 'x-request-id': 'abc123' },
+      format: 'raw',
+      transform: 'none',
+      content: 'héllo',
+    });
+  });
+
+  it('applies HTML formats and collapse transforms independently through formats.ts', () => {
+    const library = new DocumentLibrary();
+    const id = saveHtml(library);
+
+    expect(library.get(id, 'raw')?.content).toContain('ignored()');
+    expect(library.get(id, 'html')?.content).not.toContain('<svg');
+    expect(library.get(id, 'slimHtml')?.content).not.toContain('ignored()');
+    expect(library.get(id, 'slimHtml')?.content).toContain('https://example.test/next');
+    expect(library.get(id, 'raw', 'collapse')?.content).toContain('data-collapse-id');
+    expect(library.get(id, 'slimHtml', 'collapse')?.content).toContain('data-collapse-id');
+  });
+
+  it('collapses long JSON arrays while retaining their head and tail', () => {
+    const library = new DocumentLibrary();
+    const content = JSON.stringify({ items: Array.from({ length: 20 }, (_, index) => index) });
+    const id = library.save({
+      url: 'https://example.test/data.json',
+      origin: 'page',
+      contentType: 'application/json',
+      headers: {},
+      content,
+    });
+
+    expect(JSON.parse(library.get(id, 'raw', 'collapse')!.content)).toEqual({
+      items: [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        { $collapsed: { omitted: 4 } },
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+      ],
+    });
+  });
+
+  it('lists serializable subsets with offset and a bounded limit', () => {
+    const library = new DocumentLibrary();
+    const first = saveHtml(library, 'https://example.test/catalog/one');
+    const second = library.save({
+      url: 'https://example.test/api/two',
+      origin: 'page',
+      contentType: 'application/json',
+      headers: {},
+      content: '{}',
+    });
+    const third = saveHtml(library, 'https://other.test/catalog/three');
+
+    expect(library.list({ documentIds: [second, first] })).toEqual([
+      library.summary(first),
+      library.summary(second),
+    ]);
+    expect(library.list({ origin: 'fetch', urlPrefix: 'https://example.test/', limit: 1 })).toEqual(
+      [library.summary(first)]
+    );
+    expect(library.list({ contentType: 'text/html', offset: 1 })).toEqual([library.summary(third)]);
+    expect(library.list({ contentType: 'text/html' })).not.toContainEqual(library.summary(second));
+    expect(library.list({ documentIds: [third], limit: 0 })).toEqual([]);
+  });
+
+  it('returns null for missing documents and rejects unavailable formats', () => {
+    const library = new DocumentLibrary();
+    const id = library.save({
+      url: 'https://example.test/data.json',
+      origin: 'fetch',
+      contentType: 'application/json',
+      headers: {},
+      content: '{}',
+    });
+
+    expect(library.summary('doc:missing')).toBeNull();
+    expect(library.get('doc:missing')).toBeNull();
+    expect(() => library.get(id, 'slimHtml')).toThrow(
+      'Format "slimHtml" is unavailable for application/json'
+    );
+  });
+});

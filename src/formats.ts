@@ -194,6 +194,37 @@ export const collapseHtml = (
   return pretty(root.toString(), { ocd: true, indent_size: 2 }).trim();
 };
 
+export const collapseJson = (json: string): string => {
+  const limit = 16;
+  const edge = Math.floor(limit / 2);
+
+  const collapse = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      if (value.length <= limit) return value.map(collapse);
+
+      return [
+        ...value.slice(0, edge).map(collapse),
+        { $collapsed: { omitted: value.length - edge * 2 } },
+        ...value.slice(-edge).map(collapse),
+      ];
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [key, collapse(child)])
+      );
+    }
+
+    return value;
+  };
+
+  try {
+    return JSON.stringify(collapse(JSON.parse(json)), null, 2);
+  } catch (e) {
+    throw new Error(`Could not collapse invalid JSON: ${String(e)}`);
+  }
+};
+
 export const inspect = (html: string, collapseId: string) => {
   const root = removeNoise(cleanAttributes(parseHtml(html)));
   const target = root

@@ -7,7 +7,7 @@ import { build } from '../src/index.js';
 import { Workshop } from '../src/workshop/Workshop.js';
 import { browserPlanStep } from '../src/workshop/steps.js';
 import { defaultMastra } from '../src/mastra.js';
-import { pokemonTarget } from './targets.js';
+import { c21Target, pokemonTarget } from './targets.js';
 
 describe('browserPlanStep', () => {
   it('should plan pokemon for browser', async () => {
@@ -30,14 +30,35 @@ describe('browserPlanStep', () => {
           goal: pokemonTarget.prompt,
         },
       });
-      console.log('Workflow run result:', out);
-      console.log('Report:', out.result.report);
 
-      // const out = await browserPlanStep.execute({
-      //   inputData: { url: pokemonTarget.url, goal: pokemonTarget.prompt },
-      //   mastra,
-      // });
-      // console.log('Step out:', out.report);
+      console.log('Report:', out.result.report);
+    } finally {
+      await cleanup();
+    }
+  }, 180_000);
+
+  it('should plan c21 for browser', async () => {
+    const { mastra, cleanup } = await defaultMastra();
+    try {
+      console.log('browser c21 plan');
+      const workflow = createWorkflow({
+        mastra,
+        id: 'browser-plan-workflow',
+        inputSchema: browserPlanStep.inputSchema,
+        outputSchema: browserPlanStep.outputSchema,
+      })
+        .then(browserPlanStep)
+        .commit();
+
+      const run = await workflow.createRun();
+      const out = await run.start({
+        inputData: {
+          url: c21Target.url,
+          goal: c21Target.prompt,
+        },
+      });
+
+      console.log('Report:', out.result.report);
     } finally {
       await cleanup();
     }
