@@ -1,13 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import type { DocumentId, DocumentLibraryBackend, StoredDocument } from './DocumentLibrary.js';
+import { cb } from '../cache/busters.js';
+import { log } from '../logger.js';
 
 const hasCode = (e: unknown, code: string): boolean =>
   e instanceof Error && 'code' in e && (e as { code?: unknown }).code === code;
 
 export class DiskLibraryBackend implements DocumentLibraryBackend {
-  constructor(private dirname: string) {
-    fs.mkdirSync(dirname, { recursive: true });
+  dirname: string;
+
+  constructor(dirname: string) {
+    this.dirname = path.join(dirname, cb.documentLibrary);
+    log.info(`Disk based document library, dirname=${this.dirname}`);
+    fs.mkdirSync(this.dirname, { recursive: true });
   }
 
   save(document: StoredDocument): void {

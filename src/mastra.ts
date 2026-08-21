@@ -6,7 +6,7 @@ import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
-import { ResponseCache, TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
+import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { hash } from './util/index.js';
 import { cb } from './cache/busters.js';
@@ -17,6 +17,10 @@ import { createTools as createBrightdataTools } from './tools/brightdataTools/in
 import { createTools as createFirecrawlTools } from './tools/firecrawlTools/index.js';
 import { createTools as createScrapingbeeTools } from './tools/scrapingbeeTools/index.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
+import {
+  LoggingResponseCache,
+  ResponseLoggingProcessor,
+} from './processors/ResponseLoggingProcessor.js';
 
 export const defaultMastra = async (): Promise<{
   mastra: Mastra;
@@ -45,28 +49,36 @@ export const defaultMastra = async (): Promise<{
   const model = 'openai/gpt-5.6-luna';
   // model: 'openai/gpt-5.6-terra',
   // model: 'openai/gpt-5.6-sol',
+  const responseLogger = new ResponseLoggingProcessor();
   const inputProcessors = [
     // Compress individual page-sized tool responses first, then cap the full
     // transcript so every tool-loop iteration fits comfortably in context.
     new ContextCompressionProcessor(),
     new TokenLimiter({ limit: 200_000, trimMode: 'contiguous' }),
-    new ResponseCache({
-      cache,
-      ttl: 3600,
-      key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
-        const h = hash({
-          cacheBuster: cb.mastraResponse,
-          prompt: serializePrompt(prompt),
-          tools: Object.entries(allTools).map(([key, tool]) =>
-            [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
-          ),
-        });
-        const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
-        log.info(`Response cache key: ${key}`);
-        return key;
+    responseLogger,
+    new LoggingResponseCache(
+      {
+        cache,
+        ttl: 3600,
+        key: ({ agentId, model, prompt, stepNumber }: ResponseCacheKeyInputs) => {
+          const h = hash({
+            cacheBuster: cb.mastraResponse,
+            prompt: serializePrompt(prompt),
+            tools: Object.entries(allTools).map(([key, tool]) =>
+              [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
+            ),
+          });
+          const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
+          log.info(`Response cache key: ${key}`);
+          return key;
+        },
       },
-    }),
+      responseLogger
+    ),
   ];
+  // const outputProcessors = [
+  //   new ResponseLoggingProcessor(),
+  // ];
 
   const allTools = {
     ...fetchTools,
@@ -95,6 +107,9 @@ export const defaultMastra = async (): Promise<{
     afterToolCall: async (it) => {
       const { toolName, error, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
+
+      console.log('afterToolCall it:', it);
+
       if (error) {
         log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
       } else {
@@ -107,6 +122,12 @@ export const defaultMastra = async (): Promise<{
     model,
     inputProcessors,
     hooks,
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'medium',
+        reasoningSummary: 'detailed',
+      },
+    },
   };
 
   const buildAgent = new Agent({

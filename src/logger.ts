@@ -4,6 +4,7 @@ export const log = new Logger({
   name: 'builder',
   type: 'hidden',
   pretty: {
+    style: true,
     template: '{{yyyy}}.{{mm}}.{{dd}} {{hh}}:{{MM}}:{{ss}}:{{ms}}\t{{logLevelName}}\t{{name}}\t',
   },
   stack: { capture: 'lazy' },

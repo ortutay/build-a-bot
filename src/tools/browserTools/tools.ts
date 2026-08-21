@@ -17,6 +17,7 @@ import { srid } from '../../util/index.js';
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
+import { likelyAdOrTracker } from './block.js';
 
 let browser: Browser | undefined;
 type Cursor = {
@@ -28,10 +29,8 @@ const cursors: Record<string, Cursor | string> = {};
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
-const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
+const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
-  if (!contentType) return 'text/html';
-
   const supportedContentType = documentContentTypes.find((type) => type === contentType);
   if (!supportedContentType) {
     throw new Error(`Unsupported page content type: ${contentType}`);
@@ -61,7 +60,7 @@ const getCursor = async (cursorId: string): Promise<Cursor> => {
 
   if (record == 'allocated') {
     if (!browser) {
-      browser = await chromium.launch({ headless: true });
+      browser = await chromium.launch({ headless: false });
     }
     cursor = { page: await browser.newPage() };
     cursors[cursorId] = cursor;
@@ -102,6 +101,10 @@ export const executors: Record<string, any> = {
     const documents = new Map<Request, { documentId: DocumentId; input: DocumentInput }>();
     const requestHandler = (request: Request): void => {
       if (!['fetch', 'xhr'].includes(request.resourceType())) return;
+      if (likelyAdOrTracker(request)) {
+        log.debug(`Ignoring likely ad or tracker: ${new URL(request.url()).host}`);
+        return;
+      }
 
       const input: DocumentInput = {
         url: request.url(),
@@ -125,10 +128,14 @@ export const executors: Record<string, any> = {
       if (!document) return;
 
       const headers = await resp.allHeaders();
+      const contentType = contentTypeFromHeaders(headers);
+      if (!contentType) {
+        return;
+      }
       documentLibrary.update(document.documentId, {
         ...document.input,
         url: resp.url(),
-        contentType: contentTypeFromHeaders(headers),
+        contentType,
         status: resp.status(),
         headers,
         content: await resp.text(),

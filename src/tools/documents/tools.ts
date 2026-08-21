@@ -64,22 +64,34 @@ const listTool = createTool({
 const getTool = createTool({
   id: prefix('getTool'),
   description: `Get a saved document in a selected format and transform.
-For HTML, prefer "slimHtml" because it removes page noise while retaining useful text and links.
-Use transform "collapse" with HTML to collapse unexpanded page sections, or with JSON to reduce long arrays to their head and tail.
-Use slimHtml plus collapse whenever it provides enough detail, to reduce context use.
-Treat raw full HTML and raw full JSON as fallbacks when the compact view omits information you need.`,
+
+format:
+
+transform:
+
+
+  - For JSON, use collapse whenever it provides enough detail, to reduce context use.
+`,
   inputSchema: z.object({
     documentId: z.string().describe('Document ID returned by a document-producing tool.'),
-    format: z
-      .enum(documentFormats)
-      .default('raw')
-      .describe('Use slimHtml for compact HTML; use raw for full HTML or JSON only when needed.'),
-    transform: z
-      .enum(documentTransforms)
-      .default('none')
-      .describe(
-        'Use collapse to reduce HTML sections or long JSON arrays before falling back to full content.'
-      ),
+    format: z.enum(documentFormats).default('raw').describe(`How to format the returned content.
+- For HTML, "raw", "slimHtml" and "html" are available
+- For JSON, only "raw" is available.
+- For text, only "raw" is available.
+
+Guidelines:
+  - For HTML, use "slimHtml" when it provides enough detail, to reduce context use.
+`),
+    transform: z.enum(documentTransforms).default('none')
+      .describe(`Whether or not to collapse the content.
+- For HTML, you can choose between "none" and "collapse'. Use transform "collapse" with HTML to collapse unexpanded page sections.
+- For JSON, you can choose between "none" and "collapse'. Use transform "collapse" to reduce long arrays to their head and tail.
+- For text, you can only choose "none"
+
+Guidelines:
+  - For HTML, use collapse when it provides enough detail, to reduce context use.
+  - For JSON, use collapse when it provides enough detail, to reduce context use.
+`),
   }),
   outputSchema: documentSummarySchema.extend({
     headers: z.record(z.string(), z.string()),

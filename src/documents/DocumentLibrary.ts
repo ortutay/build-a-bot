@@ -13,7 +13,7 @@ export const documentOrigins = ['navigation', 'dynamic'] as const;
 
 export type Origin = (typeof documentOrigins)[number];
 
-export const documentContentTypes = ['text/html', 'application/json'] as const;
+export const documentContentTypes = ['text/html', 'text/plain', 'application/json'] as const;
 
 export type ContentType = (typeof documentContentTypes)[number];
 
@@ -103,6 +103,10 @@ export class DocumentLibrary {
     const id = `doc:${srid()}`;
     const document = merge({ id }, input);
 
+    if (!documentContentTypes.includes(document.contentType)) {
+      throw new Error(`Attempting to save unsupported content type: ${document.contentType}`);
+    }
+
     this.backend.save(document);
     log.info(
       `Saved document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
@@ -160,6 +164,7 @@ export class DocumentLibrary {
 
     const documents = this.backend
       .list()
+      .filter((document) => documentContentTypes.includes(document.contentType))
       .filter((document) => {
         if (ids && !ids.has(document.id)) return false;
         if (query.origin && document.origin !== query.origin) return false;
@@ -208,9 +213,15 @@ export class DocumentLibrary {
       throw new Error(`Unknown document format: ${String(format)}`);
     }
 
-    if (transform === 'none') return content;
-    if (transform === 'collapse' && isHtml(document.contentType)) return collapseHtml(content);
-    if (transform === 'collapse' && isJson(document.contentType)) return collapseJson(content);
+    if (transform === 'none') {
+      return content;
+    }
+    if (transform === 'collapse' && isHtml(document.contentType)) {
+      return collapseHtml(content);
+    }
+    if (transform === 'collapse' && isJson(document.contentType)) {
+      return collapseJson(content);
+    }
 
     throw new Error(`Unknown document transform: ${String(transform)}`);
   }
