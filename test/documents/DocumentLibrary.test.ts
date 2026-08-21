@@ -6,6 +6,7 @@ import { DiskLibraryBackend } from '../../src/documents/DiskLibraryBackend.js';
 import {
   DocumentLibrary,
   type DocumentId,
+  type DocumentInput,
   type DocumentRequest,
 } from '../../src/documents/DocumentLibrary.js';
 import { MemoryLibraryBackend } from '../../src/documents/MemoryLibraryBackend.js';
@@ -68,6 +69,39 @@ describe('DocumentLibrary', () => {
       transform: 'none',
       content: 'héllo',
     });
+  });
+
+  it('updates saved documents and recalculates their byte size', () => {
+    const library = createMemoryLibrary();
+    const id = saveHtml(library);
+    const headers = { 'content-type': 'application/json' };
+    const content = '{"updated":true}';
+    const input: DocumentInput = {
+      url: 'https://example.test/page',
+      origin: 'dynamic',
+      contentType: 'application/json',
+      status: 202,
+      headers,
+      request: request(),
+      content,
+    };
+
+    library.update(id, input);
+    headers['content-type'] = 'changed';
+
+    expect(library.summary(id)).toEqual({
+      id,
+      url: 'https://example.test/page',
+      origin: 'dynamic',
+      contentType: 'application/json',
+      status: 202,
+      bytes: Buffer.byteLength(content, 'utf8'),
+    });
+    expect(library.get(id)).toMatchObject({
+      headers: { 'content-type': 'application/json' },
+      content,
+    });
+    expect(() => library.update('doc:missing', input)).toThrow('Unknown document ID: doc:missing');
   });
 
   it('applies HTML formats and collapse transforms independently through formats.ts', () => {

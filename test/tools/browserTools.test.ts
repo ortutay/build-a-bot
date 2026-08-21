@@ -8,6 +8,7 @@ import {
 } from '../../src/tools/browserTools/tools.js';
 import { createDocumentTools } from '../../src/tools/documents/tools.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
+import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 import { startMockEcommerceSite } from '../lib/mockEcommerceSite.js';
 
 const documentContent = (documentId: string): string => {
@@ -169,6 +170,54 @@ describe('browser tools', () => {
       const content = await executors.contentTool({ cursorId });
       expect(documentContent(content.documentId)).toContain('data-cart-updated="true"');
       expect(documentContent(content.documentId)).toContain('<span id="cart-count">1</span>');
+    });
+  });
+
+  describe('dynamic request capture', () => {
+    let dynamicSite: Awaited<ReturnType<typeof startMockDynamicJsonSite>>;
+
+    beforeAll(async () => {
+      dynamicSite = await startMockDynamicJsonSite();
+    });
+
+    afterAll(async () => {
+      await closeBrowserTools();
+      await dynamicSite.close();
+    });
+
+    afterEach(async () => {
+      await closeBrowserTools();
+    });
+
+    it('captures initial JSON requests as dynamic documents', async () => {
+      const { cursorId } = await executors.newPageTool({});
+
+      await executors.gotoTool({ cursorId, url: `${dynamicSite.baseUrl}/` });
+      await executors.waitForSelectorTool({
+        cursorId,
+        selector: '[data-product-id="json-widget"]',
+      });
+      const content = await executors.contentTool({ cursorId });
+
+      expect(content.documentId).toMatch(/^doc:/);
+
+      const [dynamic] = documentLibrary.list({
+        origin: 'dynamic',
+        urlPrefix: `${dynamicSite.baseUrl}/api/catalog`,
+      });
+      const dynamicDocument = documentLibrary.get(dynamic.id);
+      expect(dynamicDocument).toMatchObject({
+        url: `${dynamicSite.baseUrl}/api/catalog`,
+        origin: 'dynamic',
+        contentType: 'application/json',
+        status: 200,
+        request: {
+          timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+          proxy: null,
+          mode: 'browser',
+        },
+        content: expect.stringContaining('JSON Widget'),
+      });
     });
   });
 

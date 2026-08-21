@@ -85,27 +85,41 @@ const isHtml = (contentType: ContentType): boolean => contentType === 'text/html
 
 const isJson = (contentType: ContentType): boolean => contentType === 'application/json';
 
+const merge = (doc1: Pick<StoredDocument, 'id'>, doc2: DocumentInput): StoredDocument => ({
+  ...doc1,
+  ...doc2,
+  headers: { ...doc2.headers },
+  request: {
+    ...doc2.request,
+    headers: { ...doc2.request.headers },
+  },
+  bytes: Buffer.byteLength(doc2.content, 'utf8'),
+});
+
 export class DocumentLibrary {
   constructor(private backend: DocumentLibraryBackend = new MemoryLibraryBackend()) {}
 
   save(input: DocumentInput): DocumentId {
     const id = `doc:${srid()}`;
-    const document: StoredDocument = {
-      ...input,
-      id,
-      headers: { ...input.headers },
-      request: {
-        ...input.request,
-        headers: { ...input.request.headers },
-      },
-      bytes: Buffer.byteLength(input.content, 'utf8'),
-    };
+    const document = merge({ id }, input);
 
     this.backend.save(document);
     log.info(
       `Saved document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
     );
     return id;
+  }
+
+  update(id: DocumentId, input: DocumentInput): void {
+    const existing = this.backend.get(id);
+    if (!existing) {
+      throw new Error(`Unknown document ID: ${id}`);
+    }
+
+    const document = merge(existing, input);
+
+    this.backend.save(document);
+    log.info(`Updated document: id=${id}`);
   }
 
   summary(id: DocumentId): DocumentSummary | null {

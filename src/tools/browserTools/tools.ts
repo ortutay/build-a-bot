@@ -1,10 +1,12 @@
 import { createTool, type Tool } from '@mastra/core/tools';
-import { chromium, type Browser, type Page, type Response } from 'playwright';
+import { chromium, type Browser, type Page, type Response, type Request } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../cache/DiskCache.js';
 import {
   documentContentTypes,
   documentLibrary,
+  type DocumentId,
+  type DocumentInput,
   type ContentType,
   type DocumentHeaders,
   type DocumentRequest,
@@ -96,7 +98,51 @@ export const executors: Record<string, any> = {
   gotoTool: async ({ cursorId, url }: { cursorId: string; url: string }) => {
     const cursor = await getCursor(cursorId);
     const timestamp = new Date().toISOString();
+
+    const documents = new Map<Request, { documentId: DocumentId; input: DocumentInput }>();
+    const requestHandler = (request: Request): void => {
+      if (!['fetch', 'xhr'].includes(request.resourceType())) return;
+
+      const input: DocumentInput = {
+        url: request.url(),
+        origin: 'dynamic',
+        contentType: 'application/json',
+        status: null,
+        headers: {},
+        request: {
+          timestamp: new Date().toISOString(),
+          headers: request.headers(),
+          proxy: null,
+          mode: 'browser',
+        },
+        content: '',
+      };
+      const documentId = documentLibrary.save(input);
+      documents.set(request, { documentId, input });
+    };
+    const respHandler = async (resp: Response): Promise<void> => {
+      const document = documents.get(resp.request());
+      if (!document) return;
+
+      const headers = await resp.allHeaders();
+      documentLibrary.update(document.documentId, {
+        ...document.input,
+        url: resp.url(),
+        contentType: contentTypeFromHeaders(headers),
+        status: resp.status(),
+        headers,
+        content: await resp.text(),
+      });
+    };
+
+    cursor.page.on('request', requestHandler);
+    cursor.page.on('response', respHandler);
+
     const resp = await cursor.page.goto(url);
+
+    setTimeout(() => cursor.page.off('request', requestHandler), 10);
+    setTimeout(() => cursor.page.off('response', respHandler), 5_000);
+
     if (!resp) {
       throw new Error(`Navigation did not return a response for: ${url}`);
     }

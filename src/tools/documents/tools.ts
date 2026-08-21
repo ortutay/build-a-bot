@@ -42,7 +42,8 @@ export const executors: Record<string, any> = {
 
 const listTool = createTool({
   id: prefix('listTool'),
-  description: 'List saved documents and their metadata without returning document content.',
+  description:
+    'List saved documents and their metadata without returning document content. Browser navigation captures initial XHR/fetch JSON responses as dynamic documents, which you can list here.',
   inputSchema: z.object({
     documentIds: z.array(z.string()).optional(),
     origin: z
