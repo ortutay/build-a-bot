@@ -129,6 +129,7 @@ export const defaultMastra = async (): Promise<{
       const lines = full.split('\n');
       const url = getOrNull<string>(output, 'url');
       const preview = [
+        `\t${toolName}`,
         ...(url ? [`\t${chalk.bold.yellow(url)}`] : []),
         ...lines
           .slice(0, maxLines)

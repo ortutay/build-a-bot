@@ -5,8 +5,10 @@ import { DiskCache } from '../../cache/DiskCache.js';
 import {
   documentContentTypes,
   documentLibrary,
+  documentOrigins,
   type DocumentId,
   type DocumentInput,
+  type DocumentSummary,
   type ContentType,
   type DocumentHeaders,
   type DocumentRequest,
@@ -28,6 +30,15 @@ type Cursor = {
 const cursors: Record<string, Cursor | string> = {};
 
 const prefix = (str: string): string => 'browserTools_' + str;
+
+const documentSummarySchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  origin: z.enum(documentOrigins),
+  contentType: z.enum(documentContentTypes),
+  status: z.number().int().nonnegative().nullable(),
+  bytes: z.number().int().nonnegative(),
+}) satisfies z.ZodType<DocumentSummary>;
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
@@ -174,10 +185,11 @@ export const executors: Record<string, any> = {
     const headers: DocumentHeaders = cursor.lastResponse
       ? await cursor.lastResponse.allHeaders()
       : {};
+    const contentType = contentTypeFromHeaders(headers) ?? 'text/html';
     const documentId = documentLibrary.save({
       url: cursor.page.url(),
       origin: 'navigation',
-      contentType: contentTypeFromHeaders(headers) ?? 'text/html',
+      contentType,
       status: cursor.lastResponse?.status() ?? null,
       headers,
       request: cursor.lastRequest ?? {
@@ -188,7 +200,7 @@ export const executors: Record<string, any> = {
       },
       content,
     });
-    return { documentId };
+    return { documentId, summary: documentLibrary.summary(documentId) };
   },
   waitForSelectorTool: async ({
     cursorId,
@@ -258,6 +270,7 @@ const contentTool = createTool({
   }),
   outputSchema: z.object({
     documentId: z.string(),
+    summary: documentSummarySchema.nullable(),
   }),
   execute: executors.contentTool,
 });

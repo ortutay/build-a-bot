@@ -112,7 +112,17 @@ describe('browser tools', () => {
         executors.gotoTool({ cursorId, url: `${site.baseUrl}/products/footwear-1` })
       ).resolves.toEqual({ status: 200, ok: true });
       const result = await executors.contentTool({ cursorId });
-      expect(result).toEqual({ documentId: expect.stringMatching(/^doc:/) });
+      expect(result).toEqual({
+        documentId: expect.stringMatching(/^doc:/),
+        summary: {
+          id: result.documentId,
+          url: `${site.baseUrl}/products/footwear-1`,
+          origin: 'navigation',
+          contentType: 'text/html',
+          status: 200,
+          bytes: expect.any(Number),
+        },
+      });
       expect(documentLibrary.get({ documentId: result.documentId })).toMatchObject({
         origin: 'navigation',
         contentType: 'text/html',
