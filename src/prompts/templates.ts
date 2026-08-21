@@ -2,8 +2,12 @@ import { Template } from './Template.js';
 
 const guidelineDoNotInvent =
   'Do not invent or guess at CSS selectors, element IDs, etc. Base your selectors and locators only on what you have actually seen.';
+
 const guidelinePlaywrightStrictMode =
   'Browser click locators use Playwright strict mode: make each selector match exactly one inspected element whenever possible. Use an index only to disambiguate inspected matches whose order is stable.';
+
+const guidelineTestSnippets =
+  'Always test your assumptions by running small JavaScript snippets using the available tool for that.';
 
 export const userInput = new Template(
   ['url', 'goal'],
@@ -65,6 +69,7 @@ Do not write code yet, simple generate a written report about how to run the scr
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
 - ${guidelinePlaywrightStrictMode}
+- ${guidelineTestSnippets}
 - If the task is impossible, explain why and stop.
 - If necessary, navigate around the site to find the right target page(s) for extraction.
   - The goal is to make a reusable bot based on the user input. Therefore, if he gave an example of a specific URL to scrape, does that URL fit into a general pattern? Can it be paramaterized? Eg. https://example.com/tvs/sony-z-100 could become https://example.com/:category/:id, with category and id as inputs.
@@ -153,6 +158,7 @@ Guidelines for output schema:
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream.
 - ${guidelineDoNotInvent}
 - ${guidelinePlaywrightStrictMode}
+- ${guidelineTestSnippets}
 
 # Report summary
 
@@ -268,6 +274,7 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
 - ${guidelineDoNotInvent}
 - ${guidelinePlaywrightStrictMode}
+- ${guidelineTestSnippets}
 
 {{userInput}}
 
