@@ -7,6 +7,8 @@ import {
   documentOrigins,
   documentRequestModes,
   documentTransforms,
+  type Document,
+  type DocumentGetInput,
   type DocumentId,
   type DocumentListQuery,
 } from '../../documents/index.js';
@@ -14,11 +16,33 @@ import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 
 const prefix = (str: string): string => 'documentTools_' + str;
 
-type GetDocumentInput = {
-  documentId: DocumentId;
-  format: (typeof documentFormats)[number];
-  transform: (typeof documentTransforms)[number];
+type GetDocumentInput = Required<DocumentGetInput>;
+
+type GetManyDocumentsInput = {
+  documents: GetDocumentInput[];
 };
+
+const getDocumentInputSchema = z.object({
+  documentId: z.string().describe('Document ID returned by a document-producing tool.'),
+  format: z.enum(documentFormats).default('raw').describe(`How to format the returned content.
+- For HTML, "raw", "slimHtml" and "html" are available
+- For JSON, only "raw" is available.
+- For text, only "raw" is available.
+
+Guidelines:
+  - For HTML, use "slimHtml" when it provides enough detail, to reduce context use.
+`),
+  transform: z.enum(documentTransforms).default('none')
+    .describe(`Whether or not to collapse the content.
+- For HTML, you can choose between "none" and "collapse'. Use transform "collapse" with HTML to collapse unexpanded page sections.
+- For JSON, you can choose between "none" and "collapse'. Use transform "collapse" to reduce long arrays to their head and tail.
+- For text, you can only choose "none"
+
+Guidelines:
+  - For HTML, use collapse when it provides enough detail, to reduce context use.
+  - For JSON, use collapse when it provides enough detail, to reduce context use.
+`),
+});
 
 const documentSummarySchema = z.object({
   id: z.string(),
@@ -29,15 +53,35 @@ const documentSummarySchema = z.object({
   bytes: z.number().int().nonnegative(),
 });
 
+const documentSchema = documentSummarySchema.extend({
+  headers: z.record(z.string(), z.string()),
+  request: z.object({
+    timestamp: z.string(),
+    headers: z.record(z.string(), z.string()),
+    proxy: z.string().nullable(),
+    mode: z.enum(documentRequestModes),
+  }),
+  format: z.enum(documentFormats),
+  transform: z.enum(documentTransforms),
+  content: z.string(),
+});
+
+const requireDocument = (document: Document | null, documentId: DocumentId): Document => {
+  if (!document) throw new Error(`Unknown document ID: ${documentId}`);
+  return document;
+};
+
 export const executors: Record<string, any> = {
   listTool: async (query: DocumentListQuery) => ({
     documents: documentLibrary.list(query),
   }),
-  getTool: async ({ documentId, format, transform }: GetDocumentInput) => {
-    const document = documentLibrary.get(documentId, format, transform);
-    if (!document) throw new Error(`Unknown document ID: ${documentId}`);
-    return document;
-  },
+  getTool: async ({ documentId, format, transform }: GetDocumentInput) =>
+    requireDocument(documentLibrary.get({ documentId, format, transform }), documentId),
+  getManyTool: async ({ documents }: GetManyDocumentsInput) => ({
+    documents: documentLibrary
+      .getMany(documents)
+      .map((document, index) => requireDocument(document, documents[index].documentId)),
+  }),
 };
 
 const listTool = createTool({
@@ -72,43 +116,24 @@ transform:
 
   - For JSON, use collapse whenever it provides enough detail, to reduce context use.
 `,
-  inputSchema: z.object({
-    documentId: z.string().describe('Document ID returned by a document-producing tool.'),
-    format: z.enum(documentFormats).default('raw').describe(`How to format the returned content.
-- For HTML, "raw", "slimHtml" and "html" are available
-- For JSON, only "raw" is available.
-- For text, only "raw" is available.
-
-Guidelines:
-  - For HTML, use "slimHtml" when it provides enough detail, to reduce context use.
-`),
-    transform: z.enum(documentTransforms).default('none')
-      .describe(`Whether or not to collapse the content.
-- For HTML, you can choose between "none" and "collapse'. Use transform "collapse" with HTML to collapse unexpanded page sections.
-- For JSON, you can choose between "none" and "collapse'. Use transform "collapse" to reduce long arrays to their head and tail.
-- For text, you can only choose "none"
-
-Guidelines:
-  - For HTML, use collapse when it provides enough detail, to reduce context use.
-  - For JSON, use collapse when it provides enough detail, to reduce context use.
-`),
-  }),
-  outputSchema: documentSummarySchema.extend({
-    headers: z.record(z.string(), z.string()),
-    request: z.object({
-      timestamp: z.string(),
-      headers: z.record(z.string(), z.string()),
-      proxy: z.string().nullable(),
-      mode: z.enum(documentRequestModes),
-    }),
-    format: z.enum(documentFormats),
-    transform: z.enum(documentTransforms),
-    content: z.string(),
-  }),
+  inputSchema: getDocumentInputSchema,
+  outputSchema: documentSchema,
   execute: executors.getTool,
 });
 
-const internal = [listTool, getTool];
+const getManyTool = createTool({
+  id: prefix('getManyTool'),
+  description: 'Get multiple saved documents in selected formats and transforms.',
+  inputSchema: z.object({
+    documents: z.array(getDocumentInputSchema),
+  }),
+  outputSchema: z.object({
+    documents: z.array(documentSchema),
+  }),
+  execute: executors.getManyTool,
+});
+
+const internal = [listTool, getTool, getManyTool];
 
 export const createDocumentTools = async (): Promise<Record<string, Tool>> => {
   return Object.fromEntries(

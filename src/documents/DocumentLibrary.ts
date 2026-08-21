@@ -13,7 +13,12 @@ export const documentOrigins = ['navigation', 'dynamic'] as const;
 
 export type Origin = (typeof documentOrigins)[number];
 
-export const documentContentTypes = ['text/html', 'text/plain', 'application/json'] as const;
+export const documentContentTypes = [
+  'text/html',
+  'text/plain',
+  'application/json',
+  'application/json+protobuf',
+] as const;
 
 export type ContentType = (typeof documentContentTypes)[number];
 
@@ -57,6 +62,12 @@ export type Document = DocumentSummary & {
   format: (typeof documentFormats)[number];
   transform: (typeof documentTransforms)[number];
   content: string;
+};
+
+export type DocumentGetInput = {
+  documentId: DocumentId;
+  format?: (typeof documentFormats)[number];
+  transform?: (typeof documentTransforms)[number];
 };
 
 export type DocumentListQuery = {
@@ -131,18 +142,14 @@ export class DocumentLibrary {
     return document ? this.toSummary(document) : null;
   }
 
-  get(
-    id: DocumentId,
-    format: (typeof documentFormats)[number] = 'raw',
-    transform: (typeof documentTransforms)[number] = 'none'
-  ): Document | null {
-    const document = this.backend.get(id);
+  get({ documentId, format = 'raw', transform = 'none' }: DocumentGetInput): Document | null {
+    const document = this.backend.get(documentId);
     if (!document) {
-      log.info(`Get document: id=${id}, status=missing`);
+      log.info(`Get document: id=${documentId}, status=missing`);
       return null;
     }
 
-    log.info(`Get document: id=${id}, format=${format}, transform=${transform}`);
+    log.info(`Get document: id=${documentId}, format=${format}, transform=${transform}`);
 
     return {
       ...this.toSummary(document),
@@ -155,6 +162,10 @@ export class DocumentLibrary {
       transform,
       content: this.render(document, format, transform),
     };
+  }
+
+  getMany(inputs: DocumentGetInput[]): Array<Document | null> {
+    return inputs.map((input) => this.get(input));
   }
 
   list(query: DocumentListQuery = {}): DocumentSummary[] {

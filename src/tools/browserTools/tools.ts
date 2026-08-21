@@ -12,7 +12,7 @@ import {
   type DocumentRequest,
 } from '../../documents/index.js';
 import { log } from '../../logger.js';
-import { srid } from '../../util/index.js';
+import { parseResponseBody, srid } from '../../util/index.js';
 
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
@@ -33,7 +33,10 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null =>
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
   const supportedContentType = documentContentTypes.find((type) => type === contentType);
   if (!supportedContentType) {
-    throw new Error(`Unsupported page content type: ${contentType}`);
+    log.warn(`Unsupported page content type: ${contentType}`);
+    return null;
+    // console.log('unsupported??', headers);
+    // throw new Error(`Unsupported page content type: ${contentType}`);
   }
   return supportedContentType;
 };
@@ -60,7 +63,7 @@ const getCursor = async (cursorId: string): Promise<Cursor> => {
 
   if (record == 'allocated') {
     if (!browser) {
-      browser = await chromium.launch({ headless: false });
+      browser = await chromium.launch({ headless: true });
     }
     cursor = { page: await browser.newPage() };
     cursors[cursorId] = cursor;
@@ -138,7 +141,7 @@ export const executors: Record<string, any> = {
         contentType,
         status: resp.status(),
         headers,
-        content: await resp.text(),
+        content: parseResponseBody(contentType, await resp.body()),
       });
     };
 
@@ -174,7 +177,7 @@ export const executors: Record<string, any> = {
     const documentId = documentLibrary.save({
       url: cursor.page.url(),
       origin: 'navigation',
-      contentType: contentTypeFromHeaders(headers),
+      contentType: contentTypeFromHeaders(headers) ?? 'text/html',
       status: cursor.lastResponse?.status() ?? null,
       headers,
       request: cursor.lastRequest ?? {
@@ -209,13 +212,16 @@ export const executors: Record<string, any> = {
   clickTool: async ({
     cursorId,
     selector,
+    index,
     timeout,
   }: {
     cursorId: string;
     selector: string;
+    index?: number;
     timeout?: number;
   }) => {
-    await (await getCursor(cursorId)).page.locator(selector).click({ timeout });
+    const locator = (await getCursor(cursorId)).page.locator(selector);
+    await (index === undefined ? locator : locator.nth(index)).click({ timeout });
     return { ok: true };
   },
 };
@@ -273,10 +279,17 @@ const waitForSelectorTool = createTool({
 
 const clickTool = createTool({
   id: prefix('clickTool'),
-  description: 'Click an element matching a selector.',
+  description:
+    'Click an element matching a selector. The selector must match exactly one element unless index is provided.',
   inputSchema: z.object({
     cursorId: z.string(),
     selector: z.string(),
+    index: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Zero-based index of the matching element to click.'),
     timeout: z.number().int().positive().max(60_000).optional(),
   }),
   outputSchema: z.object({

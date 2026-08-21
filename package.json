@@ -54,6 +54,7 @@
     "p-queue": "^9.3.3",
     "playwright": "^1.58.2",
     "pretty": "^2.0.0",
+    "protobufjs": "^8.7.2",
     "radash": "^12.1.1",
     "tslog": "^5.1.0",
     "undici": "^7.24.4",

@@ -1,12 +1,13 @@
 import type { MastraDBMessage } from '@mastra/core/agent/message-list';
 import type { ProcessInputStepArgs, Processor } from '@mastra/core/processors';
+import { log } from '../logger.js';
 
 export type ContextCompressionOptions = {
   /** Maximum serialized characters retained from one tool result. */
   maxCharsPerToolResult?: number;
 };
 
-const DEFAULT_MAX_CHARS_PER_TOOL_RESULT = 24_000;
+const DEFAULT_MAX_CHARS_PER_TOOL_RESULT = 200_000;
 
 /**
  * Keeps a bounded, useful view of large tool results in the agent transcript.
@@ -92,6 +93,13 @@ export class ContextCompressionProcessor implements Processor<'context-compressi
     const remaining = this.#maxCharsPerToolResult - marker.length - 3;
     const headLength = Math.ceil(remaining * 0.75);
     const tailLength = remaining - headLength;
+    const omitted = text.slice(headLength, -tailLength);
+    const omittedBytes = Buffer.byteLength(omitted);
+    const percentCompressed = ((omittedBytes / Buffer.byteLength(text)) * 100).toFixed(1);
+
+    log.warn(
+      `Context compressed: omitted ${omittedBytes} bytes and ${omitted.split('\n').length - 1} lines (${percentCompressed}%)`
+    );
 
     return `${marker}\n${text.slice(0, headLength)}\n…${text.slice(-tailLength)}`;
   }

@@ -57,7 +57,7 @@ describe('DocumentLibrary', () => {
       status: 201,
       bytes: Buffer.byteLength('héllo', 'utf8'),
     });
-    expect(library.get(id)).toMatchObject({
+    expect(library.get({ documentId: id })).toMatchObject({
       headers: { 'x-request-id': 'abc123' },
       request: {
         timestamp: '2026-08-20T00:00:00.000Z',
@@ -97,7 +97,7 @@ describe('DocumentLibrary', () => {
       status: 202,
       bytes: Buffer.byteLength(content, 'utf8'),
     });
-    expect(library.get(id)).toMatchObject({
+    expect(library.get({ documentId: id })).toMatchObject({
       headers: { 'content-type': 'application/json' },
       content,
     });
@@ -108,12 +108,18 @@ describe('DocumentLibrary', () => {
     const library = createMemoryLibrary();
     const id = saveHtml(library);
 
-    expect(library.get(id, 'raw')?.content).toContain('ignored()');
-    expect(library.get(id, 'html')?.content).not.toContain('<svg');
-    expect(library.get(id, 'slimHtml')?.content).not.toContain('ignored()');
-    expect(library.get(id, 'slimHtml')?.content).toContain('https://example.test/next');
-    expect(library.get(id, 'raw', 'collapse')?.content).toContain('data-collapse-id');
-    expect(library.get(id, 'slimHtml', 'collapse')?.content).toContain('data-collapse-id');
+    expect(library.get({ documentId: id, format: 'raw' })?.content).toContain('ignored()');
+    expect(library.get({ documentId: id, format: 'html' })?.content).not.toContain('<svg');
+    expect(library.get({ documentId: id, format: 'slimHtml' })?.content).not.toContain('ignored()');
+    expect(library.get({ documentId: id, format: 'slimHtml' })?.content).toContain(
+      'https://example.test/next'
+    );
+    expect(
+      library.get({ documentId: id, format: 'raw', transform: 'collapse' })?.content
+    ).toContain('data-collapse-id');
+    expect(
+      library.get({ documentId: id, format: 'slimHtml', transform: 'collapse' })?.content
+    ).toContain('data-collapse-id');
   });
 
   it('collapses long JSON arrays while retaining their head and tail', () => {
@@ -129,7 +135,9 @@ describe('DocumentLibrary', () => {
       content,
     });
 
-    expect(JSON.parse(library.get(id, 'raw', 'collapse')!.content)).toEqual({
+    expect(
+      JSON.parse(library.get({ documentId: id, format: 'raw', transform: 'collapse' })!.content)
+    ).toEqual({
       items: [
         0,
         1,
@@ -191,10 +199,36 @@ describe('DocumentLibrary', () => {
     });
 
     expect(library.summary('doc:missing')).toBeNull();
-    expect(library.get('doc:missing')).toBeNull();
-    expect(() => library.get(id, 'slimHtml')).toThrow(
+    expect(library.get({ documentId: 'doc:missing' })).toBeNull();
+    expect(() => library.get({ documentId: id, format: 'slimHtml' })).toThrow(
       'Format "slimHtml" is unavailable for application/json'
     );
+  });
+
+  it('gets multiple documents using per-document render options', () => {
+    const library = createMemoryLibrary();
+    const htmlId = saveHtml(library);
+    const jsonId = library.save({
+      url: 'https://example.test/data.json',
+      origin: 'dynamic',
+      contentType: 'application/json',
+      status: 200,
+      headers: {},
+      request: request(),
+      content: '{"ok":true}',
+    });
+
+    expect(
+      library.getMany([
+        { documentId: jsonId },
+        { documentId: htmlId, format: 'slimHtml' },
+        { documentId: 'doc:missing' },
+      ])
+    ).toMatchObject([
+      { id: jsonId, format: 'raw', transform: 'none', content: '{"ok":true}' },
+      { id: htmlId, format: 'slimHtml', transform: 'none' },
+      null,
+    ]);
   });
 
   it('uses the configured path for persistent documents', () => {
@@ -205,7 +239,7 @@ describe('DocumentLibrary', () => {
       const reader = new DocumentLibrary(new DiskLibraryBackend(directory));
 
       expect(reader.summary(id)).toEqual(writer.summary(id));
-      expect(reader.get(id)).toMatchObject({
+      expect(reader.get({ documentId: id })).toMatchObject({
         content: expect.stringContaining('Nested content'),
       });
     } finally {

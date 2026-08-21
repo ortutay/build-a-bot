@@ -8,6 +8,7 @@ import {
 } from '../../documents/index.js';
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { names as proxyNames, proxyFetch } from '../../proxy.js';
+import { parseResponseBody } from '../../util/index.js';
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
@@ -44,11 +45,12 @@ const fetchTool = createTool({
     const requestHeaders: DocumentHeaders = {};
     const resp = await proxyFetch(url, proxy);
     const headers = Object.fromEntries(resp.headers);
-    const content = await resp.text();
+    const contentType = contentTypeFromHeaders(headers);
+    const content = parseResponseBody(contentType, await resp.arrayBuffer());
     const documentId = documentLibrary.save({
       url: resp.url,
       origin: 'dynamic',
-      contentType: contentTypeFromHeaders(headers),
+      contentType,
       status: resp.status,
       headers,
       request: {

@@ -1,5 +1,10 @@
 import { Template } from './Template.js';
 
+const guidelineDoNotInvent =
+  'Do not invent or guess at CSS selectors, element IDs, etc. Base your selectors and locators only on what you have actually seen.';
+const guidelinePlaywrightStrictMode =
+  'Browser click locators use Playwright strict mode: make each selector match exactly one inspected element whenever possible. Use an index only to disambiguate inspected matches whose order is stable.';
+
 export const userInput = new Template(
   ['url', 'goal'],
   `<user-input>
@@ -59,6 +64,7 @@ Do not write code yet, simple generate a written report about how to run the scr
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
+- ${guidelinePlaywrightStrictMode}
 - If the task is impossible, explain why and stop.
 - If necessary, navigate around the site to find the right target page(s) for extraction.
   - The goal is to make a reusable bot based on the user input. Therefore, if he gave an example of a specific URL to scrape, does that URL fit into a general pattern? Can it be paramaterized? Eg. https://example.com/tvs/sony-z-100 could become https://example.com/:category/:id, with category and id as inputs.
@@ -145,10 +151,13 @@ Guidelines for output schema:
 - For exampleInput, if there is a "limit", set it to 10
 - Do not suggest tools that were not available to you. The execution environment will have the exact same tools.
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream.
+- ${guidelineDoNotInvent}
+- ${guidelinePlaywrightStrictMode}
 
 # Report summary
 
-At the end of your report, include a brief summary of your findings. This is also where you should call out errors or problems that may prevent the task from being feasible.
+- At the end of your report, include a brief summary of your findings. This is also where you should call out errors or problems that may prevent the task from being feasible.
+- If multiple approaches are possible, describe them, and give your recommendation. For example, you may have one approach based on direct page loads, and another based on direct requests to the backend API.
 
 <== Begin User Input Section ==>
 
@@ -257,6 +266,8 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - Try to make the example input something that runs on the faster side
   - If example input includes a limit, set it to 10
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
+- ${guidelineDoNotInvent}
+- ${guidelinePlaywrightStrictMode}
 
 {{userInput}}
 

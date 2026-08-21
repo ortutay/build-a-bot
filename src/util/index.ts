@@ -1,5 +1,7 @@
 import crypto from 'crypto';
+import { Reader } from 'protobufjs/minimal.js';
 import { deterministicRandom } from '../constants.js';
+import { log } from '../logger.js';
 
 export const getOrNull = <Value>(input: unknown, key: string): Value | null => {
   if (typeof input !== 'object' || input === null || !(key in input)) {
@@ -45,4 +47,38 @@ export const hash = (obj: unknown): string => {
 export const clip = (value: unknown, max = 500): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value) || '';
   return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
+};
+
+const protobufFields = (bytes: Uint8Array): number[] => {
+  const reader = Reader.create(bytes);
+  const fields: number[] = [];
+  while (reader.pos < reader.len) {
+    const tag = reader.uint32();
+    const field = tag >>> 3;
+    if (field === 0) throw new Error('Invalid protobuf field number');
+    fields.push(field);
+    reader.skipType(tag & 7);
+  }
+  return fields;
+};
+
+export const parseResponseBody = (
+  contentType: string | null | undefined,
+  body: Uint8Array | ArrayBuffer
+): string => {
+  const bytes = body instanceof ArrayBuffer ? new Uint8Array(body) : body;
+  const text = Buffer.from(bytes).toString('utf8');
+  if (contentType !== 'application/json+protobuf') return text;
+  try {
+    return JSON.stringify(JSON.parse(text));
+  } catch {}
+  try {
+    return JSON.stringify({
+      $protobuf: Buffer.from(bytes).toString('base64'),
+      $fields: protobufFields(bytes),
+    });
+  } catch (e) {
+    log.warn(`Could not parse protobuf response: ${String(e)}; saving base64 content`);
+    return Buffer.from(bytes).toString('base64');
+  }
 };

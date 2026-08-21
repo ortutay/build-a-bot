@@ -52,4 +52,62 @@ describe('document tools', () => {
       executors.getTool({ documentId: 'doc:missing', format: 'raw', transform: 'none' })
     ).rejects.toThrow('Unknown document ID: doc:missing');
   });
+
+  it('gets multiple documents with independently selected representations', async () => {
+    const htmlId = documentLibrary.save({
+      url: 'https://example.test/catalog',
+      origin: 'navigation',
+      contentType: 'text/html',
+      status: 200,
+      headers: {},
+      request: {
+        timestamp: '2026-08-20T00:00:00.000Z',
+        headers: {},
+        proxy: null,
+        mode: 'browser',
+      },
+      content: '<html><body><script>ignored()</script><h1>Catalog</h1></body></html>',
+    });
+    const textId = documentLibrary.save({
+      url: 'https://example.test/readme.txt',
+      origin: 'dynamic',
+      contentType: 'text/plain',
+      status: 200,
+      headers: {},
+      request: {
+        timestamp: '2026-08-20T00:00:00.000Z',
+        headers: {},
+        proxy: 'unblock',
+        mode: 'fetch',
+      },
+      content: 'Read me',
+    });
+
+    await expect(
+      executors.getManyTool({
+        documents: [
+          { documentId: textId, format: 'raw', transform: 'none' },
+          { documentId: htmlId, format: 'slimHtml', transform: 'none' },
+        ],
+      })
+    ).resolves.toMatchObject({
+      documents: [
+        { id: textId, content: 'Read me', format: 'raw', transform: 'none' },
+        {
+          id: htmlId,
+          content: expect.stringContaining('Catalog'),
+          format: 'slimHtml',
+          transform: 'none',
+        },
+      ],
+    });
+  });
+
+  it('rejects a batch containing an unknown document ID', async () => {
+    await expect(
+      executors.getManyTool({
+        documents: [{ documentId: 'doc:missing', format: 'raw', transform: 'none' }],
+      })
+    ).rejects.toThrow('Unknown document ID: doc:missing');
+  });
 });

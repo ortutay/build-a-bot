@@ -12,7 +12,7 @@ import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 import { startMockEcommerceSite } from '../lib/mockEcommerceSite.js';
 
 const documentContent = (documentId: string): string => {
-  const document = documentLibrary.get(documentId);
+  const document = documentLibrary.get({ documentId });
   if (!document) throw new Error(`Missing saved document: ${documentId}`);
   return document.content;
 };
@@ -113,7 +113,7 @@ describe('browser tools', () => {
       ).resolves.toEqual({ status: 200, ok: true });
       const result = await executors.contentTool({ cursorId });
       expect(result).toEqual({ documentId: expect.stringMatching(/^doc:/) });
-      expect(documentLibrary.get(result.documentId)).toMatchObject({
+      expect(documentLibrary.get({ documentId: result.documentId })).toMatchObject({
         origin: 'navigation',
         contentType: 'text/html',
         status: 200,
@@ -171,6 +171,23 @@ describe('browser tools', () => {
       expect(documentContent(content.documentId)).toContain('data-cart-updated="true"');
       expect(documentContent(content.documentId)).toContain('<span id="cart-count">1</span>');
     });
+
+    it('clicks a selected match by zero-based index', async () => {
+      const { cursorId } = await executors.newPageTool({});
+      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/` });
+
+      await expect(
+        executors.clickTool({
+          cursorId,
+          selector: 'a.category-link',
+          index: 1,
+          timeout: 1_000,
+        })
+      ).resolves.toEqual({ ok: true });
+
+      const content = await executors.contentTool({ cursorId });
+      expect(documentContent(content.documentId)).toContain('Electronics');
+    });
   });
 
   describe('dynamic request capture', () => {
@@ -205,7 +222,7 @@ describe('browser tools', () => {
         origin: 'dynamic',
         urlPrefix: `${dynamicSite.baseUrl}/api/catalog`,
       });
-      const dynamicDocument = documentLibrary.get(dynamic.id);
+      const dynamicDocument = documentLibrary.get({ documentId: dynamic.id });
       expect(dynamicDocument).toMatchObject({
         url: `${dynamicSite.baseUrl}/api/catalog`,
         origin: 'dynamic',

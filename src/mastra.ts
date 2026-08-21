@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { pick } from 'radash';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
@@ -8,7 +9,7 @@ import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
 import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
-import { hash } from './util/index.js';
+import { getOrNull, hash } from './util/index.js';
 import { cb } from './cache/busters.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
@@ -46,15 +47,15 @@ export const defaultMastra = async (): Promise<{
   // model: 'google/gemini-3.5-flash',
   // model: 'google/gemini-3.6-flash',
   // model: 'google/gemini-3.7-flash',
-  const model = 'openai/gpt-5.6-luna';
-  // model: 'openai/gpt-5.6-terra',
+  // const model = 'openai/gpt-5.6-luna';
+  const model = 'openai/gpt-5.6-terra';
   // model: 'openai/gpt-5.6-sol',
   const responseLogger = new ResponseLoggingProcessor();
   const inputProcessors = [
     // Compress individual page-sized tool responses first, then cap the full
     // transcript so every tool-loop iteration fits comfortably in context.
     new ContextCompressionProcessor(),
-    new TokenLimiter({ limit: 200_000, trimMode: 'contiguous' }),
+    new TokenLimiter({ limit: 400_000, trimMode: 'contiguous' }),
     responseLogger,
     new LoggingResponseCache(
       {
@@ -105,16 +106,38 @@ export const defaultMastra = async (): Promise<{
     },
 
     afterToolCall: async (it) => {
-      const { toolName, error, context } = it;
+      const { toolName, error, output, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
-
-      console.log('afterToolCall it:', it);
-
+      // console.log('afterToolCall it:', it);
       if (error) {
-        log.error(`Tool error: id=${toolCallId} ${toolName}: ${error}`);
+        log.error(`${chalk.bgRed('Tool error')} id=${toolCallId} ${toolName}: ${error}`);
       } else {
         log.info(`Tool done:  id=${toolCallId} ${toolName}`);
       }
+
+      const maxLines = 20;
+      const maxWidth = 100;
+      const clipLine = (line: string) =>
+        line.length > maxWidth ? `${line.slice(0, maxWidth - 3)}...` : line;
+      const logOmittedLines = (lineCount: number) => {
+        const omitted = lineCount - maxLines;
+        return omitted > 0 ? `\t${chalk.dim(`Omitted ${omitted} lines`)}` : null;
+      };
+      const content = getOrNull<unknown>(output, 'content');
+      const full =
+        typeof content === 'string' ? content : (JSON.stringify(output, null, 2) ?? String(output));
+      const lines = full.split('\n');
+      const url = getOrNull<string>(output, 'url');
+      const preview = [
+        ...(url ? [`\t${chalk.bold.yellow(url)}`] : []),
+        ...lines
+          .slice(0, maxLines)
+          .map((line, i) => `\t${chalk.dim(String(i + 1).padStart(2))} ${clipLine(line)}`),
+        logOmittedLines(lines.length),
+      ]
+        .filter((line): line is string => line !== null)
+        .join('\n');
+      log.info(`Tool output preview:\n\n${preview}\n\n`);
     },
   };
 
