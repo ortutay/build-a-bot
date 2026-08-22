@@ -1,8 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { FiltersEngine, Request as AdblockRequest } from '@ghostery/adblocker';
 import type { Request } from 'playwright';
+import { isMastraPlatform } from '../../constants.js';
 
-const blocklist = readFileSync(new URL('../../../data/blocklist.txt', import.meta.url), 'utf8');
+const blocklistUrl = isMastraPlatform
+  ? new URL('./data/blocklist.txt', import.meta.url)
+  : new URL('../../../data/blocklist.txt', import.meta.url);
+const blocklist = readFileSync(blocklistUrl, 'utf8');
 const engine = FiltersEngine.parse(blocklist);
 
 export const likelyAdOrTracker = (request: Request): boolean => {
