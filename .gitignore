@@ -9,3 +9,4 @@ playwright-report/
 bak/
 dist/
 db/*
+.mastra

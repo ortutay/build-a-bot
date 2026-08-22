@@ -1,4 +1,4 @@
-[Adblock Plus 1.1]
+export const list = `[Adblock Plus 1.1]
 !Blocklist for use with Adblock Plus. Use the following URL to add
 !AdBlock Plus:
 
@@ -3533,3 +3533,4 @@
 ||zpu.samsungelectronics.com^
 ||zqtk.net^
 ||zzhc.vnet.cn^
+`;
