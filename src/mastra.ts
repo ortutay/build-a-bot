@@ -3,6 +3,7 @@ import { pick } from 'radash';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+import { InMemoryServerCache } from '@mastra/core/cache';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
 import { RedisServerCache } from '@mastra/redis';
@@ -11,6 +12,13 @@ import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processo
 import { log } from './logger.js';
 import { getOrNull, hash } from './util/index.js';
 import { cb } from './cache/busters.js';
+import {
+  isMastraPlatform,
+  redisCacheUrl,
+  sqliteDbUrl,
+  tursoAuthToken,
+  tursoDatabaseUrl,
+} from './constants.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
 import { tools as codeTools } from './tools/codeTools/index.js';
@@ -28,12 +36,14 @@ export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
-  const redisClient = new Redis('redis://localhost:54321');
-  const cache = new RedisServerCache(
-    { client: redisClient },
-    { keyPrefix: 'cb:' + cb.global + ':' }
-  );
-  // const cache = null;
+  if (isMastraPlatform && !tursoDatabaseUrl) {
+    throw new Error('TURSO_DATABASE_URL must be set for a Mastra Platform deployment.');
+  }
+
+  const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
+  const cache = redisClient
+    ? new RedisServerCache({ client: redisClient }, { keyPrefix: 'cb:' + cb.global + ':' })
+    : new InMemoryServerCache();
 
   const [
     brightdataTools,
@@ -184,7 +194,8 @@ export const defaultMastra = async (): Promise<{
 
   const storage = new LibSQLStore({
     id: 'libsql-storage',
-    url: 'file:./db/mastra-storage.db',
+    url: sqliteDbUrl,
+    authToken: tursoAuthToken,
   });
 
   const mastra = new Mastra({
@@ -209,7 +220,7 @@ export const defaultMastra = async (): Promise<{
   });
 
   const cleanup = async () => {
-    await Promise.all([mastra.shutdown(), redisClient.disconnect()]);
+    await Promise.all([mastra.shutdown(), ...(redisClient ? [redisClient.disconnect()] : [])]);
   };
 
   return { mastra, cleanup };

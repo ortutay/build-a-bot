@@ -2,6 +2,7 @@
 
 - Name caught errors `e`, including Promise `.catch()` parameters.
 - Name HTTP responses `resp`.
+- Only read `process.env` in `src/constants.ts`; export a named constant for other modules to use.
 
 # Helpful hepers
 
