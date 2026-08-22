@@ -132,6 +132,8 @@ Guidelines for input schema:
 - It should more resemble an HTTP API, rather than a scraping endpoint. That means the parameters may not be URLs
 - Base the input on the user prompt, and also on the general site layout. For example, if you have something like https://www.example.com/category/product, perhaps "category" can be a parameters
 - Make it permissive. Unless necessary, make inputs optional.
+- Avoid restricting inputs unecessarily. This means avoiding unecessary enum restritions. Only use those when you are sure there is a limited set of inputs that will work. Do not put in overly large enum lists (~10 should be the most you put in, beyond that just accept any string)
+- Keep input schema flat, unless there is good reason for nesting.
 - Do not include fields for proxy selection. That should be handled internally.
 - If a specific input schema is provided in the user prompt section, ignore above guidelines and use the user's input schema. Restate the user schema in your output.
 

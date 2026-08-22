@@ -1,4 +1,4 @@
-const global = 'g' + 8;
+const global = 'g' + 10;
 
 export const cb = {
   global,

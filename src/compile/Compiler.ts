@@ -17,6 +17,10 @@ export type CompileResult = {
   exampleInput: unknown;
 };
 
+type CompileOptions = {
+  additionalContext?: Record<string, unknown>;
+};
+
 export const availableModules = {
   cheerio,
   'node-html-parser': nodeHtmlParser,
@@ -53,8 +57,13 @@ const parseWithSchema = async (schema: JSONSchema, value: unknown): Promise<unkn
 export class Compiler {
   constructor() {}
 
-  async compile(code: string, agent: Agent): Promise<CompileResult> {
+  async compile(
+    code: string,
+    agent: Agent,
+    { additionalContext = {} }: CompileOptions = {}
+  ): Promise<CompileResult> {
     const context = vm.createContext({
+      ...additionalContext,
       ...availableContext,
       tools: toContextTools(await agent.listTools()),
       ...availableModules,

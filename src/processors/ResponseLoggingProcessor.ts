@@ -20,7 +20,7 @@ const formatArg = (value: unknown, ancestors: Set<object>): string => {
 
   switch (typeof value) {
     case 'string':
-      return value;
+      return JSON.stringify(value);
     case 'number':
     case 'boolean':
       return String(value);

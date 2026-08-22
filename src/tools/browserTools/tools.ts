@@ -44,7 +44,9 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null =>
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
   const supportedContentType = documentContentTypes.find((type) => type === contentType);
   if (!supportedContentType) {
-    log.warn(`Unsupported page content type: ${contentType}`);
+    log.warn(
+      `Unsupported page content type: ${contentType} for headers: ${JSON.stringify(headers, null, 2)}`
+    );
     return null;
     // console.log('unsupported??', headers);
     // throw new Error(`Unsupported page content type: ${contentType}`);
