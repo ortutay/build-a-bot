@@ -13,8 +13,7 @@
     }
   },
   "files": [
-    "dist/",
-    "data/blocklist.txt"
+    "dist/"
   ],
   "keywords": [
     "web",
@@ -29,6 +28,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "node scripts/copy-public-assets.mjs",
     "test": "ENV=test FORCE_COLOR=1 vitest run --dir test",
     "test:watch": "ENV=test FORCE_COLOR=1 vitest --dir test",
     "eval": "ENV=test FORCE_COLOR=1 DOCUMENT_LIBRARY_PATH=/tmp/builder/evals/documents vitest run --dir evals",
