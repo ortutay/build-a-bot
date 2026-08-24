@@ -5,9 +5,12 @@ import * as templates from '../prompts/templates.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 import { planStepScorer } from '../scorers/index.js';
 
+const shared = { retries: 2 };
+
 const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
     id,
+    ...shared,
     inputSchema: z.object({
       url: z.string(),
       goal: z.string(),
@@ -77,6 +80,7 @@ export const planSteps = [fetchPlanStep, browserPlanStep] as const;
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',
+  ...shared,
   inputSchema: z.object({
     'fetch-plan-step': z.object({
       url: z.string(),
@@ -123,6 +127,7 @@ export const writePlanStep = createStep({
 
 export const writeCodeStep = createStep({
   id: 'write-code-step',
+  ...shared,
   inputSchema: planSteps[0].outputSchema,
   outputSchema: z.object({
     code: z.string(),

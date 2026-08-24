@@ -33,10 +33,10 @@ import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from '../processors/ResponseLoggingProcessor.js';
-import { planStepScorer } from '../scorers/index.js';
+import { planStepScorer, buildScorer } from '../scorers/index.js';
 
 const duckDb = new DuckDBStore({
-  path: duckDbUrl,
+  // path: duckDbUrl,
 });
 
 let duckDbClosePromise: Promise<void> | null = null;
@@ -215,6 +215,7 @@ export const defaultMastra = async (): Promise<{
     model,
     inputProcessors,
     hooks,
+
     providerOptions: {
       openai: {
         reasoningEffort: 'medium',
@@ -296,7 +297,7 @@ export const defaultMastra = async (): Promise<{
       fetchResearchAgent,
       browserResearchAgent,
     },
-    scorers: { planStepScorer },
+    scorers: { planStepScorer, buildScorer },
     cache,
     storage,
     observability,

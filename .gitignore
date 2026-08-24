@@ -10,3 +10,4 @@ bak/
 dist/
 db/*
 .mastra
+mastra.duckdb*

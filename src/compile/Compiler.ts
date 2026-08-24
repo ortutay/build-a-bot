@@ -5,13 +5,14 @@ import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
 import type { JSONSchema } from 'json-schema-to-ts';
-
 import { toContextTools } from './tool-fns.js';
+import { srid } from '../util/index.js';
+import { Bot } from '../bot/Bot.js';
 
 type ZodJSONSchema = Parameters<typeof zod.fromJSONSchema>[0];
 
 export type CompileResult = {
-  fn: (input: unknown) => Promise<unknown>;
+  fn: (input: unknown) => Promise<{ out: any; logs: any[] }>;
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   exampleInput: unknown;
@@ -62,12 +63,13 @@ export class Compiler {
     agent: Agent,
     { additionalContext = {} }: CompileOptions = {}
   ): Promise<CompileResult> {
-    const context = vm.createContext({
+    const sharedContext = {
       ...additionalContext,
       ...availableContext,
       tools: toContextTools(await agent.listTools()),
       ...availableModules,
-    });
+    };
+    const context = vm.createContext({ ...sharedContext });
 
     const cleaned = code
       .replace(/^```[a-z]*/, '')
@@ -88,11 +90,30 @@ export class Compiler {
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { inputSchema, outputSchema, exampleInput, run } = await script.runInContext(context, {
+    const { inputSchema, outputSchema, exampleInput } = await script.runInContext(context, {
       timeout: 1000,
     });
 
-    const fn = async (input: unknown) => {
+    const fn = async (input: unknown): Promise<{ out: any; logs: any[] }> => {
+      const wrappedConsole: Record<string, any> = {};
+      const logs: any[] = [];
+      for (const key of Object.keys(console)) {
+        wrappedConsole[key] = (...args: any[]) => {
+          console.log('Wrapper console captured:', key, args);
+          (console as any)[key](...args);
+          logs.push({ level: key, args });
+        };
+      }
+
+      const { run } = await script.runInContext(
+        vm.createContext({ ...sharedContext, console: wrappedConsole }),
+        {
+          timeout: 1000,
+        }
+      );
+
+      // TODO: Create wrapped log context for concurrency/multicall handling
+
       const parsedInput = await parseWithSchema(inputSchema!, input);
       const result = await run(parsedInput);
       let out;
@@ -102,9 +123,19 @@ export class Compiler {
         console.warn(`Got output validation error: ${e instanceof Error ? e.message : e}`);
         out = result;
       }
-      return out;
+
+      return { out, logs };
     };
 
     return { fn, inputSchema, outputSchema, exampleInput };
   }
 }
+
+export const toBot = async (
+  code: string,
+  agent: Agent,
+  { additionalContext = {} }: CompileOptions = {}
+): Promise<Bot> => {
+  const compiler = new Compiler();
+  return new Bot(await compiler.compile(code, agent, additionalContext));
+};
