@@ -1,6 +1,6 @@
 import { collapseHtml, collapseJson, remove, slimHtml } from '../formats.js';
 import { log } from '../logger.js';
-import { srid } from '../util/index.js';
+import { hash } from '../util/index.js';
 import { MemoryLibraryBackend } from './MemoryLibraryBackend.js';
 
 export type DocumentId = string;
@@ -111,7 +111,13 @@ export class DocumentLibrary {
   constructor(private backend: DocumentLibraryBackend = new MemoryLibraryBackend()) {}
 
   save(input: DocumentInput): DocumentId {
-    const id = `doc:${srid()}`;
+    const id = `doc:${hash({
+      url: input.url,
+      origin: input.origin,
+      contentType: input.contentType,
+      status: input.status,
+      content: input.content,
+    }).substring(0, 8)}`;
     const document = merge({ id }, input);
 
     if (!documentContentTypes.includes(document.contentType)) {

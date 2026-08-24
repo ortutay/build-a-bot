@@ -3,9 +3,9 @@ import { type AnyWorkflow, createWorkflow } from '@mastra/core/workflows';
 import { log } from '../logger.js';
 import { Bot } from '../bot/Bot.js';
 import { Compiler } from '../compile/Compiler.js';
-import { defaultMastra } from '../mastra.js';
+import { defaultMastra } from '../mastra/index.js';
 import type { BuildOptions } from '../types.js';
-import { planSteps, writePlanStep, writeCodeStep } from './steps.js';
+import { fullPlanStep, planSteps, writePlanStep, writeCodeStep } from './steps.js';
 
 // type WorkflowRun = {
 //   mastra: Mastra;
@@ -36,8 +36,9 @@ const planWorkflow = (mastra: Mastra) =>
     inputSchema: planSteps[0].inputSchema,
     outputSchema: planSteps[0].outputSchema,
   })
-    .parallel(planSteps)
-    .then(writePlanStep)
+    // .parallel(planSteps)
+    .then(fullPlanStep)
+    .then(writeCodeStep)
     .commit();
 
 const writeWorkflow = (mastra: Mastra) =>
@@ -47,8 +48,9 @@ const writeWorkflow = (mastra: Mastra) =>
     inputSchema: planSteps[0].inputSchema,
     outputSchema: writeCodeStep.outputSchema,
   })
-    .parallel(planSteps)
-    .then(writePlanStep)
+    // .parallel(planSteps)
+    // .then(writePlanStep)
+    .then(fullPlanStep)
     .then(writeCodeStep)
     .commit();
 
@@ -57,7 +59,7 @@ const runWorkflow = async (
   options: BuildOptions
 ): Promise<any> => {
   const { mastra, cleanup } = await defaultMastra();
-  log.info(`Instantiated default Mastra: ${String(mastra)}`);
+  log.info(`Instantiated default Mastra`);
 
   try {
     const workflow = workflowFactory(mastra);
@@ -75,7 +77,7 @@ const runWorkflow = async (
       throw new Error(`Workflow did not complete successfully: ${result.status}`);
     }
 
-    return result;
+    return { mastra, cleanup, result };
   } finally {
     await cleanup();
   }
@@ -85,19 +87,17 @@ export class Workshop {
   async build(options: BuildOptions): Promise<Bot> {
     log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
 
-    // const { mastra, cleanup, result } = await runWorkflow(writeWorkflow, options);
+    const { mastra, cleanup, result } = await runWorkflow(writeWorkflow, options);
+    try {
+      const { code } = result.result as { code: string };
+      const compiler = new Compiler();
+      const out = await compiler.compile(code, mastra.getAgentById('build-agent'));
+      const { inputSchema, outputSchema, exampleInput, fn } = out;
 
-    // try {
-    //   const { code } = result.result as { code: string };
-    //   const compiler = new Compiler();
-    //   const out = await compiler.compile(code, mastra.getAgentById('build-agent'));
-    //   const { inputSchema, outputSchema, exampleInput, fn } = out;
-
-    //   return new Bot({ inputSchema, outputSchema, exampleInput, fn });
-    // } finally {
-    //   await cleanup();
-    // }
-    throw new Error('Bot generation is not implemented');
+      return new Bot({ inputSchema, outputSchema, exampleInput, fn });
+    } finally {
+      await cleanup();
+    }
   }
 
   async plan(options: BuildOptions): Promise<string> {

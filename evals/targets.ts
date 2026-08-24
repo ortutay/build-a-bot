@@ -10,6 +10,9 @@ export const pokemonTarget: BuildOptions = {
   inputSchema: z.object({
     names: z.array(z.string()).describe('list of pokemon to scrape'),
   }),
+  exampleInput: {
+    names: ['pikachu', 'squirtle'],
+  },
 };
 
 const realEstateInputSchema = z.object({

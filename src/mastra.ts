@@ -8,6 +8,14 @@ import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
+import { DuckDBStore } from '@mastra/duckdb';
+import { MastraCompositeStore } from '@mastra/core/storage';
+import {
+  Observability,
+  MastraStorageExporter,
+  MastraPlatformExporter,
+  SensitiveDataFilter,
+} from '@mastra/observability';
 import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { log } from './logger.js';
 import { getOrNull, hash } from './util/index.js';
@@ -16,8 +24,9 @@ import {
   isMastraPlatform,
   redisCacheUrl,
   sqliteDbUrl,
-  tursoAuthToken,
-  tursoDatabaseUrl,
+  duckDbUrl,
+  // tursoAuthToken,
+  // tursoDatabaseUrl,
 } from './constants.js';
 import { tools as fetchTools } from './tools/fetchTools/index.js';
 import { tools as browserTools } from './tools/browserTools/index.js';
@@ -36,10 +45,6 @@ export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
-  if (isMastraPlatform && !tursoDatabaseUrl) {
-    throw new Error('TURSO_DATABASE_URL must be set for a Mastra Platform deployment.');
-  }
-
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   const cache = redisClient
     ? new RedisServerCache({ client: redisClient }, { keyPrefix: 'cb:' + cb.global + ':' })
@@ -112,6 +117,13 @@ export const defaultMastra = async (): Promise<{
     ...documentTools,
   };
 
+  const planningTools = {
+    ...fetchTools,
+    ...browserTools,
+    ...codeTools,
+    ...documentTools,
+  };
+
   const hooks: ToolHooks = {
     beforeToolCall: async (it) => {
       const { toolName, input, context } = it;
@@ -176,6 +188,14 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
+  const planningAgent = new Agent({
+    id: 'planning-agent',
+    name: 'Planning Agent',
+    instructions: 'You are a planning a scraping bot.',
+    tools: planningTools,
+    ...shared,
+  });
+
   const fetchResearchAgent = new Agent({
     id: 'fetch-research-agent',
     name: 'Fetch Research Agent',
@@ -192,20 +212,57 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
-  const storage = new LibSQLStore({
-    id: 'libsql-storage',
-    url: sqliteDbUrl,
-    authToken: tursoAuthToken,
+  // const storage = new LibSQLStore({
+  //   id: 'libsql-storage',
+  //   url: sqliteDbUrl,
+  //   authToken: tursoAuthToken,
+  // });
+
+  const storage = new MastraCompositeStore({
+    id: 'composite-storage',
+    default: new LibSQLStore({
+      id: 'libsql-storage',
+      url: sqliteDbUrl,
+    }),
+    domains: {
+      observability: await new DuckDBStore({
+        path: duckDbUrl,
+      }).getStore('observability'),
+    },
+  });
+
+  const observability = new Observability({
+    configs: {
+      default: {
+        serviceName: 'mastra',
+        exporters: [
+          // Persists observability events to Mastra Storage
+          new MastraStorageExporter(),
+          // Sends observability events to Mastra platform (if MASTRA_PLATFORM_ACCESS_TOKEN is set)
+          new MastraPlatformExporter(),
+        ],
+        spanOutputProcessors: [
+          // Redacts sensitive data like passwords, tokens, keys
+          new SensitiveDataFilter(),
+        ],
+        logging: {
+          enabled: true,
+          level: 'info',
+        },
+      },
+    },
   });
 
   const mastra = new Mastra({
     agents: {
       buildAgent,
+      planningAgent,
       fetchResearchAgent,
       browserResearchAgent,
     },
     cache,
     storage,
+    observability,
     backgroundTasks: {
       enabled: true,
       globalConcurrency: 20,

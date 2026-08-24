@@ -7,7 +7,7 @@ const guidelinePlaywrightStrictMode =
   'Browser click locators use Playwright strict mode: make each selector match exactly one inspected element whenever possible. Use an index only to disambiguate inspected matches whose order is stable.';
 
 const guidelineTestSnippets =
-  'Always test your assumptions by running small JavaScript snippets using the available tool for that.';
+  'As appropriate, test your assumptions by running small JavaScript snippets using the available tool for that.';
 
 export const userInput = new Template(
   ['url', 'goal'],

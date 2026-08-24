@@ -6,7 +6,7 @@ import {
   type ContentType,
   type DocumentHeaders,
 } from '../../documents/index.js';
-import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
+import { addInstruments, cacheInstrument, runtimeInstrument } from '../../instruments/index.js';
 import { names as proxyNames, proxyFetch } from '../../proxy.js';
 import { parseResponseBody } from '../../util/index.js';
 
@@ -47,8 +47,9 @@ const fetchTool = createTool({
     const headers = Object.fromEntries(resp.headers);
     const contentType = contentTypeFromHeaders(headers);
     const content = parseResponseBody(contentType, await resp.arrayBuffer());
+    const useUrl = resp.url || url;
     const documentId = documentLibrary.save({
-      url: resp.url,
+      url: useUrl,
       origin: 'dynamic',
       contentType,
       status: resp.status,
@@ -64,7 +65,7 @@ const fetchTool = createTool({
 
     return {
       documentId,
-      url: resp.url,
+      url: useUrl,
       ok: resp.ok,
       status: resp.status,
       statusText: resp.statusText,
@@ -76,9 +77,11 @@ const internal = [fetchTool];
 
 export const createFetchTools = async (): Promise<Record<string, Tool>> => {
   return Object.fromEntries(
-    (await Promise.all(internal.map((tool) => addInstruments([runtimeInstrument], tool)))).map(
-      (tool) => [tool.id, tool]
-    )
+    (
+      await Promise.all(
+        internal.map((tool) => addInstruments([cacheInstrument, runtimeInstrument], tool))
+      )
+    ).map((tool) => [tool.id, tool])
   );
 };
 

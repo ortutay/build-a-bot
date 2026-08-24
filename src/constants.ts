@@ -4,11 +4,11 @@ export const env = process.env.ENV || 'dev';
 export const deterministicRandom = env === 'test';
 export const documentLibraryPath = process.env.DOCUMENT_LIBRARY_PATH;
 export const isMastraPlatform = Boolean(process.env.MASTRA_PLATFORM_ACCESS_TOKEN);
-export const redisCacheUrl = isMastraPlatform ? undefined : process.env.REDIS_CACHE_URL;
+export const redisCacheUrl = process.env.REDIS_CACHE_URL;
 export const tursoDatabaseUrl = process.env.TURSO_DATABASE_URL;
-// Keep the environment lookup next to the local fallback so Mastra preflight
-// can verify that production deployments supply a hosted database.
-export const sqliteDbUrl = process.env.TURSO_DATABASE_URL ?? 'file:./db/mastra-storage.db';
+
+export const sqliteDbUrl = 'file:./db/mastra-storage.db';
+export const duckDbUrl = './db/mastra-duckdb.db';
 
 export const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 export const openaiApiKey = process.env.OPENAI_API_KEY;

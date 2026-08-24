@@ -75,6 +75,10 @@ export class ResponseLoggingProcessor implements Processor<'response-logging'> {
 
     if (fromCache) {
       log.info(`AI response cache hit: step=${stepNumber} model=${model.modelId}`);
+    } else {
+      log.info(
+        `${chalk.bold.black.bgYellowBright('[CACHE MISS]')} AI response cache: step=${stepNumber} model=${model.modelId}`
+      );
     }
 
     // log.info('AI response', {

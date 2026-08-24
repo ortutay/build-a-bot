@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { build } from '../src/index.js';
 import { Workshop } from '../src/workshop/Workshop.js';
 import { browserPlanStep } from '../src/workshop/steps.js';
-import { defaultMastra } from '../src/mastra.js';
+import { defaultMastra } from '../src/mastra/index.js';
 import { c21Target, pokemonTarget } from './targets.js';
 
 describe('browserPlanStep', () => {
