@@ -20,7 +20,7 @@ import { log } from '../logger.js';
 import { getOrNull, hash } from '../util/index.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
-import { redisCacheUrl, sqliteDbUrl, duckDbUrl } from '../constants.js';
+import { redisCacheUrl, tursoAuthToken, tursoDatabaseUrl, duckDbUrl } from '../constants.js';
 import { tools as fetchTools } from '../tools/fetchTools/index.js';
 import { tools as browserTools } from '../tools/browserTools/index.js';
 import { tools as codeTools } from '../tools/codeTools/index.js';
@@ -78,6 +78,10 @@ export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
+  if (!tursoDatabaseUrl) {
+    throw new Error('TURSO_DATABASE_URL must contain a hosted LibSQL database URL');
+  }
+
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.warn('No Redis client, not using cache');
@@ -251,17 +255,12 @@ export const defaultMastra = async (): Promise<{
     ...shared,
   });
 
-  // const storage = new LibSQLStore({
-  //   id: 'libsql-storage',
-  //   url: sqliteDbUrl,
-  //   authToken: tursoAuthToken,
-  // });
-
   const storage = new MastraCompositeStore({
     id: 'composite-storage',
     default: new LibSQLStore({
       id: 'libsql-storage',
-      url: sqliteDbUrl,
+      url: tursoDatabaseUrl,
+      authToken: tursoAuthToken,
     }),
     domains: {
       observability: await duckDb.getStore('observability'),

@@ -16,7 +16,7 @@ Set `OPENROUTER_API_KEY` before calling `build()`.
 
 ## Deploying with Mastra
 
-Local runs use `REDIS_CACHE_URL` (normally `redis://localhost:54321`) and a file-backed LibSQL database. Mastra Platform deployments are detected through `MASTRA_PLATFORM_ACCESS_TOKEN`; there, the runtime uses an in-memory cache and requires a hosted Turso/LibSQL database. Attach one in **Project Settings → Databases** so the platform supplies `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` to a hosted Turso/LibSQL database in `.env`; Mastra storage does not support a build-host-local SQLite file. Local runs also use `REDIS_CACHE_URL` (normally `redis://localhost:54321`). For Mastra Platform deployments, attach a database in **Project Settings → Databases** so the platform supplies the Turso variables.
 
 Configure the provider keys for every remote tool you enable, especially `OPENROUTER_API_KEY`, `BRIGHTDATA_API_KEY`, and `SCRAPINGBEE_API_KEY`.
 
