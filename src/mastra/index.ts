@@ -91,13 +91,13 @@ export const defaultMastra = async (): Promise<{
     : new InMemoryServerCache();
 
   const [
-    brightdataTools,
+    // brightdataTools,
     // firecrawlTools,
-    scrapingbeeTools,
+    // scrapingbeeTools,
   ] = await Promise.all([
-    createBrightdataTools(),
+    // createBrightdataTools(),
     // createFirecrawlTools(),
-    createScrapingbeeTools(),
+    // createScrapingbeeTools(),
   ]);
 
   // model: 'google/gemini-3.5-flash',

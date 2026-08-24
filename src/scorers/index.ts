@@ -21,6 +21,8 @@ Return a score from 0 to 1, where 1 means the plan is correct and complete for
 the requested task, and 0 means it is unusable or unrelated. Use intermediate
 values for partial correctness.
 
+Keep your analysis concise.
+
 <plan>
 ${JSON.stringify(run.output, null, 2)}
 </plan>
