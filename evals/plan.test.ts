@@ -8,6 +8,7 @@ import { Workshop } from '../src/workshop/Workshop.js';
 import { browserPlanStep } from '../src/workshop/steps.js';
 import { defaultMastra } from '../src/mastra/index.js';
 import { c21Target, pokemonTarget } from './targets.js';
+import { planStepScorer } from '../src/scorers/index.js';
 
 describe('browserPlanStep', () => {
   it('should plan pokemon for browser', async () => {
@@ -31,7 +32,14 @@ describe('browserPlanStep', () => {
         },
       });
 
+      console.log('Full out:', out);
       console.log('Report:', out.result.report);
+
+      const evaluation = await planStepScorer.run({
+        input: { url: pokemonTarget.url, goal: pokemonTarget.prompt },
+        output: out.result,
+      });
+      console.log('Score:', evaluation.score);
     } finally {
       await cleanup();
     }

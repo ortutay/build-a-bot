@@ -106,6 +106,10 @@ Include specifics in your report, including:
 
 Give enough HTML snippets to write the proper selectors.
 
+# Snippets
+
+If tools are available, test your assumptions using snippets. You may include small code snippets that worked in the report output as appropriate.
+
 # Input and ouput schema
 
 Define an input and output schema for this function. It should be a reusable, paramaterized function. It will be part of HTTP API endpoint, so the input should be a JSON object, mostly strings or numbers as values.

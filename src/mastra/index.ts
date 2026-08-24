@@ -33,6 +33,7 @@ import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from '../processors/ResponseLoggingProcessor.js';
+import { planStepScorer } from '../scorers/index.js';
 
 const duckDb = new DuckDBStore({
   path: duckDbUrl,
@@ -296,6 +297,7 @@ export const defaultMastra = async (): Promise<{
       fetchResearchAgent,
       browserResearchAgent,
     },
+    scorers: { planStepScorer },
     cache,
     storage,
     observability,
@@ -333,12 +335,6 @@ export const defaultMastra = async (): Promise<{
   return { mastra, cleanup };
 };
 
-// Initialize default mastra once
-// let init_;
-// let default_: any;
-// if (!init_) {
-//   init_ = true;
-//   default_ = await defaultMastra();
-// }
-// const { mastra, cleanup } = default_;
-// export { mastra, cleanup };
+const default_ = await defaultMastra();
+const { mastra, cleanup } = default_;
+export { mastra, cleanup };

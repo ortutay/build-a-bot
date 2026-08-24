@@ -3,6 +3,7 @@ import { log } from '../logger.js';
 import { z } from 'zod';
 import * as templates from '../prompts/templates.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
+import { planStepScorer } from '../scorers/index.js';
 
 const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
@@ -18,11 +19,18 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
       goal: z.string(),
       report: z.string(),
     }),
+    scorers: {
+      planStepScorer: {
+        scorer: planStepScorer,
+        sampling: {
+          type: 'ratio',
+          rate: 1,
+        },
+      },
+    },
     execute: async ({ inputData, mastra }) => {
       log.info('Running report step');
 
-      // const agent = mastra!.getAgentById('build-agent');
-      // const agent = mastra!.getAgentById('planning-agent');
       const agent = mastra!.getAgentById(agentId);
       const { url, goal } = inputData;
 
@@ -42,6 +50,7 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
 
       // TODO: add a non-tool step in case last response is a tool call, to avoid empty text issue
       const resp = await agent.generate(prompt, { maxSteps: 20 });
+      // const resp = await agent.generate(prompt, { maxSteps: 2 });
 
       let report: string;
       if (resp.text) {
