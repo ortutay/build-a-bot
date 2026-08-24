@@ -26,7 +26,7 @@ describe('browser tools', () => {
 
   afterAll(async () => {
     await closeBrowserTools();
-    await site.close();
+    if (site) await site.close();
   });
 
   describe('BrowserToolCache', () => {

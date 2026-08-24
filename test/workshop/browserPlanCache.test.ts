@@ -15,7 +15,7 @@ describe('browser plan cache', () => {
 
   afterAll(async () => {
     await closeBrowserTools();
-    await site.close();
+    if (site) await site.close();
   });
 
   it('makes the second browser-plan run fast', async () => {

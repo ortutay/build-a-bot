@@ -10,6 +10,8 @@ vi.mock('../../src/proxy.js', () => ({
 import { createFetchTools } from '../../src/tools/fetchTools/tools.js';
 import { createDocumentTools } from '../../src/tools/documents/tools.js';
 
+const uniqueUrl = (path: string): string => `https://example.test/${path}-${crypto.randomUUID()}`;
+
 const response = ({
   url,
   status = 200,
@@ -29,6 +31,7 @@ const response = ({
     status,
     statusText,
     headers: new Headers(headers),
+    arrayBuffer: async () => new TextEncoder().encode(body).buffer,
     text: async () => body,
   }) as Response;
 
@@ -60,7 +63,7 @@ describe('fetch tools', () => {
   });
 
   it('fetches an HTTP error response with top-level fields and runtime metadata', async () => {
-    const url = 'https://example.test/missing';
+    const url = uniqueUrl('missing');
     proxyFetch.mockResolvedValue(
       response({
         url,
@@ -86,7 +89,7 @@ describe('fetch tools', () => {
   });
 
   it('saves fetched content for document tools to retrieve', async () => {
-    const url = 'https://example.test/product';
+    const url = uniqueUrl('product');
     const body = '<html><body><h1>Product</h1></body></html>';
     proxyFetch.mockResolvedValue(response({ url, headers: { 'x-product-id': '123' }, body }));
 
@@ -113,7 +116,7 @@ describe('fetch tools', () => {
   });
 
   it('returns slim HTML without scripts and with resolved links', async () => {
-    const url = 'https://example.test/catalog/';
+    const url = uniqueUrl('catalog') + '/';
     proxyFetch.mockResolvedValue(
       response({
         url,
@@ -132,16 +135,17 @@ describe('fetch tools', () => {
     expect(viewed.content).not.toContain('secret()');
   });
 
-  it('saves each fetch as a separate document', async () => {
-    const url = 'https://example.test/catalog';
+  it('returns the cached document for repeated fetches', async () => {
+    const url = uniqueUrl('catalog');
     proxyFetch.mockResolvedValue(response({ url, body: '<p>Catalog</p>' }));
 
     const first = await execute(fetchTools, 'fetch', { url, proxy: 'unblock' });
     const second = await execute(fetchTools, 'fetch', { url, proxy: 'unblock' });
     const differentProxy = await execute(fetchTools, 'fetch', { url, proxy: 'residential' });
 
-    expect(second.documentId).not.toBe(first.documentId);
-    expect(differentProxy.documentId).not.toBe(first.documentId);
+    expect(second.documentId).toBe(first.documentId);
+    expect(differentProxy.documentId).toBe(first.documentId);
+    expect(proxyFetch).toHaveBeenCalledTimes(2);
   });
 
   it('rejects unknown document IDs', async () => {
