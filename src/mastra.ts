@@ -218,7 +218,7 @@ export const defaultMastra = async (): Promise<{
     }),
     domains: {
       observability: await new DuckDBStore({
-        path: duckDbUrl,
+        // path: duckDbUrl,
       }).getStore('observability'),
     },
   });
