@@ -128,7 +128,7 @@ export const writePlanStep = createStep({
 export const writeCodeStep = createStep({
   id: 'write-code-step',
   ...shared,
-  inputSchema: planSteps[0].outputSchema,
+  inputSchema: fullPlanStep.outputSchema,
   outputSchema: z.object({
     code: z.string(),
   }),

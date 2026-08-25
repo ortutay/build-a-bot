@@ -66,7 +66,9 @@ export const buildScorer = createScorer({
       results,
     }) => `Evaluate whether the generated scraper succeeded in giving correct results.
 
-Bot blocks, compilation/runtime failures, invalid output, or failure to get the right data should receive a low score. Evaluate the results from the perspective of the user, who wants correct, reliable data.
+Bot blocks, compilation/runtime failures, invalid output, or failure to get the right data should receive a low score.
+
+Evaluate the results mostly from the perspective of the user, who wants correct, reliable data. However, also consider the code, and possible failure cases that don't show up in this specific run.
 
 You don't have the ground truth, use your general world knowledge to evaluate if the results seem reasonable and correct. Do not mark down results if you lack full knowledge to validate them, in those cases use your common sense as ground truth.
 
