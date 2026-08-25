@@ -27,6 +27,7 @@ import {
   ResponseLoggingProcessor,
 } from '../processors/ResponseLoggingProcessor.js';
 import { planStepScorer, buildScorer } from '../scorers/index.js';
+import { planWorkflow, writeWorkflow } from '../workflows/index.js';
 import { allTools, fetchResearchTools, browserResearchTools, planningTools } from './tools.js';
 
 const duckDb = new DuckDBStore({});
@@ -262,7 +263,14 @@ export const defaultMastra = async (): Promise<{
       fetchResearchAgent,
       browserResearchAgent,
     },
-    scorers: { planStepScorer, buildScorer },
+    scorers: {
+      planStepScorer,
+      buildScorer,
+    },
+    workflows: {
+      planWorkflow,
+      writeWorkflow,
+    },
     cache,
     storage,
     observability,

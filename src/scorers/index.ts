@@ -57,6 +57,7 @@ export const buildScorer = createScorer({
   })
   .generateScore({
     description: 'Determine if the output code and results appear correct.',
+    // @ts-expect-error TS2353 — bug in mastra 1.61.0
     outputSchema: z.object({
       analysis: z.string(),
       score: z.number().min(0).max(1),
