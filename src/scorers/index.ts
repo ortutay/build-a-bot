@@ -43,16 +43,12 @@ export const buildScorer = createScorer({
 })
   .preprocess(async (args) => {
     const { run } = args;
-    console.log('build scorer on:', run);
     const code = run.output.code;
     const bot = await toBot(code, mastra.getAgentById('build-agent'));
-    console.log('built bot, toBot:', bot);
-    const exampleInput = run.input.exampleInput ?? bot.exampleInput;
+    const exampleInput = run.input?.exampleInput ?? bot.exampleInput;
     const runId = srid();
     const results = await bot.run(exampleInput, runId);
     const logs = bot.getLogs(runId);
-    console.log('bot logs:', logs);
-    console.log('bot results:', results);
     return {
       code,
       exampleInput,
@@ -60,7 +56,7 @@ export const buildScorer = createScorer({
       logs,
     };
   })
-  .analyze({
+  .generateScore({
     description: 'Determine if the output code and results appear correct.',
     outputSchema: z.object({
       analysis: z.string(),
@@ -68,15 +64,44 @@ export const buildScorer = createScorer({
     }),
     createPrompt: ({
       run,
-    }) => `Evaluate whether scraper appears correct. Focus on output correctness, and also consider code robustness and likely reliability as secondary scoring factors.
+      results,
+    }) => `Evaluate whether the generated scraper succeeded in giving correct results.
 
-Return a score from 0 to 1, where 1 means the code and output are correct and complete for the requested task, and 0 means it is unusable or unrelated. Use intermediate values for partial correctness.
+Bot blocks, compilation/runtime failures, invalid output, or failure to get the right data should receive a low score. Evaluate the results from the perspective of the user, who wants correct, reliable data.
 
-Keep your analysis concise.
+You don't have the ground truth, use your general world knowledge to evaluate if the results seem reasonable and correct. Do not mark down results if you lack full knowledge to validate them, in those cases use your common sense as ground truth.
 
-<plan>
-${JSON.stringify(run.output, null, 2)}
-</plan>
+Keep the analysis concise.
+
+<task>
+${JSON.stringify(run.input, null, 2)}
+</task>
+
+<generated-code>
+${results.preprocessStepResult.code}
+</generated-code>
+
+<execution>
+${JSON.stringify(results.preprocessStepResult, null, 2)}
+    </execution>
 `,
+    calculateScore: (output: { score: number }) => output.score,
   })
-  .generateScore(({ results }) => results.analyzeStepResult.score);
+  .generateReason({
+    description: 'Explain the scraper evaluation score.',
+    createPrompt: ({
+      results,
+      score,
+    }) => `Explain this scraper evaluation score in one concise paragraph.
+
+<score>
+${score}
+</score>
+
+<execution>
+${JSON.stringify(results.preprocessStepResult, null, 2)}
+</execution>
+
+Identify the most important evidence supporting the score, including any failures or reliability concerns. Keep your explanation high in signal, low in boilerplate and low in noise.
+`,
+  });

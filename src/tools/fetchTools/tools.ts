@@ -34,11 +34,12 @@ const fetchTool = createTool({
       .describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`),
   }),
   outputSchema: z.object({
+    documentId: z.string(),
     url: z.string(),
     ok: z.boolean(),
     status: z.number(),
     statusText: z.string(),
-    documentId: z.string(),
+    bytes: z.number(),
   }),
   execute: async ({ url, proxy }) => {
     const timestamp = new Date().toISOString();
@@ -69,6 +70,7 @@ const fetchTool = createTool({
       ok: resp.ok,
       status: resp.status,
       statusText: resp.statusText,
+      bytes: content.length,
     };
   },
 });

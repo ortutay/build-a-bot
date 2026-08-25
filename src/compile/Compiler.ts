@@ -1,12 +1,13 @@
-import { Agent } from '@mastra/core/agent';
+import chalk from 'chalk';
 import * as vm from 'node:vm';
 import * as cheerio from 'cheerio';
 import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
 import type { JSONSchema } from 'json-schema-to-ts';
+import { Agent } from '@mastra/core/agent';
 import { toContextTools } from './tool-fns.js';
-import { srid } from '../util/index.js';
+import { log } from '../logger.js';
 import { Bot } from '../bot/Bot.js';
 
 type ZodJSONSchema = Parameters<typeof zod.fromJSONSchema>[0];
@@ -99,8 +100,7 @@ export class Compiler {
       const logs: any[] = [];
       for (const key of Object.keys(console)) {
         wrappedConsole[key] = (...args: any[]) => {
-          console.log('Wrapper console captured:', key, args);
-          (console as any)[key](...args);
+          log.info(`${chalk.bgGray.bold('[BOT LOG]')}:`, ...args);
           logs.push({ level: key, args });
         };
       }
@@ -112,15 +112,13 @@ export class Compiler {
         }
       );
 
-      // TODO: Create wrapped log context for concurrency/multicall handling
-
       const parsedInput = await parseWithSchema(inputSchema!, input);
       const result = await run(parsedInput);
       let out;
       try {
         out = await parseWithSchema(outputSchema!, result);
       } catch (e) {
-        console.warn(`Got output validation error: ${e instanceof Error ? e.message : e}`);
+        log.warn(`Got output validation error: ${e instanceof Error ? e.message : e}`);
         out = result;
       }
 
