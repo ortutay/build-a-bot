@@ -64,57 +64,29 @@ export class ResponseLoggingProcessor implements Processor<'response-logging'> {
   logResponse({
     stepNumber,
     model,
-    rawResponse,
     chunks,
     fromCache,
   }: Pick<
     ProcessLLMResponseArgs,
     'stepNumber' | 'model' | 'rawResponse' | 'chunks' | 'fromCache'
   >) {
-    log.info(`${chalk.bold.yellowBright('AI Step ' + stepNumber)}`);
+    log.info(`${chalk.bold.black.bgYellowBright('AI STEP ' + stepNumber)}`);
 
     if (fromCache) {
-      log.info(`AI response cache hit: step=${stepNumber} model=${model.modelId}`);
+      log.info(`${chalk.bold('[cache hit]')} step=${stepNumber} model=${model.modelId}`);
     } else {
       log.info(
-        `${chalk.bold.black.bgYellowBright('[CACHE MISS]')} AI response cache: step=${stepNumber} model=${model.modelId}`
+        `${chalk.bold.yellowBright('[cache miss]')} step=${stepNumber} model=${model.modelId}`
       );
     }
-
-    // log.info('AI response', {
-    //   stepNumber,
-    //   model: model.modelId,
-    //   fromCache,
-    //   rawResponse,
-    // });
 
     const toolCalls = chunks
       .filter((chunk) => chunk.type === 'tool-call')
       .map((chunk) => chunk.payload);
 
-    // if (toolCalls.length > 0) {
-    //   log.info('AI tool calls:', toolCalls);
-    // }
-
     for (const toolCall of toolCalls) {
       const { toolName, args } = toolCall as { toolName: string; args: Record<string, unknown> };
       log.info(`${chalk.bold.cyanBright(toolName)} ${prettyArg(omit(args, ['_background']))}`);
-    }
-
-    // throw new Error('STOP 123');
-
-    // for (const chunk of chunks) {
-    //   log.info(`* Chunk: type=${chunk.type}, text=${this.textFromPayload(chunk)}`);
-    //   console.log(chunk);
-    // }
-
-    const reasoning = chunks
-      .filter((chunk) => chunk.type === 'reasoning')
-      .map((chunk) => this.textFromPayload(chunk.payload))
-      .filter((text): text is string => text !== undefined)
-      .join('');
-    if (reasoning) {
-      log.info(`AI reasoning: ${reasoning}`);
     }
   }
 

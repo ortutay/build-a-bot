@@ -37,6 +37,7 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "prepack": "npm run build",
     "scratch": "tsx src/scratch.js",
+    "create-datasets": "tsx tasks/create-datasets.ts",
     "prepare": "husky"
   },
   "dependencies": {

@@ -2,7 +2,9 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { runEvals } from '@mastra/core/evals';
 import { writeWorkflow } from '../src/workflows/index.js';
 import { cleanup } from '../src/mastra/index.js';
+import { loadDataset, loadItemsFromDataset } from '../src/datasets/index.js';
 import { buildScorer } from '../src/scorers/index.js';
+import { log } from '../src/logger.js';
 import {
   pokemonTarget,
   northeastTarget,
@@ -67,5 +69,88 @@ describe('full evals', () => {
     it(`should build and scrape ${target.url} @top-level-real-estate`, async () => {
       await runTarget(target);
     }, 180_000);
+  }
+
+  for (const name of ['basic', 'real-estate'] as const) {
+    it(
+      `evaluates every ${name} dataset item`,
+      async () => {
+        const items = await loadItemsFromDataset(name, { limit: 100 });
+        const dataset = await loadDataset(name);
+        const experiment = await dataset.createExperiment({
+          name: `${name}-write-workflow`,
+          targetType: 'workflow',
+          targetId: writeWorkflow.id,
+          scorers: [buildScorer.id],
+        });
+
+        for (const item of items) {
+          const itemId = item.id;
+          log.info(`Running ${itemId}: ${JSON.stringify(item.input)}`);
+          const { result, scores } = await dataset.runExperimentItem({
+            experimentId: experiment.experimentId,
+            itemId,
+          });
+
+          log.info(
+            `Result: ${JSON.stringify({ itemId: result.itemId, error: result.error, retryCount: result.retryCount })}`
+          );
+          log.info(
+            `Scores: ${JSON.stringify(
+              scores.map(({ scorerId, scorerName, score, reason, error }) => ({
+                scorerId,
+                scorerName,
+                score,
+                reason,
+                error,
+              }))
+            )}`
+          );
+        }
+
+        const summary = await dataset.finalizeExperiment({ experimentId: experiment.experimentId });
+        log.info(
+          `Experiment summary: ${JSON.stringify({
+            experimentId: summary.id,
+            status: summary.status,
+            totalItems: summary.totalItems,
+            succeededCount: summary.succeededCount,
+            failedCount: summary.failedCount,
+            skippedCount: summary.skippedCount,
+          })}`
+        );
+      },
+      30 * 60_000
+    );
+
+    it(
+      `evaluates the entire ${name} dataset`,
+      async () => {
+        const dataset = await loadDataset(name);
+        const summary = await dataset.startExperiment({
+          name: `${name}-write-workflow`,
+          targetType: 'workflow',
+          targetId: writeWorkflow.id,
+          scorers: {
+            workflow: [buildScorer],
+          },
+          maxConcurrency: 4,
+          itemTimeout: 180_000,
+        });
+
+        log.info(
+          `Experiment summary: ${JSON.stringify({
+            experimentId: summary.experimentId,
+            status: summary.status,
+            totalItems: summary.totalItems,
+            succeededCount: summary.succeededCount,
+            failedCount: summary.failedCount,
+            skippedCount: summary.skippedCount,
+            completedWithErrors: summary.completedWithErrors,
+          })}`
+        );
+      },
+      30 * 60_000
+    );
   }
 });
