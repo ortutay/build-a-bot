@@ -7,8 +7,6 @@ export const isMastraPlatform = Boolean(process.env.MASTRA_PLATFORM_ACCESS_TOKEN
 export const redisCacheUrl = process.env.REDIS_CACHE_URL;
 export const tursoDatabaseUrl = process.env.TURSO_DATABASE_URL;
 
-export const duckDbUrl = './db/mastra-duckdb.db';
-
 export const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 export const openaiApiKey = process.env.OPENAI_API_KEY;
 export const brightdataApiKey = process.env.BRIGHTDATA_API_KEY;

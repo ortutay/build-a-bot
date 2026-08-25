@@ -20,24 +20,16 @@ import { log } from '../logger.js';
 import { getOrNull, hash } from '../util/index.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
-import { redisCacheUrl, tursoAuthToken, tursoDatabaseUrl, duckDbUrl } from '../constants.js';
-import { tools as fetchTools } from '../tools/fetchTools/index.js';
-import { tools as browserTools } from '../tools/browserTools/index.js';
-import { tools as codeTools } from '../tools/codeTools/index.js';
-import { tools as documentTools } from '../tools/documents/index.js';
-import { createTools as createBrightdataTools } from '../tools/brightdataTools/index.js';
-// import { createTools as createFirecrawlTools } from '../tools/firecrawlTools/index.js';
-import { createTools as createScrapingbeeTools } from '../tools/scrapingbeeTools/index.js';
+import { redisCacheUrl, tursoAuthToken, tursoDatabaseUrl } from '../constants.js';
 import { ContextCompressionProcessor } from '../processors/ContextCompressionProcessor.js';
 import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from '../processors/ResponseLoggingProcessor.js';
 import { planStepScorer, buildScorer } from '../scorers/index.js';
+import { allTools, fetchResearchTools, browserResearchTools, planningTools } from './tools.js';
 
-const duckDb = new DuckDBStore({
-  // path: duckDbUrl,
-});
+const duckDb = new DuckDBStore({});
 
 let duckDbClosePromise: Promise<void> | null = null;
 
@@ -139,33 +131,6 @@ export const defaultMastra = async (): Promise<{
   // const outputProcessors = [
   //   new ResponseLoggingProcessor(),
   // ];
-
-  const allTools = {
-    ...fetchTools,
-    ...browserTools,
-    ...codeTools,
-    ...documentTools,
-    // ...brightdataTools,
-    // ...firecrawlTools,
-    // ...scrapingbeeTools,
-  };
-  const fetchResearchTools = {
-    ...fetchTools,
-    ...codeTools,
-    ...documentTools,
-  };
-  const browserResearchTools = {
-    ...browserTools,
-    ...codeTools,
-    ...documentTools,
-  };
-
-  const planningTools = {
-    ...fetchTools,
-    ...browserTools,
-    ...codeTools,
-    ...documentTools,
-  };
 
   const hooks: ToolHooks = {
     beforeToolCall: async (it) => {

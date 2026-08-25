@@ -5,10 +5,7 @@ import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
 import type { JSONSchema } from 'json-schema-to-ts';
-import { Agent } from '@mastra/core/agent';
-import { toContextTools } from './tool-fns.js';
 import { log } from '../logger.js';
-import { Bot } from '../bot/Bot.js';
 
 type ZodJSONSchema = Parameters<typeof zod.fromJSONSchema>[0];
 
@@ -19,7 +16,7 @@ export type CompileResult = {
   exampleInput: unknown;
 };
 
-type CompileOptions = {
+export type CompileOptions = {
   additionalContext?: Record<string, unknown>;
 };
 
@@ -61,13 +58,12 @@ export class Compiler {
 
   async compile(
     code: string,
-    agent: Agent,
     { additionalContext = {} }: CompileOptions = {}
   ): Promise<CompileResult> {
     const sharedContext = {
       ...additionalContext,
       ...availableContext,
-      tools: toContextTools(await agent.listTools()),
+      // tools: toContextTools(allTools),
       ...availableModules,
     };
     const context = vm.createContext({ ...sharedContext });
@@ -128,12 +124,3 @@ export class Compiler {
     return { fn, inputSchema, outputSchema, exampleInput };
   }
 }
-
-export const toBot = async (
-  code: string,
-  agent: Agent,
-  { additionalContext = {} }: CompileOptions = {}
-): Promise<Bot> => {
-  const compiler = new Compiler();
-  return new Bot(await compiler.compile(code, agent, additionalContext));
-};

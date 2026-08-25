@@ -74,9 +74,9 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
   });
 
 export const fullPlanStep = planStep('plan-step', 'planning-agent');
-export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
-export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
-export const planSteps = [fetchPlanStep, browserPlanStep] as const;
+
+// export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
+// export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',

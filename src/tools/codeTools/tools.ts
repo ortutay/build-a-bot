@@ -70,7 +70,6 @@ You should define a function called run as follows:
         const outputSchema = {};
         ${code}
       `,
-      context.mastra.getAgentById(agentId),
       { additionalContext: snippetContext.values }
     );
 

@@ -1,7 +1,6 @@
 import { createScorer } from '@mastra/core/evals';
 import { z } from 'zod';
-import { toBot } from '../compile/Compiler.js';
-import { mastra } from '../mastra/index.js';
+import { toBot } from '../compile/toBot.js';
 import { srid } from '../util/index.js';
 
 export const planStepScorer = createScorer({
@@ -44,7 +43,7 @@ export const buildScorer = createScorer({
   .preprocess(async (args) => {
     const { run } = args;
     const code = run.output.code;
-    const bot = await toBot(code, mastra.getAgentById('build-agent'));
+    const bot = await toBot(code);
     const exampleInput = run.input?.exampleInput ?? bot.exampleInput;
     const runId = srid();
     const results = await bot.run(exampleInput, runId);

@@ -1,18 +1,17 @@
 import { type AnyWorkflow, createWorkflow } from '@mastra/core/workflows';
 import { log } from '../logger.js';
 import { Bot } from '../bot/Bot.js';
-import { toBot } from '../compile/Compiler.js';
+import { toBot } from '../compile/toBot.js';
 import { mastra } from '../mastra/index.js';
 import type { BuildOptions } from '../types.js';
-import { fullPlanStep, planSteps, writeCodeStep } from './steps.js';
+import { fullPlanStep, writeCodeStep } from './steps.js';
 
 export const planWorkflow = createWorkflow({
   mastra,
   id: 'plan-workflow',
-  inputSchema: planSteps[0].inputSchema,
-  outputSchema: planSteps[0].outputSchema,
+  inputSchema: fullPlanStep.inputSchema,
+  outputSchema: fullPlanStep.outputSchema,
 })
-  // .parallel(planSteps)
   .then(fullPlanStep)
   .then(writeCodeStep)
   .commit();
@@ -20,11 +19,9 @@ export const planWorkflow = createWorkflow({
 export const writeWorkflow = createWorkflow({
   mastra,
   id: 'write-workflow',
-  inputSchema: planSteps[0].inputSchema,
+  inputSchema: fullPlanStep.inputSchema,
   outputSchema: writeCodeStep.outputSchema,
 })
-  // .parallel(planSteps)
-  // .then(writePlanStep)
   .then(fullPlanStep)
   .then(writeCodeStep)
   .commit();
@@ -50,10 +47,9 @@ const runWorkflow = async (options: BuildOptions, workflow: AnyWorkflow): Promis
 export class Workshop {
   async build(options: BuildOptions): Promise<Bot> {
     log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
-
     const { result } = await runWorkflow(options, writeWorkflow);
     const { code } = result.result as { code: string };
-    return toBot(code, mastra.getAgentById('build-agent'));
+    return toBot(code);
   }
 
   async plan(options: BuildOptions): Promise<string> {
