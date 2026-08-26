@@ -1,6 +1,6 @@
-const global = 'g' + 10;
+const global: string = 'g' + 10;
 
-export const cb = {
+export const cb: Record<string, string> = {
   global,
   browserToolCache: 'btc' + global + 2,
   cacheInstrument: 'ci' + global + 1,

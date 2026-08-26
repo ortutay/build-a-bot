@@ -3,7 +3,7 @@ import {
   createRealEstateIfNotExists,
   upsertBasic,
   upsertRealEstate,
-} from '../src/datasets/index.js';
+} from '../src/mastra/datasets/index.js';
 
 const main = async () => {
   const realEstateDataset = await createRealEstateIfNotExists();

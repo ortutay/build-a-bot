@@ -1,8 +1,8 @@
 import type { Dataset } from '@mastra/core/datasets';
 import { z } from 'zod';
-import { log } from '../logger.js';
-import { mastra } from '../mastra/index.js';
-import { getOrNull } from '../util/index.js';
+import { log } from '../../logger.js';
+import { mastra } from '../index.js';
+import { getOrNull } from '../../util/index.js';
 import { basicTargets, realEstateTargets } from './targets.js';
 
 const realEstateDatasetName = 'real-estate';
