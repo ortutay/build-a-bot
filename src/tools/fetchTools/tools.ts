@@ -6,7 +6,11 @@ import {
   type ContentType,
   type DocumentHeaders,
 } from '../../documents/index.js';
-import { addInstruments, cacheInstrument, runtimeInstrument } from '../../instruments/index.js';
+import {
+  addInstruments,
+  cacheInstrument,
+  runtimeInstrument,
+} from '../../mastra/instruments/index.js';
 import { names as proxyNames, proxyFetch } from '../../proxy.js';
 import { parseResponseBody } from '../../util/index.js';
 

@@ -1,9 +1,9 @@
 import { type Tool } from '@mastra/core/tools';
-import { DiskCache } from '../cache/DiskCache.js';
-import { cb } from '../cache/busters.js';
-import { hash } from '../util/index.js';
+import { DiskCache } from '../../cache/DiskCache.js';
+import { cb } from '../../cache/busters.js';
+import { hash } from '../../util/index.js';
 import { addMetric, asJSONSchema } from './shared.js';
-import { log } from '../logger.js';
+import { log } from '../../logger.js';
 
 type CachedToolResult =
   { type: 'output'; output: unknown } | { type: 'error'; error: CachedToolError };

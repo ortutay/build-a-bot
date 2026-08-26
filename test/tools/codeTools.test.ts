@@ -6,12 +6,14 @@ const runSnippet = async (code: string) => {
   const execute = tools.codeTools_runJsSnippetTool.execute;
   if (!execute) throw new Error('Code tool has no execute function');
 
-  return execute({ intent: 'Inspect a saved document', code }, {
+  const result = (await execute({ intent: 'Inspect a saved document', code }, {
     agent: { agentId: 'test-agent' },
     mastra: {
       getAgentById: () => ({ listTools: async () => ({}) }),
     },
-  } as any);
+  } as any)) as { out: unknown };
+
+  return result.out;
 };
 
 describe('code tools', () => {

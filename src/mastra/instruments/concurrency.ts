@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import { type Tool } from '@mastra/core/tools';
 import PQueue from 'p-queue';
-import { log } from '../logger.js';
+import { log } from '../../logger.js';
 import { asJSONSchema } from './shared.js';
 
 export const concurrencyInstrument = async (tool: Tool): Promise<Tool> => {

@@ -2,7 +2,7 @@ import { type Tool } from '@mastra/core/tools';
 import { memo } from 'radash';
 import { z } from 'zod';
 import { firecrawlApiKey } from '../../constants.js';
-import { addMetric, instrumentOutputSchema } from '../../instruments/shared.js';
+import { addMetric, instrumentOutputSchema } from '../../mastra/instruments/shared.js';
 import { getOrNull } from '../../util/index.js';
 
 export const firecrawlCostInstrument = async (tool: Tool): Promise<Tool> => {

@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import { standardSchemaToJSONSchema, type StandardSchemaWithJSON } from '@mastra/core/schema';
 import type { ToolExecutionContext, Tool } from '@mastra/core/tools';
-import { log } from '../logger.js';
+import { log } from '../../logger.js';
 
 export const addMetric = (
   output: unknown,

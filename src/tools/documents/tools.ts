@@ -12,7 +12,7 @@ import {
   type DocumentId,
   type DocumentListQuery,
 } from '../../documents/index.js';
-import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
+import { addInstruments, runtimeInstrument } from '../../mastra/instruments/index.js';
 
 const prefix = (str: string): string => 'documentTools_' + str;
 
