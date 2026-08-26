@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "mastra:build": "mastra build",
     "dev": "tsc --watch",
     "test": "ENV=test FORCE_COLOR=1 vitest run --dir test",
     "test:watch": "ENV=test FORCE_COLOR=1 vitest --dir test",
@@ -33,7 +34,7 @@
   },
   "dependencies": {
     "@ghostery/adblocker": "^2.18.2",
-    "@mastra/core": "^1.61.0",
+    "@mastra/core": "^1.63.0",
     "@mastra/duckdb": "^1.6.2",
     "@mastra/evals": "^1.9.0",
     "@mastra/libsql": "^1.21.1",
@@ -54,5 +55,8 @@
     "tslog": "^5.1.0",
     "undici": "^7.24.4",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "mastra": "^1.27.0"
   }
 }
