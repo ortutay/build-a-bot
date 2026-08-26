@@ -40,5 +40,8 @@
   "allowScripts": {
     "fsevents@2.3.2": true,
     "fsevents@2.3.3": true
+  },
+  "dependencies": {
+    "@mastra/core": "^1.63.0"
   }
 }
