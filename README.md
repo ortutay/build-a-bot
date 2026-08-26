@@ -1,46 +1,27 @@
-# builder
+# Build-A-Bot
 
-An experimental web-access agent built around direct OpenRouter tool calls and plain Playwright.
+This repository is an npm workspace containing four packages:
 
-The project is a library-style runner for now. It intentionally has no CLI, MCP server, proxy tiers, CAPTCHA solver, browser stealth layer, or agent-orchestration framework.
+- `@build-a-bot/core` — the standalone Build-A-Bot runtime. Its only public export is the current `BuildABot` stub.
+- `@build-a-bot/api` — an HTTP API backed by one `BuildABot` instance.
+- `@build-a-bot/studio` — the React Studio UI, which reaches the API over HTTP.
+- `build-a-bot` — the CLI that loads a client project's Build-A-Bot instance and starts its API and Studio.
 
-## Setup
+## Development
 
 ```bash
 npm install
-npm test
-npm run lint
+npm run dev
 ```
 
-Set `OPENROUTER_API_KEY` before calling `build()`.
+`npm run dev` runs Core's compiler watcher, the API at `http://localhost:3000`, and Studio at Vite's default `http://localhost:5173`.
 
-## Deploying with Mastra
+Run each target directly with `npm run dev:core`, `npm run dev:api`, or `npm run dev:studio`. Studio proxies `/api` to the local API while developing. Set `VITE_API_BASE_URL` when Studio should use a separately deployed API.
 
-Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` to a hosted Turso/LibSQL database in `.env`; Mastra storage does not support a build-host-local SQLite file. Local runs also use `REDIS_CACHE_URL` (normally `redis://localhost:54321`). For Mastra Platform deployments, attach a database in **Project Settings → Databases** so the platform supplies the Turso variables.
+## Client projects
 
-Configure the provider keys for every remote tool you enable, especially `OPENROUTER_API_KEY`, `BRIGHTDATA_API_KEY`, and `SCRAPINGBEE_API_KEY`.
-
-For manual experimentation, edit `src/scratch.js` and run:
-
-```bash
-npm run scratch
-```
-
-```js
-import { build } from '@fetchfox/builder';
-
-const { fn, code, inputSchema, outputSchema, usage } = await build({
-  url: 'https://example.com',
-  prompt: 'Describe the content available on this page.',
-});
-
-const result = await fn({});
-```
-
-## Browser behavior
-
-`launchBrowser()` starts a standard headless Playwright Chromium instance. No FetchFox stealth, CAPTCHA, storage, or worker code is included.
-
-## Proxies
-
-Copy `.env.example` to `.env` and configure only the proxy tiers you intend to use. The available tool values are `none`, `datacenter`, `residential`, `residentialCdp`, and `unblock`.
+From a client project root, `npx build-a-bot init` creates `build-a-bot-project.json`,
+`src/build-a-bot/index.ts`, and `.env.example`. `npx build-a-bot dev` reads only the
+current directory's config file and loads its `entry` path. Without an `entry`, it tries
+`src/build-a-bot/index.ts` and then `src/build-a-bot/index.js`; it does not search for
+other project files.

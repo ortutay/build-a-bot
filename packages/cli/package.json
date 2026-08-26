@@ -1,0 +1,31 @@
+{
+  "name": "build-a-bot",
+  "version": "0.1.0",
+  "description": "CLI for local Build-A-Bot development.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "build-a-bot": "./dist/index.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@build-a-bot/api": "^0.1.0",
+    "@build-a-bot/core": "^0.1.0",
+    "@build-a-bot/studio": "^0.1.0",
+    "commander": "^14.0.2",
+    "tsx": "^4.23.12"
+  }
+}

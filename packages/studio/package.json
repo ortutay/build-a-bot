@@ -1,0 +1,33 @@
+{
+  "name": "@build-a-bot/studio",
+  "version": "0.1.0",
+  "description": "Build-A-Bot Studio UI.",
+  "type": "module",
+  "exports": {
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "index.html",
+    "src/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && tsc",
+    "dev": "vite",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "vite": "^7.1.7"
+  }
+}
