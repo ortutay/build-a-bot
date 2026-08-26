@@ -8,5 +8,7 @@ export * from './DiskLibraryBackend.js';
 export * from './MemoryLibraryBackend.js';
 
 export const documentLibrary = new DocumentLibrary(
-  documentLibraryPath ? new DiskLibraryBackend(documentLibraryPath) : new MemoryLibraryBackend()
+  documentLibraryPath
+    ? new DiskLibraryBackend('documentLibrary', { rootDir: documentLibraryPath })
+    : new MemoryLibraryBackend()
 );

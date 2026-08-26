@@ -234,9 +234,13 @@ describe('DocumentLibrary', () => {
   it('uses the configured path for persistent documents', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'builder-documents-'));
     try {
-      const writer = new DocumentLibrary(new DiskLibraryBackend(directory));
+      const writer = new DocumentLibrary(
+        new DiskLibraryBackend('documentLibrary', { rootDir: directory })
+      );
       const id = saveHtml(writer);
-      const reader = new DocumentLibrary(new DiskLibraryBackend(directory));
+      const reader = new DocumentLibrary(
+        new DiskLibraryBackend('documentLibrary', { rootDir: directory })
+      );
 
       expect(reader.summary(id)).toEqual(writer.summary(id));
       expect(reader.get({ documentId: id })).toMatchObject({

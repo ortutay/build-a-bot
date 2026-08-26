@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import type { DocumentId, DocumentLibraryBackend, StoredDocument } from './DocumentLibrary.js';
 import { cb } from '../cache/busters.js';
@@ -7,11 +8,20 @@ import { log } from '../logger.js';
 const hasCode = (e: unknown, code: string): boolean =>
   e instanceof Error && 'code' in e && (e as { code?: unknown }).code === code;
 
+export type DiskLibraryBackendOptions = {
+  rootDir?: string;
+};
+
 export class DiskLibraryBackend implements DocumentLibraryBackend {
   dirname: string;
 
-  constructor(dirname: string) {
-    this.dirname = path.join(dirname, cb.documentLibrary);
+  constructor(
+    namespace: string,
+    {
+      rootDir = path.join(os.tmpdir(), 'build-a-bot', 'document-library'),
+    }: DiskLibraryBackendOptions = {}
+  ) {
+    this.dirname = path.join(rootDir, namespace, cb.documentLibrary);
     log.info(`Disk based document library, dirname=${this.dirname}`);
     fs.mkdirSync(this.dirname, { recursive: true });
   }

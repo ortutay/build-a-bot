@@ -33,7 +33,7 @@ export class DiskCache<Value = unknown> {
   constructor(
     namespace: string,
     {
-      rootDir = path.join(os.tmpdir(), 'build-a-bot'),
+      rootDir = path.join(os.tmpdir(), 'build-a-bot', 'cache'),
       readOnly = false,
       writeOnly = false,
     }: DiskCacheOptions = {}
