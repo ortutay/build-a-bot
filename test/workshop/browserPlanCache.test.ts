@@ -1,8 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { closeBrowserTools, createBrowserTools } from '../../src/tools/browserTools/index.js';
-import { BrowserToolCache } from '../../src/tools/browserTools/BrowserToolCache.js';
-import { createDocumentTools } from '../../src/tools/documents/index.js';
-import { browserPlanStep } from '../../src/workflows/steps.js';
+import {
+  closeBrowserTools,
+  createBrowserTools,
+} from '../../src/mastra/tools/browserTools/index.js';
+import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
+import { createDocumentTools } from '../../src/mastra/tools/documents/index.js';
+import { browserPlanStep } from '../../src/mastra/workflows/steps.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
 

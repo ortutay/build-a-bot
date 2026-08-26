@@ -1,7 +1,7 @@
 import { createScorer } from '@mastra/core/evals';
 import { z } from 'zod';
-import { toBot } from '../compile/toBot.js';
-import { srid } from '../util/index.js';
+import { toBot } from '../../compile/toBot.js';
+import { srid } from '../../util/index.js';
 
 export const planStepScorer = createScorer({
   id: 'plan-step-scorer',

@@ -1,8 +1,10 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { log } from '../logger.js';
 
 export type DiskCacheOptions = {
+  rootDir?: string;
   readOnly?: boolean;
   writeOnly?: boolean;
 };
@@ -28,12 +30,19 @@ export class DiskCache<Value = unknown> {
   readonly readOnly: boolean;
   readonly writeOnly: boolean;
 
-  constructor(dirname: string, options: DiskCacheOptions = {}) {
+  constructor(
+    namespace: string,
+    {
+      rootDir = path.join(os.tmpdir(), 'build-a-bot'),
+      readOnly = false,
+      writeOnly = false,
+    }: DiskCacheOptions = {}
+  ) {
     this.logger = console;
-    this.dirname = dirname;
-    fs.promises.mkdir(dirname, { recursive: true });
-    this.readOnly = options.readOnly ?? false;
-    this.writeOnly = options.writeOnly ?? false;
+    this.dirname = path.join(rootDir, namespace);
+    fs.promises.mkdir(this.dirname, { recursive: true });
+    this.readOnly = readOnly;
+    this.writeOnly = writeOnly;
   }
 
   _cleanKey(key: string): string {

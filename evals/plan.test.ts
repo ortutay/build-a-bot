@@ -8,7 +8,7 @@ import { Workshop } from '../src/workshop/Workshop.js';
 import { browserPlanStep } from '../src/workshop/steps.js';
 import { defaultMastra } from '../src/mastra/index.js';
 import { c21Target, pokemonTarget } from './targets.js';
-import { planStepScorer } from '../src/scorers/index.js';
+import { planStepScorer } from '../src/mastra/scorers/index.js';
 
 import { runEvals } from '@mastra/core/evals';
 

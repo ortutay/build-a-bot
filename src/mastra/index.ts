@@ -21,14 +21,19 @@ import { getOrNull, hash } from '../util/index.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
 import { redisCacheUrl, tursoAuthToken, tursoDatabaseUrl } from '../constants.js';
-import { ContextCompressionProcessor } from '../processors/ContextCompressionProcessor.js';
+import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
-} from '../processors/ResponseLoggingProcessor.js';
-import { planStepScorer, buildScorer } from '../scorers/index.js';
-import { planWorkflow, writeWorkflow } from '../workflows/index.js';
-import { allTools, fetchResearchTools, browserResearchTools, planningTools } from './tools.js';
+} from './processors/ResponseLoggingProcessor.js';
+import { planStepScorer, buildScorer } from './scorers/index.js';
+import { planWorkflow, writeWorkflow } from './workflows/index.js';
+import {
+  allTools,
+  fetchResearchTools,
+  browserResearchTools,
+  planningTools,
+} from './tools/index.js';
 
 const duckDb = new DuckDBStore({});
 

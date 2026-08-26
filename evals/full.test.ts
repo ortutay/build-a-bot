@@ -1,9 +1,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { runEvals } from '@mastra/core/evals';
-import { writeWorkflow } from '../src/workflows/index.js';
+import { writeWorkflow } from '../src/mastra/workflows/index.js';
 import { cleanup } from '../src/mastra/index.js';
 import { loadDataset, loadItemsFromDataset } from '../src/mastra/datasets/index.js';
-import { buildScorer } from '../src/scorers/index.js';
+import { buildScorer } from '../src/mastra/scorers/index.js';
 import { log } from '../src/logger.js';
 import {
   pokemonTarget,

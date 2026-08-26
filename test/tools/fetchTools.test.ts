@@ -7,8 +7,8 @@ vi.mock('../../src/proxy.js', () => ({
   proxyFetch,
 }));
 
-import { createFetchTools } from '../../src/tools/fetchTools/tools.js';
-import { createDocumentTools } from '../../src/tools/documents/tools.js';
+import { createFetchTools } from '../../src/mastra/tools/fetchTools/tools.js';
+import { createDocumentTools } from '../../src/mastra/tools/documents/tools.js';
 
 const uniqueUrl = (path: string): string => `https://example.test/${path}-${crypto.randomUUID()}`;
 

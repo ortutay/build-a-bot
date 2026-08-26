@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documentLibrary } from '../../../src/documents/index.js';
-import { executors } from '../../../src/tools/documents/tools.js';
+import { executors } from '../../../src/mastra/tools/documents/tools.js';
 
 describe('document tools', () => {
   it('lists saved documents and gets a selected representation', async () => {

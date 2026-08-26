@@ -1,7 +1,7 @@
 import { type Tool } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
-import { addInstruments } from '../../mastra/instruments/index.js';
-import { scrapingbeeApiKey } from '../../constants.js';
+import { addInstruments } from '../../instruments/index.js';
+import { scrapingbeeApiKey } from '../../../constants.js';
 import { scrapingbeeCostInstrument } from './instruments.js';
 
 export const createTools = async (): Promise<Record<string, Tool>> => {

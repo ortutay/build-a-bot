@@ -1,8 +1,8 @@
 import { createStep } from '@mastra/core/workflows';
-import { log } from '../logger.js';
+import { log } from '../../logger.js';
 import { z } from 'zod';
-import * as templates from '../prompts/templates.js';
-import { availableContext, availableModules } from '../compile/Compiler.js';
+import * as templates from '../../prompts/templates.js';
+import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { planStepScorer } from '../scorers/index.js';
 
 const shared = { retries: 2 };

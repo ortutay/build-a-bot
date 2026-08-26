@@ -1,7 +1,7 @@
 import { omit } from 'radash';
 import chalk from 'chalk';
-import { log } from '../logger.js';
-import { clip } from '../util/index.js';
+import { log } from '../../logger.js';
+import { clip } from '../../util/index.js';
 import {
   ResponseCache,
   type ProcessLLMRequestArgs,

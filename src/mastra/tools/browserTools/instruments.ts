@@ -1,6 +1,6 @@
 import { type Tool } from '@mastra/core/tools';
-import { KeyedSerialQueue } from '../../util/KeyedSerialQueue.js';
-import { getOrNull } from '../../util/index.js';
+import { KeyedSerialQueue } from '../../../util/KeyedSerialQueue.js';
+import { getOrNull } from '../../../util/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 
 export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => {

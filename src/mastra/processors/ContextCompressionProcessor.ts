@@ -1,6 +1,6 @@
 import type { MastraDBMessage } from '@mastra/core/agent/message-list';
 import type { ProcessInputStepArgs, Processor } from '@mastra/core/processors';
-import { log } from '../logger.js';
+import { log } from '../../logger.js';
 
 export type ContextCompressionOptions = {
   /** Maximum serialized characters retained from one tool result. */

@@ -5,14 +5,10 @@ import {
   documentLibrary,
   type ContentType,
   type DocumentHeaders,
-} from '../../documents/index.js';
-import {
-  addInstruments,
-  cacheInstrument,
-  runtimeInstrument,
-} from '../../mastra/instruments/index.js';
-import { names as proxyNames, proxyFetch } from '../../proxy.js';
-import { parseResponseBody } from '../../util/index.js';
+} from '../../../documents/index.js';
+import { addInstruments, cacheInstrument, runtimeInstrument } from '../../instruments/index.js';
+import { names as proxyNames, proxyFetch } from '../../../proxy.js';
+import { parseResponseBody } from '../../../util/index.js';
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();

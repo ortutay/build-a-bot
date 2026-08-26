@@ -24,7 +24,7 @@ class CachedError extends Error {
   }
 }
 
-const cache = new DiskCache<CachedToolResult>('/tmp/builder/cacheInstrument/');
+const cache = new DiskCache<CachedToolResult>('cacheInstrument');
 
 export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
   const execute = tool.execute;

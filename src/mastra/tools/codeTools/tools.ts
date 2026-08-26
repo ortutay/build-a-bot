@@ -1,12 +1,12 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { Compiler, availableModules, availableContext } from '../../compile/Compiler.js';
+import { Compiler, availableModules, availableContext } from '../../../compile/Compiler.js';
 import {
   documentLibrary,
   type DocumentGetInput,
   type DocumentId,
   type DocumentListQuery,
-} from '../../documents/index.js';
+} from '../../../documents/index.js';
 
 const prefix = (str: string): string => 'codeTools_' + str;
 

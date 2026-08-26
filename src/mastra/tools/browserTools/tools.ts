@@ -1,7 +1,7 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { chromium, type Browser, type Page, type Response, type Request } from 'playwright';
 import { z } from 'zod';
-import { DiskCache } from '../../cache/DiskCache.js';
+import { DiskCache } from '../../../cache/DiskCache.js';
 import {
   documentContentTypes,
   documentLibrary,
@@ -12,11 +12,11 @@ import {
   type ContentType,
   type DocumentHeaders,
   type DocumentRequest,
-} from '../../documents/index.js';
-import { log } from '../../logger.js';
-import { parseResponseBody, srid } from '../../util/index.js';
+} from '../../../documents/index.js';
+import { log } from '../../../logger.js';
+import { parseResponseBody, srid } from '../../../util/index.js';
 
-import { addInstruments, runtimeInstrument } from '../../mastra/instruments/index.js';
+import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
 import { likelyAdOrTracker } from './block.js';
@@ -343,5 +343,5 @@ export const closeBrowserTools = async (): Promise<void> => {
 };
 
 export const tools = await createBrowserTools(
-  new BrowserToolCache(new DiskCache('/tmp/builder/BrowserToolCache'))
+  new BrowserToolCache(new DiskCache('BrowserToolCache'))
 );

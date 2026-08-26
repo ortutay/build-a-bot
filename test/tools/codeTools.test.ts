@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documentLibrary } from '../../src/documents/index.js';
-import { tools } from '../../src/tools/codeTools/tools.js';
+import { tools } from '../../src/mastra/tools/codeTools/tools.js';
 
 const runSnippet = async (code: string) => {
   const execute = tools.codeTools_runJsSnippetTool.execute;
