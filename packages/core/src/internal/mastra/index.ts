@@ -20,7 +20,12 @@ import { log } from '../logger.js';
 import { getOrNull, hash } from '../util/index.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
-import { redisCacheUrl, tursoAuthToken, tursoDatabaseUrl } from '../constants.js';
+import {
+  mastraDatabaseFilepath,
+  redisCacheUrl,
+  tursoAuthToken,
+  tursoDatabaseUrl,
+} from '../constants.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 import {
   LoggingResponseCache,
@@ -76,10 +81,6 @@ export const defaultMastra = async (): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
-  if (!tursoDatabaseUrl) {
-    throw new Error('TURSO_DATABASE_URL must contain a hosted LibSQL database URL');
-  }
-
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.warn('No Redis client, not using cache');
@@ -231,12 +232,13 @@ export const defaultMastra = async (): Promise<{
     id: 'composite-storage',
     default: new LibSQLStore({
       id: 'libsql-storage',
-      url: tursoDatabaseUrl,
-      authToken: tursoAuthToken,
+      url: tursoDatabaseUrl ?? mastraDatabaseFilepath,
+      ...(tursoDatabaseUrl && tursoAuthToken ? { authToken: tursoAuthToken } : {}),
     }),
-    domains: {
-      observability: await duckDb.getStore('observability'),
-    },
+
+    // domains: {
+    //   observability: await duckDb.getStore('observability'),
+    // },
   });
 
   const observability = new Observability({

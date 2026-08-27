@@ -1,7 +1,5 @@
 # Builder conventions
 
-- Name caught errors `e`, including Promise `.catch()` parameters.
-- Name HTTP responses `resp`.
 - Only read `process.env` in `src/constants.ts`; export a named constant for other modules to use.
 
 # Helpful hepers
@@ -24,3 +22,6 @@ Do not put new lines between the categories.
 # Style
 
 - Prefer post-increment (`i++`) for incrementing loop counters.
+- Prefer "val" to "value"
+- Prefer "resp" to "response"
+- Name caught errors `e`, including Promise `.catch()` parameters.
