@@ -7,7 +7,6 @@ import {
   createTools as createDocumentTools,
   type CreateDocumentToolsOptions,
 } from './documents/index.js';
-// import { createTools as createFirecrawlTools } from './firecrawlTools/index.js';
 import {
   createTools as createFetchTools,
   type CreateFetchToolsOptions,
@@ -30,9 +29,6 @@ export const createToolsSets = async (options: CreateToolsOptions) => {
       ...browserTools,
       ...codeTools,
       ...documentTools,
-      // ...brightdataTools,
-      // ...firecrawlTools,
-      // ...scrapingbeeTools,
     },
     fetchResearchTools: {
       ...fetchTools,

@@ -1,5 +1,5 @@
-import { Service } from './service/Service.js';
 import { type GlobalContext, type GlobalOptions, fillInContext } from './context/index.js';
+import { Service } from './service/Service.js';
 
 export type BuildABotOptions = GlobalOptions & {
   services?: Record<string, Service>;

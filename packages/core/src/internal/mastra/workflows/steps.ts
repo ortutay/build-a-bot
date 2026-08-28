@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
-import { type createPlanStepScorer } from '../scorers/index.js';
 
 const shared = { retries: 2 };
 
@@ -13,9 +12,7 @@ const planOutputSchema = z.object({
   report: z.string(),
 });
 
-type PlanStepScorer = ReturnType<typeof createPlanStepScorer>;
-
-const planStep = <TId extends string>(id: TId, agentId: string, planStepScorer: PlanStepScorer) =>
+const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
     id,
     ...shared,
@@ -26,15 +23,6 @@ const planStep = <TId extends string>(id: TId, agentId: string, planStepScorer: 
       outputSchema: z.any().optional(),
     }),
     outputSchema: planOutputSchema,
-    scorers: {
-      planStepScorer: {
-        scorer: planStepScorer,
-        sampling: {
-          type: 'ratio',
-          rate: 1,
-        },
-      },
-    },
     execute: async ({ inputData, mastra }) => {
       log.info('Running report step');
 
@@ -77,11 +65,9 @@ const planStep = <TId extends string>(id: TId, agentId: string, planStepScorer: 
     },
   });
 
-export const createPlanSteps = (planStepScorer: PlanStepScorer) => ({
-  fullPlanStep: planStep('plan-step', 'planning-agent', planStepScorer),
-  fetchPlanStep: planStep('fetch-plan-step', 'fetch-research-agent', planStepScorer),
-  browserPlanStep: planStep('browser-plan-step', 'browser-research-agent', planStepScorer),
-});
+export const fullPlanStep = planStep('plan-step', 'planning-agent');
+export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
+export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',

@@ -6,7 +6,6 @@ import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
 import { RedisServerCache } from '@mastra/redis';
 import { LibSQLStore } from '@mastra/libsql';
-import { DuckDBStore } from '@mastra/duckdb';
 import { MastraCompositeStore } from '@mastra/core/storage';
 import {
   Observability,
@@ -32,46 +31,9 @@ import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from './processors/ResponseLoggingProcessor.js';
-import { createBuildScorer, createPlanStepScorer } from './scorers/index.js';
+import { createBuildScorer } from './scorers/index.js';
 import { createToolsSets } from './tools/index.js';
-import { createWorkflows } from './workflows/index.js';
-
-const duckDb = new DuckDBStore({});
-
-let duckDbClosePromise: Promise<void> | null = null;
-
-const closeDuckDb = (): Promise<void> => {
-  if (!duckDbClosePromise) {
-    duckDbClosePromise = duckDb.close().finally(() => {
-      duckDbClosePromise = null;
-    });
-  }
-
-  return duckDbClosePromise;
-};
-
-const closeDuckDbOnExit = (): void => {
-  void closeDuckDb().catch((e) => {
-    console.error('Failed to close DuckDB on process exit:', e);
-  });
-};
-
-const exitAfterDuckDbClose = (exitCode: number): void => {
-  void closeDuckDb()
-    .catch((e) => {
-      console.error('Failed to close DuckDB during process shutdown:', e);
-    })
-    .finally(() => {
-      process.exit(exitCode);
-    });
-};
-
-process.once('beforeExit', closeDuckDbOnExit);
-process.once('exit', closeDuckDbOnExit);
-process.once('SIGINT', () => exitAfterDuckDbClose(130));
-process.once('SIGTERM', () => exitAfterDuckDbClose(143));
-process.once('SIGHUP', () => exitAfterDuckDbClose(129));
-process.once('SIGQUIT', () => exitAfterDuckDbClose(131));
+import { planWorkflow, writeWorkflow } from './workflows/index.js';
 
 export type MastraOptions = {
   documentLibrary?: DocumentLibrary;
@@ -86,8 +48,6 @@ export const defaultMastra = async (
   const documentLibrary = options.documentLibrary ?? new DocumentLibrary();
   const { allTools, fetchResearchTools, browserResearchTools, planningTools } =
     await createToolsSets({ documentLibrary });
-  const planStepScorer = createPlanStepScorer();
-  const { planWorkflow, writeWorkflow } = createWorkflows(planStepScorer);
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.info('No Redis client, using disk cache');
@@ -99,22 +59,7 @@ export const defaultMastra = async (
       )
     : new DiskServerCache({ keyPrefix: 'cb:' + cb.mastraResponseCache + ':' });
 
-  const [
-    // brightdataTools,
-    // firecrawlTools,
-    // scrapingbeeTools,
-  ] = await Promise.all([
-    // createBrightdataTools(),
-    // createFirecrawlTools(),
-    // createScrapingbeeTools(),
-  ]);
-
-  // model: 'google/gemini-3.5-flash',
-  // model: 'google/gemini-3.6-flash',
-  // model: 'google/gemini-3.7-flash',
-  // const model = 'openai/gpt-5.6-luna';
   const model = 'openai/gpt-5.6-terra';
-  // model: 'openai/gpt-5.6-sol',
   const responseLogger = new ResponseLoggingProcessor();
   const inputProcessors = [
     // Compress individual page-sized tool responses first, then cap the full
@@ -134,7 +79,6 @@ export const defaultMastra = async (
               [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
             ),
           });
-          // console.log('HH:', JSON.stringify(hh, null, 2));
           const h = hash(hh);
           const key = `${agentId}:${stepNumber}:${model.provider}/${model.modelId}:${h}`;
 
@@ -159,7 +103,6 @@ export const defaultMastra = async (
     afterToolCall: async (it) => {
       const { toolName, error, output, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
-      // console.log('afterToolCall it:', it);
       if (error) {
         log.error(`${chalk.bgRed('Tool error')} id=${toolCallId} ${toolName}: ${error}`);
       } else {
@@ -245,10 +188,6 @@ export const defaultMastra = async (
       url: tursoDatabaseUrl ?? mastraDatabaseFilepath,
       ...(tursoDatabaseUrl && tursoAuthToken ? { authToken: tursoAuthToken } : {}),
     }),
-
-    // domains: {
-    //   observability: await duckDb.getStore('observability'),
-    // },
   });
 
   const observability = new Observability({
@@ -280,9 +219,6 @@ export const defaultMastra = async (
       fetchResearchAgent,
       browserResearchAgent,
     },
-    scorers: {
-      planStepScorer,
-    },
     workflows: {
       planWorkflow,
       writeWorkflow,
@@ -312,10 +248,7 @@ export const defaultMastra = async (
         try {
           await mastra.shutdown();
         } finally {
-          await Promise.all([
-            closeDuckDb(),
-            redisClient ? redisClient.disconnect() : Promise.resolve(),
-          ]);
+          await redisClient?.disconnect();
         }
       })();
     }
