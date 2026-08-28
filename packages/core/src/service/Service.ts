@@ -1,34 +1,34 @@
-import { Storage } from '../storage/Storage.js';
+import { type GlobalContext, type GlobalOptions, fillInContext } from '../context/index.js';
 
+export type ServiceContext = Pick<GlobalContext, 'mastra' | 'storage' | 'documentLibrary'>;
 export type ServiceOptions = {
   id: string;
-  storage?: Storage;
-};
+} & Pick<GlobalOptions, 'mastra' | 'storage' | 'documentLibrary'>;
 
 export abstract class Service {
   id: string;
-  storage: Storage;
+  #context: Promise<ServiceContext>;
 
   constructor(options: ServiceOptions) {
     this.id = options.id;
-    // TODO: what is default storage? should it be singleton?
-    this.storage = options.storage ?? new Storage();
+    this.#context = fillInContext(options);
   }
 
-  async start(): Promise<void> {
-    await this.build();
-    await this.heal();
-    await this.sync();
-    await this.run();
+  async start(context?: ServiceContext): Promise<void> {
+    context ??= await this.#context;
+    await this.build(context);
+    // TODO: rest
   }
 
-  async build(): Promise<void> {}
-  async heal(): Promise<void> {}
-  async sync(): Promise<void> {}
-  async run(): Promise<void> {}
+  async build(context?: ServiceContext): Promise<void> {
+    return this._build(context ?? (await this.#context));
+  }
+  abstract _build(context?: ServiceContext): Promise<void>;
+
+  abstract heal(context?: ServiceContext): Promise<void>;
+  abstract sync(context?: ServiceContext): Promise<void>;
+  abstract run(context?: ServiceContext): Promise<void>;
 }
-
-export type StartServiceOptions = {};
 
 type Method = any; // TODO: Method is one of 'GET', 'POST', ...
 
@@ -38,9 +38,3 @@ export type Endpoint = {
   querySchema: any;
   bodySchema: any;
 };
-
-// export type Service = {
-//   endpoints: Endpoint[],
-
-//   start(options: StartInterfaceOptions): Promise<void>,
-// }

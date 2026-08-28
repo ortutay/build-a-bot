@@ -4,14 +4,14 @@ import { z } from 'zod';
 import { DiskCache } from '../../../cache/DiskCache.js';
 import {
   documentContentTypes,
-  documentLibrary,
   documentOrigins,
-  type DocumentId,
-  type DocumentInput,
-  type DocumentSummary,
   type ContentType,
   type DocumentHeaders,
+  type DocumentId,
+  type DocumentInput,
+  type DocumentLibrary,
   type DocumentRequest,
+  type DocumentSummary,
 } from '../../../documents/index.js';
 import { log } from '../../../logger.js';
 import { parseResponseBody, srid } from '../../../util/index.js';
@@ -89,7 +89,7 @@ const getCursor = async (cursorId: string): Promise<Cursor> => {
   return cursor;
 };
 
-const replay = async (cursorId: string, steps: any[]) => {
+const replay = async (documentLibrary: DocumentLibrary, cursorId: string, steps: any[]) => {
   log.info(`Browser cache replay: prefixLength=${steps.length}`);
   try {
     await createCursor(cursorId);
@@ -100,7 +100,7 @@ const replay = async (cursorId: string, steps: any[]) => {
       if (!fn) {
         throw new Error(`Could not find browser tool executor: ${name}, ${toolId}`);
       }
-      await fn({ ...step.input, cursorId });
+      await fn(documentLibrary, { ...step.input, cursorId });
     }
   } catch (e) {
     await resetCursorToAllocated(cursorId);
@@ -109,8 +109,11 @@ const replay = async (cursorId: string, steps: any[]) => {
 };
 
 export const executors: Record<string, any> = {
-  newPageTool: async () => createCursor(null),
-  gotoTool: async ({ cursorId, url }: { cursorId: string; url: string }) => {
+  newPageTool: async (_documentLibrary: DocumentLibrary) => createCursor(null),
+  gotoTool: async (
+    documentLibrary: DocumentLibrary,
+    { cursorId, url }: { cursorId: string; url: string }
+  ) => {
     const cursor = await getCursor(cursorId);
     const timestamp = new Date().toISOString();
 
@@ -181,7 +184,7 @@ export const executors: Record<string, any> = {
       ok: resp.ok(),
     };
   },
-  contentTool: async ({ cursorId }: { cursorId: string }) => {
+  contentTool: async (documentLibrary: DocumentLibrary, { cursorId }: { cursorId: string }) => {
     const cursor = await getCursor(cursorId);
     const content = await cursor.page.content();
     const headers: DocumentHeaders = cursor.lastResponse
@@ -204,17 +207,20 @@ export const executors: Record<string, any> = {
     });
     return { documentId, summary: documentLibrary.summary(documentId) };
   },
-  waitForSelectorTool: async ({
-    cursorId,
-    selector,
-    state,
-    timeout,
-  }: {
-    cursorId: string;
-    selector: string;
-    state?: 'attached' | 'detached' | 'visible' | 'hidden';
-    timeout?: number;
-  }) => {
+  waitForSelectorTool: async (
+    _documentLibrary: DocumentLibrary,
+    {
+      cursorId,
+      selector,
+      state,
+      timeout,
+    }: {
+      cursorId: string;
+      selector: string;
+      state?: 'attached' | 'detached' | 'visible' | 'hidden';
+      timeout?: number;
+    }
+  ) => {
     const element = await (
       await getCursor(cursorId)
     ).page.waitForSelector(selector, {
@@ -223,102 +229,125 @@ export const executors: Record<string, any> = {
     });
     return { found: element !== null };
   },
-  clickTool: async ({
-    cursorId,
-    selector,
-    index,
-    timeout,
-  }: {
-    cursorId: string;
-    selector: string;
-    index?: number;
-    timeout?: number;
-  }) => {
+  clickTool: async (
+    _documentLibrary: DocumentLibrary,
+    {
+      cursorId,
+      selector,
+      index,
+      timeout,
+    }: {
+      cursorId: string;
+      selector: string;
+      index?: number;
+      timeout?: number;
+    }
+  ) => {
     const locator = (await getCursor(cursorId)).page.locator(selector);
     await (index === undefined ? locator : locator.nth(index)).click({ timeout });
     return { ok: true };
   },
 };
 
-const newPageTool = createTool({
-  id: prefix('newPageTool'),
-  description: 'Launch a new browser page.',
-  inputSchema: z.object({}),
-  outputSchema: z.object({
-    cursorId: z.string(),
-  }),
-  execute: executors.newPageTool,
-});
+const createNewPageTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: prefix('newPageTool'),
+    description: 'Launch a new browser page.',
+    inputSchema: z.object({}),
+    outputSchema: z.object({
+      cursorId: z.string(),
+    }),
+    execute: (...args) => executors.newPageTool(documentLibrary, ...args),
+  });
 
-const gotoTool = createTool({
-  id: prefix('gotoTool'),
-  description: 'Go to a URL.',
-  inputSchema: z.object({
-    cursorId: z.string(),
-    url: z.string(),
-  }),
-  outputSchema: z.object({
-    ok: z.boolean(),
-    status: z.number(),
-  }),
-  execute: executors.gotoTool,
-});
+const createGotoTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: prefix('gotoTool'),
+    description: 'Go to a URL.',
+    inputSchema: z.object({
+      cursorId: z.string(),
+      url: z.string(),
+    }),
+    outputSchema: z.object({
+      ok: z.boolean(),
+      status: z.number(),
+    }),
+    execute: (...args) => executors.gotoTool(documentLibrary, ...args),
+  });
 
-const contentTool = createTool({
-  id: prefix('contentTool'),
-  description: 'Save page content and return its document ID.',
-  inputSchema: z.object({
-    cursorId: z.string(),
-  }),
-  outputSchema: z.object({
-    documentId: z.string(),
-    summary: documentSummarySchema.nullable(),
-  }),
-  execute: executors.contentTool,
-});
+const createContentTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: prefix('contentTool'),
+    description: 'Save page content and return its document ID.',
+    inputSchema: z.object({
+      cursorId: z.string(),
+    }),
+    outputSchema: z.object({
+      documentId: z.string(),
+      summary: documentSummarySchema.nullable(),
+    }),
+    execute: (...args) => executors.contentTool(documentLibrary, ...args),
+  });
 
-const waitForSelectorTool = createTool({
-  id: prefix('waitForSelectorTool'),
-  description: 'Wait for an element matching a selector to reach a given state.',
-  inputSchema: z.object({
-    cursorId: z.string(),
-    selector: z.string(),
-    state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
-    timeout: z.number().int().positive().max(60_000).optional(),
-  }),
-  outputSchema: z.object({
-    found: z.boolean(),
-  }),
-  execute: executors.waitForSelectorTool,
-});
+const createWaitForSelectorTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: prefix('waitForSelectorTool'),
+    description: 'Wait for an element matching a selector to reach a given state.',
+    inputSchema: z.object({
+      cursorId: z.string(),
+      selector: z.string(),
+      state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
+      timeout: z.number().int().positive().max(60_000).optional(),
+    }),
+    outputSchema: z.object({
+      found: z.boolean(),
+    }),
+    execute: (...args) => executors.waitForSelectorTool(documentLibrary, ...args),
+  });
 
-const clickTool = createTool({
-  id: prefix('clickTool'),
-  description:
-    'Click an element matching a selector. The selector must match exactly one element unless index is provided.',
-  inputSchema: z.object({
-    cursorId: z.string(),
-    selector: z.string(),
-    index: z
-      .number()
-      .int()
-      .nonnegative()
-      .optional()
-      .describe('Zero-based index of the matching element to click.'),
-    timeout: z.number().int().positive().max(60_000).optional(),
-  }),
-  outputSchema: z.object({
-    ok: z.boolean(),
-  }),
-  execute: executors.clickTool,
-});
+const createClickTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: prefix('clickTool'),
+    description:
+      'Click an element matching a selector. The selector must match exactly one element unless index is provided.',
+    inputSchema: z.object({
+      cursorId: z.string(),
+      selector: z.string(),
+      index: z
+        .number()
+        .int()
+        .nonnegative()
+        .optional()
+        .describe('Zero-based index of the matching element to click.'),
+      timeout: z.number().int().positive().max(60_000).optional(),
+    }),
+    outputSchema: z.object({
+      ok: z.boolean(),
+    }),
+    execute: (...args) => executors.clickTool(documentLibrary, ...args),
+  });
 
-const internal = [newPageTool, gotoTool, contentTool, waitForSelectorTool, clickTool];
+export type CreateBrowserToolsOptions = {
+  cache?: BrowserToolCache;
+  documentLibrary: DocumentLibrary;
+};
 
-export const createBrowserTools = async (
-  cache: BrowserToolCache
+export const createTools = async (
+  options: CreateBrowserToolsOptions
 ): Promise<Record<string, Tool>> => {
-  const instrument = browserCacheInstrument(replay, cache);
+  const cache = options.cache ?? new BrowserToolCache(new DiskCache('BrowserToolCache'));
+  const documentLibrary = options.documentLibrary;
+  const instrument = browserCacheInstrument(
+    (cursorId: string, steps: any[]) => replay(documentLibrary, cursorId, steps),
+    cache
+  );
+  const internal = [
+    createNewPageTool(documentLibrary),
+    createGotoTool(documentLibrary),
+    createContentTool(documentLibrary),
+    createWaitForSelectorTool(documentLibrary),
+    createClickTool(documentLibrary),
+  ];
   return Object.fromEntries(
     (
       await Promise.all(
@@ -341,7 +370,3 @@ export const closeBrowserTools = async (): Promise<void> => {
     // TODO: Add targeted page cleanup, including its browser-cache sequence.
   }
 };
-
-export const tools = await createBrowserTools(
-  new BrowserToolCache(new DiskCache('BrowserToolCache'))
-);

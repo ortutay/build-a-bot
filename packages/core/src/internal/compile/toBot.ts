@@ -1,11 +1,12 @@
+import { type Mastra } from '@mastra/core';
 import { Bot } from '../bot/Bot.js';
-import { type CompileOptions, Compiler } from './Compiler.js';
+import { Compiler } from './Compiler.js';
 import { toContextTools } from './tool-fns.js';
-import { allTools } from '../mastra/tools/index.js';
 
-export const toBot = async (code: string): Promise<Bot> => {
+export const toBot = async (code: string, mastra: Mastra): Promise<Bot> => {
   const compiler = new Compiler();
+  const tools = mastra.listTools() ?? {};
   return new Bot(
-    await compiler.compile(code, { additionalContext: { tools: toContextTools(allTools) } })
+    await compiler.compile(code, { additionalContext: { tools: toContextTools(tools) } })
   );
 };

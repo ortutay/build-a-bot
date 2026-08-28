@@ -7,8 +7,9 @@ vi.mock('../../src/internal/proxy.js', () => ({
   proxyFetch,
 }));
 
-import { createFetchTools } from '../../src/internal/mastra/tools/fetchTools/tools.js';
-import { createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
+import { documentLibrary } from '../../src/internal/documents/index.js';
+import { createTools as createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
+import { createTools as createFetchTools } from '../../src/internal/mastra/tools/fetchTools/tools.js';
 
 const uniqueUrl = (path: string): string => `https://example.test/${path}-${crypto.randomUUID()}`;
 
@@ -58,8 +59,8 @@ describe('fetch tools', () => {
 
   beforeEach(async () => {
     proxyFetch.mockReset();
-    fetchTools = await createFetchTools();
-    documentTools = await createDocumentTools();
+    fetchTools = await createFetchTools({ documentLibrary });
+    documentTools = await createDocumentTools({ documentLibrary });
   });
 
   it('fetches an HTTP error response with top-level fields and runtime metadata', async () => {

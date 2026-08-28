@@ -3,10 +3,10 @@ import { documentLibrary } from '../../src/internal/documents/index.js';
 import { BrowserToolCache } from '../../src/internal/mastra/tools/browserTools/BrowserToolCache.js';
 import {
   closeBrowserTools,
-  createBrowserTools,
+  createTools as createBrowserTools,
   executors,
 } from '../../src/internal/mastra/tools/browserTools/tools.js';
-import { createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
+import { createTools as createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 import { startMockEcommerceSite } from '../lib/mockEcommerceSite.js';
@@ -97,8 +97,8 @@ describe('browser tools', () => {
     });
 
     it('allocates distinct page IDs', async () => {
-      const first = await executors.newPageTool({});
-      const second = await executors.newPageTool({});
+      const first = await executors.newPageTool(documentLibrary, {});
+      const second = await executors.newPageTool(documentLibrary, {});
 
       expect(first.cursorId).toBeTruthy();
       expect(second.cursorId).toBeTruthy();
@@ -106,12 +106,15 @@ describe('browser tools', () => {
     });
 
     it('navigates and returns a saved document ID', async () => {
-      const { cursorId } = await executors.newPageTool({});
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
 
       await expect(
-        executors.gotoTool({ cursorId, url: `${site.baseUrl}/products/footwear-1` })
+        executors.gotoTool(documentLibrary, {
+          cursorId,
+          url: `${site.baseUrl}/products/footwear-1`,
+        })
       ).resolves.toEqual({ status: 200, ok: true });
-      const result = await executors.contentTool({ cursorId });
+      const result = await executors.contentTool(documentLibrary, { cursorId });
       expect(result).toEqual({
         documentId: expect.stringMatching(/^doc:/),
         summary: {
@@ -138,23 +141,32 @@ describe('browser tools', () => {
     });
 
     it('shows ten products per category page', async () => {
-      const { cursorId } = await executors.newPageTool({});
-      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/categories/footwear?page=1` });
-      const firstPage = await executors.contentTool({ cursorId });
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
+      await executors.gotoTool(documentLibrary, {
+        cursorId,
+        url: `${site.baseUrl}/categories/footwear?page=1`,
+      });
+      const firstPage = await executors.contentTool(documentLibrary, { cursorId });
 
       expect(documentContent(firstPage.documentId).match(/class="product-card"/g)).toHaveLength(10);
       expect(documentContent(firstPage.documentId)).toContain('Page 1 of 2');
 
-      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/categories/footwear?page=2` });
-      const secondPage = await executors.contentTool({ cursorId });
+      await executors.gotoTool(documentLibrary, {
+        cursorId,
+        url: `${site.baseUrl}/categories/footwear?page=2`,
+      });
+      const secondPage = await executors.contentTool(documentLibrary, { cursorId });
       expect(documentContent(secondPage.documentId).match(/class="product-card"/g)).toHaveLength(2);
       expect(documentContent(secondPage.documentId)).toContain('Page 2 of 2');
     });
 
     it('searches product names using a case-insensitive substring', async () => {
-      const { cursorId } = await executors.newPageTool({});
-      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/search?q=SNEAKERS` });
-      const content = await executors.contentTool({ cursorId });
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
+      await executors.gotoTool(documentLibrary, {
+        cursorId,
+        url: `${site.baseUrl}/search?q=SNEAKERS`,
+      });
+      const content = await executors.contentTool(documentLibrary, { cursorId });
 
       expect(documentContent(content.documentId)).toContain('Red Sneakers');
       expect(documentContent(content.documentId)).toContain('Canvas Sneakers');
@@ -163,31 +175,31 @@ describe('browser tools', () => {
     });
 
     it('waits for selectors and clicks elements', async () => {
-      const { cursorId } = await executors.newPageTool({});
-      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/` });
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
+      await executors.gotoTool(documentLibrary, { cursorId, url: `${site.baseUrl}/` });
 
       await expect(
-        executors.waitForSelectorTool({
+        executors.waitForSelectorTool(documentLibrary, {
           cursorId,
           selector: '#delayed-offer',
           timeout: 1_000,
         })
       ).resolves.toEqual({ found: true });
       await expect(
-        executors.clickTool({ cursorId, selector: '#add-to-cart', timeout: 1_000 })
+        executors.clickTool(documentLibrary, { cursorId, selector: '#add-to-cart', timeout: 1_000 })
       ).resolves.toEqual({ ok: true });
 
-      const content = await executors.contentTool({ cursorId });
+      const content = await executors.contentTool(documentLibrary, { cursorId });
       expect(documentContent(content.documentId)).toContain('data-cart-updated="true"');
       expect(documentContent(content.documentId)).toContain('<span id="cart-count">1</span>');
     });
 
     it('clicks a selected match by zero-based index', async () => {
-      const { cursorId } = await executors.newPageTool({});
-      await executors.gotoTool({ cursorId, url: `${site.baseUrl}/` });
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
+      await executors.gotoTool(documentLibrary, { cursorId, url: `${site.baseUrl}/` });
 
       await expect(
-        executors.clickTool({
+        executors.clickTool(documentLibrary, {
           cursorId,
           selector: 'a.category-link',
           index: 1,
@@ -195,7 +207,7 @@ describe('browser tools', () => {
         })
       ).resolves.toEqual({ ok: true });
 
-      const content = await executors.contentTool({ cursorId });
+      const content = await executors.contentTool(documentLibrary, { cursorId });
       expect(documentContent(content.documentId)).toContain('Electronics');
     });
   });
@@ -217,14 +229,14 @@ describe('browser tools', () => {
     });
 
     it('captures initial JSON requests as dynamic documents', async () => {
-      const { cursorId } = await executors.newPageTool({});
+      const { cursorId } = await executors.newPageTool(documentLibrary, {});
 
-      await executors.gotoTool({ cursorId, url: `${dynamicSite.baseUrl}/` });
-      await executors.waitForSelectorTool({
+      await executors.gotoTool(documentLibrary, { cursorId, url: `${dynamicSite.baseUrl}/` });
+      await executors.waitForSelectorTool(documentLibrary, {
         cursorId,
         selector: '[data-product-id="json-widget"]',
       });
-      const content = await executors.contentTool({ cursorId });
+      const content = await executors.contentTool(documentLibrary, { cursorId });
 
       expect(content.documentId).toMatch(/^doc:/);
 
@@ -255,8 +267,11 @@ describe('browser tools', () => {
     });
 
     it('uses browser tools to save a page and document tools to inspect it', async () => {
-      const browserTools = await createBrowserTools(new BrowserToolCache(new MemoryCache()));
-      const documentTools = await createDocumentTools();
+      const browserTools = await createBrowserTools({
+        cache: new BrowserToolCache(new MemoryCache()),
+        documentLibrary,
+      });
+      const documentTools = await createDocumentTools({ documentLibrary });
 
       const agent = {
         inspectProduct: async () => {
@@ -299,7 +314,7 @@ describe('browser tools', () => {
 
     beforeEach(async () => {
       const cache = new BrowserToolCache(new MemoryCache());
-      tools = await createBrowserTools(cache);
+      tools = await createBrowserTools({ cache, documentLibrary });
       site.resetRequests();
     });
 

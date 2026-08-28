@@ -1,9 +1,16 @@
+import * as z from 'zod';
 import { type AnyWorkflow } from '@mastra/core/workflows';
 import { log } from '../logger.js';
 import { Bot } from '../bot/Bot.js';
 import { toBot } from '../compile/toBot.js';
 import { mastra } from '../mastra/index.js';
-import type { BuildOptions } from '../types.js';
+
+export type BuildOptions = {
+  url: string;
+  prompt: string;
+  inputSchema?: z.ZodType;
+  outputSchema?: any;
+};
 
 const runWorkflow = async (options: BuildOptions, workflow: AnyWorkflow): Promise<any> => {
   const run = await workflow.createRun();
@@ -24,13 +31,14 @@ const runWorkflow = async (options: BuildOptions, workflow: AnyWorkflow): Promis
 };
 
 export class Workshop {
-  async build(options: BuildOptions): Promise<Bot> {
-    log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
+  async build(options: BuildOptions): Promise<void> {
+    throw new Error('deprecated');
 
-    const writeWorkflow = mastra.getWorkflowById('write-workflow');
-    const { result } = await runWorkflow(options, writeWorkflow);
-    const { code } = result.result as { code: string };
-    return toBot(code);
+    // log.info(`Build a bot:\n\turl=${options.url}\n\tprompt=${options.prompt}`);
+    // const writeWorkflow = mastra.getWorkflowById('write-workflow');
+    // const { result } = await runWorkflow(options, writeWorkflow);
+    // const { code } = result.result as { code: string };
+    // return toBot(code);
   }
 
   async plan(options: BuildOptions): Promise<string> {

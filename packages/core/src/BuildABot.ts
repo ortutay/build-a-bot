@@ -1,22 +1,23 @@
-import { Storage } from './storage/Storage.js';
 import { Service } from './service/Service.js';
+import { type GlobalContext, type GlobalOptions, fillInContext } from './context/index.js';
 
-export type BuildABotOptions = {
-  storage?: Storage;
-  services?: Service[];
+export type BuildABotOptions = GlobalOptions & {
+  services?: Record<string, Service>;
 };
 
 export class BuildABot {
-  storage: Storage;
-  services: Service[];
+  services: Record<string, Service>;
+  #context: Promise<GlobalContext>;
 
   constructor(options: BuildABotOptions) {
-    this.storage = options.storage || new Storage();
-    this.services = options.services || [];
+    this.services = options.services || {};
+    this.#context = fillInContext(options);
   }
 
-  async start(): Promise<void> {
-    await Promise.all(this.services.map((it) => it.start()));
+  async start(context?: GlobalContext): Promise<void> {
+    context ??= await this.#context;
+    await Promise.all(Object.values(this.services).map((it) => it.start(context)));
+
     // start all services
     // build all services
     // heal all services

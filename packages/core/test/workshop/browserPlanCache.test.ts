@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { documentLibrary } from '../../src/internal/documents/index.js';
 import {
   closeBrowserTools,
-  createBrowserTools,
+  createTools as createBrowserTools,
 } from '../../src/internal/mastra/tools/browserTools/index.js';
 import { BrowserToolCache } from '../../src/internal/mastra/tools/browserTools/BrowserToolCache.js';
-import { createDocumentTools } from '../../src/internal/mastra/tools/documents/index.js';
+import { createTools as createDocumentTools } from '../../src/internal/mastra/tools/documents/index.js';
 import { browserPlanStep } from '../../src/internal/mastra/workflows/steps.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
@@ -24,8 +25,11 @@ describe('browser plan cache', () => {
   it('makes the second browser-plan run fast', async () => {
     const wait = 1_000;
     const url = `${site.baseUrl}/?wait=${wait}`;
-    const tools = await createBrowserTools(new BrowserToolCache(new MemoryCache()));
-    const documentTools = await createDocumentTools();
+    const tools = await createBrowserTools({
+      cache: new BrowserToolCache(new MemoryCache()),
+      documentLibrary,
+    });
+    const documentTools = await createDocumentTools({ documentLibrary });
 
     const browserAgent = {
       generate: async () => {

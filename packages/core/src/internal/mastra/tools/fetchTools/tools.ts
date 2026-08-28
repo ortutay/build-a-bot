@@ -2,9 +2,9 @@ import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
 import {
   documentContentTypes,
-  documentLibrary,
   type ContentType,
   type DocumentHeaders,
+  type DocumentLibrary,
 } from '../../../documents/index.js';
 import { addInstruments, cacheInstrument, runtimeInstrument } from '../../instruments/index.js';
 import { names as proxyNames, proxyFetch } from '../../../proxy.js';
@@ -21,27 +21,13 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   return supportedContentType;
 };
 
-const fetchTool = createTool({
-  id: 'fetchTool',
-  description: "Fetch a URL using Node's built-in fetch() function.",
-  inputSchema: z.object({
-    url: z
-      .string()
-      .url()
-      .describe('URL to fetch. Include the scheme, for example https://example.com.'),
-    proxy: z
-      .enum(proxyNames)
-      .describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`),
-  }),
-  outputSchema: z.object({
-    documentId: z.string(),
-    url: z.string(),
-    ok: z.boolean(),
-    status: z.number(),
-    statusText: z.string(),
-    bytes: z.number(),
-  }),
-  execute: async ({ url, proxy }) => {
+type FetchToolInput = {
+  url: string;
+  proxy: (typeof proxyNames)[number];
+};
+
+export const executors: Record<string, any> = {
+  fetchTool: async (documentLibrary: DocumentLibrary, { url, proxy }: FetchToolInput) => {
     const timestamp = new Date().toISOString();
     const requestHeaders: DocumentHeaders = {};
     const resp = await proxyFetch(url, proxy);
@@ -73,11 +59,40 @@ const fetchTool = createTool({
       bytes: content.length,
     };
   },
-});
+};
 
-const internal = [fetchTool];
+const createFetchTool = (documentLibrary: DocumentLibrary): any =>
+  createTool({
+    id: 'fetchTool',
+    description: "Fetch a URL using Node's built-in fetch() function.",
+    inputSchema: z.object({
+      url: z
+        .string()
+        .url()
+        .describe('URL to fetch. Include the scheme, for example https://example.com.'),
+      proxy: z
+        .enum(proxyNames)
+        .describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`),
+    }),
+    outputSchema: z.object({
+      documentId: z.string(),
+      url: z.string(),
+      ok: z.boolean(),
+      status: z.number(),
+      statusText: z.string(),
+      bytes: z.number(),
+    }),
+    execute: (...args) => executors.fetchTool(documentLibrary, ...args),
+  });
 
-export const createFetchTools = async (): Promise<Record<string, Tool>> => {
+export type CreateFetchToolsOptions = {
+  documentLibrary: DocumentLibrary;
+};
+
+export const createTools = async (
+  options: CreateFetchToolsOptions
+): Promise<Record<string, Tool>> => {
+  const internal = [createFetchTool(options.documentLibrary)];
   return Object.fromEntries(
     (
       await Promise.all(
@@ -86,5 +101,3 @@ export const createFetchTools = async (): Promise<Record<string, Tool>> => {
     ).map((tool) => [tool.id, tool])
   );
 };
-
-export const tools = await createFetchTools();

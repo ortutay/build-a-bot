@@ -1,13 +1,21 @@
 import { createStep } from '@mastra/core/workflows';
-import { log } from '../../logger.js';
 import { z } from 'zod';
-import * as templates from '../../prompts/templates.js';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
-import { planStepScorer } from '../scorers/index.js';
+import { log } from '../../logger.js';
+import * as templates from '../../prompts/templates.js';
+import { type createPlanStepScorer } from '../scorers/index.js';
 
 const shared = { retries: 2 };
 
-const planStep = <TId extends string>(id: TId, agentId: string) =>
+const planOutputSchema = z.object({
+  url: z.string(),
+  goal: z.string(),
+  report: z.string(),
+});
+
+type PlanStepScorer = ReturnType<typeof createPlanStepScorer>;
+
+const planStep = <TId extends string>(id: TId, agentId: string, planStepScorer: PlanStepScorer) =>
   createStep({
     id,
     ...shared,
@@ -17,11 +25,7 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
       inputSchema: z.any().optional(),
       outputSchema: z.any().optional(),
     }),
-    outputSchema: z.object({
-      url: z.string(),
-      goal: z.string(),
-      report: z.string(),
-    }),
+    outputSchema: planOutputSchema,
     scorers: {
       planStepScorer: {
         scorer: planStepScorer,
@@ -73,9 +77,11 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
     },
   });
 
-export const fullPlanStep = planStep('plan-step', 'planning-agent');
-export const fetchPlanStep = planStep('fetch-plan-step', 'fetch-research-agent');
-export const browserPlanStep = planStep('browser-plan-step', 'browser-research-agent');
+export const createPlanSteps = (planStepScorer: PlanStepScorer) => ({
+  fullPlanStep: planStep('plan-step', 'planning-agent', planStepScorer),
+  fetchPlanStep: planStep('fetch-plan-step', 'fetch-research-agent', planStepScorer),
+  browserPlanStep: planStep('browser-plan-step', 'browser-research-agent', planStepScorer),
+});
 
 export const writePlanStep = createStep({
   id: 'write-plan-step',
@@ -127,7 +133,7 @@ export const writePlanStep = createStep({
 export const writeCodeStep = createStep({
   id: 'write-code-step',
   ...shared,
-  inputSchema: fullPlanStep.outputSchema,
+  inputSchema: planOutputSchema,
   outputSchema: z.object({
     code: z.string(),
   }),

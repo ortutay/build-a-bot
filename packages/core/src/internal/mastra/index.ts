@@ -15,30 +15,26 @@ import {
   SensitiveDataFilter,
 } from '@mastra/observability';
 import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
-import { log } from '../logger.js';
-import { getOrNull, hash } from '../util/index.js';
+import { DiskServerCache } from '../../mastra/extensions/cache/DiskServerCache.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
-import { DiskServerCache } from '../../mastra/extensions/cache/DiskServerCache.js';
 import {
   mastraDatabaseFilepath,
   redisCacheUrl,
   tursoAuthToken,
   tursoDatabaseUrl,
 } from '../constants.js';
+import { DocumentLibrary } from '../documents/index.js';
+import { log } from '../logger.js';
+import { getOrNull, hash } from '../util/index.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from './processors/ResponseLoggingProcessor.js';
-import { planStepScorer, buildScorer } from './scorers/index.js';
-import { planWorkflow, writeWorkflow } from './workflows/index.js';
-import {
-  allTools,
-  fetchResearchTools,
-  browserResearchTools,
-  planningTools,
-} from './tools/index.js';
+import { createBuildScorer, createPlanStepScorer } from './scorers/index.js';
+import { createToolsSets } from './tools/index.js';
+import { createWorkflows } from './workflows/index.js';
 
 const duckDb = new DuckDBStore({});
 
@@ -77,10 +73,21 @@ process.once('SIGTERM', () => exitAfterDuckDbClose(143));
 process.once('SIGHUP', () => exitAfterDuckDbClose(129));
 process.once('SIGQUIT', () => exitAfterDuckDbClose(131));
 
-export const defaultMastra = async (): Promise<{
+export type MastraOptions = {
+  documentLibrary?: DocumentLibrary;
+};
+
+export const defaultMastra = async (
+  options: MastraOptions = {}
+): Promise<{
   mastra: Mastra;
   cleanup: () => Promise<void>;
 }> => {
+  const documentLibrary = options.documentLibrary ?? new DocumentLibrary();
+  const { allTools, fetchResearchTools, browserResearchTools, planningTools } =
+    await createToolsSets({ documentLibrary });
+  const planStepScorer = createPlanStepScorer();
+  const { planWorkflow, writeWorkflow } = createWorkflows(planStepScorer);
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.info('No Redis client, using disk cache');
@@ -275,7 +282,6 @@ export const defaultMastra = async (): Promise<{
     },
     scorers: {
       planStepScorer,
-      buildScorer,
     },
     workflows: {
       planWorkflow,
@@ -296,6 +302,8 @@ export const defaultMastra = async (): Promise<{
       filter: () => true,
     }),
   });
+
+  mastra.addScorer(createBuildScorer(mastra));
 
   let cleanupPromise: Promise<void> | null = null;
   const cleanup = (): Promise<void> => {
