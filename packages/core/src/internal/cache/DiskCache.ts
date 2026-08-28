@@ -6,12 +6,13 @@ import { log } from '../logger.js';
 export type DiskCacheOptions = {
   rootDir?: string;
   readOnly?: boolean;
+  ttlMs?: number;
   writeOnly?: boolean;
 };
 
 type CacheEntry<Value> = {
   val: Value;
-  expiresAt: number;
+  expiresAt: number | null;
 };
 
 const hasCode = (e: unknown, code: string): boolean =>
@@ -21,13 +22,14 @@ const isCacheEntry = <Value>(value: unknown): value is CacheEntry<Value> =>
   typeof value === 'object' &&
   value !== null &&
   'expiresAt' in value &&
-  typeof value.expiresAt === 'number' &&
+  (typeof value.expiresAt === 'number' || value.expiresAt === null) &&
   'val' in value;
 
 export class DiskCache<Value = unknown> {
   readonly logger: Pick<Console, 'warn'>;
   readonly dirname: string;
   readonly readOnly: boolean;
+  readonly ttlMs: number;
   readonly writeOnly: boolean;
 
   constructor(
@@ -35,13 +37,14 @@ export class DiskCache<Value = unknown> {
     {
       rootDir = path.join(os.tmpdir(), 'build-a-bot', 'cache'),
       readOnly = false,
+      ttlMs = 24 * 3600 * 1000,
       writeOnly = false,
     }: DiskCacheOptions = {}
   ) {
     this.logger = console;
     this.dirname = path.join(rootDir, namespace);
-    fs.promises.mkdir(this.dirname, { recursive: true });
     this.readOnly = readOnly;
+    this.ttlMs = ttlMs;
     this.writeOnly = writeOnly;
   }
 
@@ -49,7 +52,7 @@ export class DiskCache<Value = unknown> {
     return key.replaceAll('/', '-');
   }
 
-  async set(key: string, val: Value): Promise<void> {
+  async set(key: string, val: Value, ttlMs: number = this.ttlMs): Promise<void> {
     if (this.readOnly) {
       return;
     }
@@ -58,10 +61,14 @@ export class DiskCache<Value = unknown> {
 
     log.debug(`Cache set: ${key}`);
 
+    await fs.promises.mkdir(this.dirname, { recursive: true });
+
     const filepath = path.join(this.dirname, key);
 
-    const ttl = 24 * 3600;
-    const data: CacheEntry<Value> = { val, expiresAt: Date.now() + ttl * 1000 };
+    const data: CacheEntry<Value> = {
+      val,
+      expiresAt: ttlMs > 0 ? Date.now() + ttlMs : null,
+    };
     const ser = JSON.stringify(data);
     if (ser === undefined) {
       throw new TypeError('Cache value is not JSON serializable');
@@ -78,7 +85,7 @@ export class DiskCache<Value = unknown> {
     }
   }
 
-  async get(key: string): Promise<Value | null | undefined> {
+  async get(key: string): Promise<Value | undefined> {
     if (this.writeOnly) {
       return;
     }
@@ -90,7 +97,7 @@ export class DiskCache<Value = unknown> {
     try {
       file = await fs.promises.readFile(filepath, 'utf8');
     } catch (e) {
-      if (hasCode(e, 'ENOENT')) return null;
+      if (hasCode(e, 'ENOENT')) return undefined;
       throw e;
     }
 
@@ -99,13 +106,17 @@ export class DiskCache<Value = unknown> {
       data = JSON.parse(file);
     } catch (e) {
       this.logger.warn(`Failed to parse JSON for cache file ${filepath}: ${e}`);
-      this.del(key);
-      return null;
+      await this.del(key);
+      return undefined;
     }
 
-    if (!isCacheEntry<Value>(data) || Date.now() > data.expiresAt || data.val === undefined) {
-      this.del(key);
-      return null;
+    if (
+      !isCacheEntry<Value>(data) ||
+      (data.expiresAt !== null && Date.now() >= data.expiresAt) ||
+      data.val === undefined
+    ) {
+      await this.del(key);
+      return undefined;
     }
 
     return data.val;
@@ -121,5 +132,10 @@ export class DiskCache<Value = unknown> {
       if (hasCode(e, 'ENOENT')) return;
       throw e;
     }
+  }
+
+  async clear(): Promise<void> {
+    await fs.promises.rm(this.dirname, { force: true, recursive: true });
+    await fs.promises.mkdir(this.dirname, { recursive: true });
   }
 }

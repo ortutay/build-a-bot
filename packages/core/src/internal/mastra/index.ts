@@ -2,7 +2,6 @@ import chalk from 'chalk';
 import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
-import { InMemoryServerCache } from '@mastra/core/cache';
 import { ConsoleLogger } from '@mastra/core/logger';
 import { type ToolHooks } from '@mastra/core/tools';
 import { RedisServerCache } from '@mastra/redis';
@@ -20,6 +19,7 @@ import { log } from '../logger.js';
 import { getOrNull, hash } from '../util/index.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
+import { DiskServerCache } from '../../mastra/extensions/cache/DiskServerCache.js';
 import {
   mastraDatabaseFilepath,
   redisCacheUrl,
@@ -83,11 +83,14 @@ export const defaultMastra = async (): Promise<{
 }> => {
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
-    log.warn('No Redis client, not using cache');
+    log.info('No Redis client, using disk cache');
   }
   const cache = redisClient
-    ? new RedisServerCache({ client: redisClient }, { keyPrefix: 'cb:' + cb.global + ':' })
-    : new InMemoryServerCache();
+    ? new RedisServerCache(
+        { client: redisClient },
+        { keyPrefix: 'cb:' + cb.mastraResponseCache + ':' }
+      )
+    : new DiskServerCache({ keyPrefix: 'cb:' + cb.mastraResponseCache + ':' });
 
   const [
     // brightdataTools,

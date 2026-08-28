@@ -6,4 +6,5 @@ export const cb: Record<string, string> = {
   cacheInstrument: 'ci' + global + 1,
   documentLibrary: 'dl' + global + 1,
   mastraResponse: 'mr' + global + 1,
+  mastraResponseCache: 'mrc' + global + 1,
 };

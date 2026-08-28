@@ -1,13 +1,16 @@
 import { Storage } from '../storage/Storage.js';
 
 export type ServiceOptions = {
+  id: string;
   storage?: Storage;
 };
 
 export abstract class Service {
+  id: string;
   storage: Storage;
 
   constructor(options: ServiceOptions) {
+    this.id = options.id;
     // TODO: what is default storage? should it be singleton?
     this.storage = options.storage ?? new Storage();
   }
