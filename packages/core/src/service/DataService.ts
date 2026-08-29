@@ -2,7 +2,13 @@ import type { z } from 'zod';
 import { toBot } from '../internal/compile/toBot.js';
 import { log } from '../internal/logger.js';
 import { DataSource } from '../source/DataSource.js';
-import { type Endpoint, Service, type ServiceContext, type ServiceOptions } from './Service.js';
+import {
+  type Endpoint,
+  type ServiceContext,
+  type ServiceOptions,
+  type ServiceConstructorOptions,
+  Service,
+} from './Service.js';
 
 export type DataServiceOptions = ServiceOptions & {
   sources: Record<string, DataSource>;
@@ -10,11 +16,13 @@ export type DataServiceOptions = ServiceOptions & {
   // TODO: optional hint?
 };
 
+type DataServiceConstructorOptions = ServiceConstructorOptions & DataServiceOptions;
+
 export class DataService extends Service {
   itemSchema: z.ZodType;
   sources: Record<string, DataSource>;
 
-  constructor(options: DataServiceOptions) {
+  constructor(options: DataServiceConstructorOptions) {
     super(options);
     this.sources = options.sources;
     this.itemSchema = options.itemSchema;
@@ -25,7 +33,7 @@ export class DataService extends Service {
   }
 
   async _build(context: ServiceContext): Promise<void> {
-    log.info(`Build data service: ${String(this.itemSchema)}`);
+    log.info(`Build data service: ${JSON.stringify(this.itemSchema)}`);
 
     for (const source of Object.values(this.sources)) {
       const url = source.url;
@@ -52,7 +60,7 @@ export class DataService extends Service {
     }
   }
 
-  async heal(context?: ServiceContext): Promise<void> {}
-  async sync(context?: ServiceContext): Promise<void> {}
-  async run(context?: ServiceContext): Promise<void> {}
+  async _heal(context: ServiceContext): Promise<void> {}
+  async _sync(context: ServiceContext): Promise<void> {}
+  async _run(context: ServiceContext): Promise<void> {}
 }

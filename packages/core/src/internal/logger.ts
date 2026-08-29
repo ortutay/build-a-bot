@@ -1,6 +1,28 @@
-import { Logger } from 'tslog';
+import { BaseLogger, fullCoreFeatures, Logger, LogLevel, type ISettingsParam } from 'tslog';
 
-export const log = new Logger({
+class SourceMappedLogger extends BaseLogger<Record<string, unknown>> {
+  constructor(settings: ISettingsParam<Record<string, unknown>>) {
+    super(settings, undefined, new Logger().runtime, 5, fullCoreFeatures);
+  }
+
+  debug(...args: unknown[]) {
+    return super.log(LogLevel.DEBUG, 'DEBUG', ...args);
+  }
+
+  error(...args: unknown[]) {
+    return super.log(LogLevel.ERROR, 'ERROR', ...args);
+  }
+
+  info(...args: unknown[]) {
+    return super.log(LogLevel.INFO, 'INFO', ...args);
+  }
+
+  warn(...args: unknown[]) {
+    return super.log(LogLevel.WARN, 'WARN', ...args);
+  }
+}
+
+export const log = new SourceMappedLogger({
   name: 'builder',
   type: 'hidden',
   pretty: {
