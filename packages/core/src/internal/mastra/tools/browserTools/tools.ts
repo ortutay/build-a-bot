@@ -14,7 +14,7 @@ import {
   type DocumentSummary,
 } from '../../../documents/index.js';
 import { log } from '../../../logger.js';
-import { parseResponseBody, srid } from '../../../util/index.js';
+import { getOrNull, hash, parseResponseBody, srid } from '../../../util/index.js';
 
 import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
@@ -109,7 +109,10 @@ const replay = async (documentLibrary: DocumentLibrary, cursorId: string, steps:
 };
 
 export const executors: Record<string, any> = {
-  newPageTool: async (_documentLibrary: DocumentLibrary) => createCursor(null),
+  newPageTool: async (_documentLibrary: DocumentLibrary, _input: unknown, context: unknown) => {
+    const toolCallId = getOrNull<string>(context, 'toolCallId');
+    return createCursor(toolCallId ? hash(toolCallId).slice(0, 8) : null);
+  },
   gotoTool: async (
     documentLibrary: DocumentLibrary,
     { cursorId, url }: { cursorId: string; url: string }

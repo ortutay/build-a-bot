@@ -1,4 +1,4 @@
-const global: string = 'g' + 11;
+const global: string = 'g' + 14;
 
 export const cb: Record<string, string> = {
   global,

@@ -105,6 +105,12 @@ describe('browser tools', () => {
       expect(second.cursorId).not.toBe(first.cursorId);
     });
 
+    it('uses a hashed tool call ID as the page ID', async () => {
+      await expect(
+        executors.newPageTool(documentLibrary, {}, { toolCallId: 'call_cached-new-page' })
+      ).resolves.toEqual({ cursorId: '66c2100d' });
+    });
+
     it('navigates and returns a saved document ID', async () => {
       const { cursorId } = await executors.newPageTool(documentLibrary, {});
 
