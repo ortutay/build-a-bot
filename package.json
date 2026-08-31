@@ -17,6 +17,7 @@
     "dev:api": "npm run build --workspace=@build-a-bot/core && npm run dev --workspace=@build-a-bot/api",
     "dev:core": "npm run dev --workspace=@build-a-bot/core",
     "dev:studio": "npm run dev --workspace=@build-a-bot/studio",
+    "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",

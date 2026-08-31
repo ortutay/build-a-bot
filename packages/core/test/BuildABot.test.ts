@@ -29,7 +29,12 @@ describe('BuildABot', () => {
   });
 
   it('shares its global context with services without constructing service contexts', async () => {
-    const context = {} as ServiceContext;
+    const initialize = vi.fn().mockResolvedValue(undefined);
+    const context = {
+      documentLibrary: {},
+      mastra: {},
+      storage: { initialize },
+    } as unknown as ServiceContext;
     fillInContext.mockResolvedValue(context);
 
     const service = new TestService({ name: 'test-service' });
@@ -40,17 +45,25 @@ describe('BuildABot', () => {
     await buildABot.start();
 
     expect(fillInContext).toHaveBeenCalledTimes(1);
+    expect(initialize).toHaveBeenCalledTimes(1);
     expect(service.buildContexts).toEqual([context]);
   });
 
   it('does not construct a global context when one is provided to start', async () => {
-    const context = {} as ServiceContext;
+    const initialize = vi.fn().mockResolvedValue(undefined);
+    const context = {
+      documentLibrary: {},
+      mastra: {},
+      storage: { initialize },
+    } as unknown as ServiceContext;
     const service = new TestService({ name: 'test-service' });
     const buildABot = new BuildABot({ services: [service] });
 
     await buildABot.start(context);
+    await buildABot.start(context);
 
     expect(fillInContext).not.toHaveBeenCalled();
-    expect(service.buildContexts).toEqual([context]);
+    expect(initialize).toHaveBeenCalledTimes(1);
+    expect(service.buildContexts).toEqual([context, context]);
   });
 });

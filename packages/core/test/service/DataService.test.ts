@@ -5,7 +5,7 @@ import { Script } from '../../src/internal/compile/Script.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
 import { markAvailableTool } from '../../src/internal/mastra/instruments/availableTools.js';
 import { DataSource } from '../../src/source/DataSource.js';
-import { DataService } from '../../src/service/DataService.js';
+import { DataService, ScriptNotFoundError } from '../../src/service/DataService.js';
 import type { ServiceContext } from '../../src/service/Service.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
@@ -14,6 +14,17 @@ const scriptCode = `
   export const outputSchema = { type: 'object' };
   export const exampleInput = {};
   export const run = async () => ({});
+`;
+
+const syncScriptCode = `
+  export const inputSchema = { type: 'object' };
+  export const outputSchema = {
+    type: 'object',
+    properties: { value: { type: 'string' } },
+    required: ['value'],
+  };
+  export const exampleInput = {};
+  export const run = async () => ({ value: 'scraped' });
 `;
 
 describe('DataService', () => {
@@ -64,5 +75,58 @@ describe('DataService', () => {
       name: 'url:https://example.test/data',
       serviceId: expect.any(String),
     });
+  });
+
+  it('runs saved scripts and returns results with source metadata', async () => {
+    temporaryDb = await createTemporaryDb();
+    const mastra = { listTools: () => ({}) } as unknown as Mastra;
+    const storage = temporaryDb.storage;
+    const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const source = new DataSource({ url: 'https://example.test/data' });
+    const service = new DataService({
+      name: 'example-service',
+      sources: [source],
+      itemSchema: z.object({ value: z.string() }),
+      mastra,
+      storage,
+      documentLibrary,
+    });
+    const script = new Script({
+      name: `url:${source.url}`,
+      code: syncScriptCode,
+      context: [],
+      modules: [],
+      tools: [],
+    });
+    await script.save(storage, service.name);
+
+    const result = await service.sync();
+
+    expect(result.results).toEqual([
+      {
+        value: 'scraped',
+        meta: {
+          source: { url: source.url },
+          foundAt: expect.any(String),
+        },
+      },
+    ]);
+  });
+
+  it('reports a named error when a source has no saved script', async () => {
+    temporaryDb = await createTemporaryDb();
+    const mastra = { listTools: () => ({}) } as unknown as Mastra;
+    const storage = temporaryDb.storage;
+    const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const service = new DataService({
+      name: 'example-service',
+      sources: [new DataSource({ url: 'https://example.test/missing' })],
+      itemSchema: z.object({ value: z.string() }),
+      mastra,
+      storage,
+      documentLibrary,
+    });
+
+    await expect(service.sync()).rejects.toBeInstanceOf(ScriptNotFoundError);
   });
 });

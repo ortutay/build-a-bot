@@ -9,7 +9,7 @@ export type ServiceContext = Pick<GlobalContext, 'mastra' | 'storage' | 'documen
 export type ServiceOptions = {} & Pick<GlobalOptions, 'mastra' | 'storage' | 'documentLibrary'>;
 export type ServiceConstructorOptions = ServiceOptions & { name: string };
 
-export abstract class Service {
+export abstract class Service<SyncResult = unknown> {
   name: string;
   #context?: Promise<ServiceContext>;
   #options: ServiceOptions;
@@ -26,11 +26,14 @@ export abstract class Service {
 
   async start(options?: ServiceOptions): Promise<void> {
     await this._start(await this.context(options));
-    // TODO: rest
   }
 
   async _start(context: ServiceContext): Promise<void> {
     await this._build(context);
+    await this._heal(context);
+    const results = await this._sync(context);
+    console.log('Got results:', results);
+    // TODO: rest
   }
 
   async build(options?: ServiceOptions): Promise<void> {
@@ -41,7 +44,7 @@ export abstract class Service {
     return this._heal(await this.context(options));
   }
 
-  async sync(options?: ServiceOptions): Promise<void> {
+  async sync(options?: ServiceOptions): Promise<SyncResult> {
     return this._sync(await this.context(options));
   }
 
@@ -51,7 +54,7 @@ export abstract class Service {
 
   abstract _build(context: ServiceContext): Promise<void>;
   abstract _heal(context: ServiceContext): Promise<void>;
-  abstract _sync(context: ServiceContext): Promise<void>;
+  abstract _sync(context: ServiceContext): Promise<SyncResult>;
   abstract _run(context: ServiceContext): Promise<void>;
 }
 

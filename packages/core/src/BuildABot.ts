@@ -8,6 +8,7 @@ export type BuildABotOptions = GlobalOptions & {
 export class BuildABot {
   services: Service[];
   #context?: Promise<GlobalContext>;
+  #initialize?: Promise<void>;
   #options: GlobalOptions;
 
   constructor(options: BuildABotOptions = {}) {
@@ -17,6 +18,7 @@ export class BuildABot {
 
   async start(context?: GlobalContext): Promise<void> {
     context ??= await (this.#context ??= fillInContext(this.#options));
+    await (this.#initialize ??= context.storage.initialize());
     await Promise.all(this.services.map((it) => it._start(context)));
 
     // start all services

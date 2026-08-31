@@ -7,7 +7,8 @@ export const isMastraPlatform = Boolean(process.env.MASTRA_PLATFORM_ACCESS_TOKEN
 export const redisCacheUrl = process.env.REDIS_CACHE_URL;
 export const tursoDatabaseUrl = process.env.TURSO_DATABASE_URL;
 export const mastraDatabaseFilepath = 'file:./.build-a-bot/mastra.db';
-export const storageDatabaseFilepath = 'file:./.build-a-bot/data.db';
+export const storageDirectory = '.build-a-bot';
+export const storageDatabaseFilepath = `file:./${storageDirectory}/data.db`;
 
 export const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 export const openaiApiKey = process.env.OPENAI_API_KEY;
