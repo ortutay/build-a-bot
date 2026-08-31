@@ -7,24 +7,30 @@ import {
 
 export type ServiceContext = Pick<GlobalContext, 'mastra' | 'storage' | 'documentLibrary'>;
 export type ServiceOptions = {} & Pick<GlobalOptions, 'mastra' | 'storage' | 'documentLibrary'>;
-export type ServiceConstructorOptions = ServiceOptions & { id: string };
+export type ServiceConstructorOptions = ServiceOptions & { name: string };
 
 export abstract class Service {
-  id: string;
-  #context: Promise<ServiceContext>;
+  name: string;
+  #context?: Promise<ServiceContext>;
+  #options: ServiceOptions;
 
   constructor(options: ServiceConstructorOptions) {
-    this.id = options.id;
-    this.#context = fillInContext(options);
+    this.name = options.name;
+    this.#options = options;
   }
 
   async context(options?: ServiceOptions): Promise<ServiceContext> {
+    this.#context ??= fillInContext(this.#options);
     return mergeContext(await this.#context, options);
   }
 
   async start(options?: ServiceOptions): Promise<void> {
-    await this._build(await this.context(options));
+    await this._start(await this.context(options));
     // TODO: rest
+  }
+
+  async _start(context: ServiceContext): Promise<void> {
+    await this._build(context);
   }
 
   async build(options?: ServiceOptions): Promise<void> {

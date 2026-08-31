@@ -12,7 +12,7 @@ import {
   type DocumentListQuery,
   type DocumentLibrary,
 } from '../../../documents/index.js';
-import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
+import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
 
 const prefix = (str: string): string => 'documentTools_' + str;
 
@@ -152,8 +152,10 @@ export const createTools = async (
   const getManyTool = createGetManyTool(options.documentLibrary);
   const internal = [listTool, getTool, getManyTool];
   return Object.fromEntries(
-    (await Promise.all(internal.map((tool) => addInstruments([runtimeInstrument], tool)))).map(
-      (tool) => [tool.id, tool]
-    )
+    (
+      await Promise.all(
+        internal.map((tool) => addInstruments([runtimeInstrument, markAvailableTool], tool))
+      )
+    ).map((tool) => [tool.id, tool])
   );
 };

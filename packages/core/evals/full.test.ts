@@ -1,8 +1,10 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { runEvals } from '@mastra/core/evals';
+import { availableContext, availableModules } from '../src/internal/compile/Compiler.js';
 import { writeWorkflow } from '../src/internal/mastra/workflows/index.js';
-import { cleanup } from '../src/internal/mastra/index.js';
+import { cleanup, mastra } from '../src/internal/mastra/index.js';
 import { loadDataset, loadItemsFromDataset } from '../src/internal/mastra/datasets/index.js';
+import { selectAvailableTools } from '../src/internal/mastra/instruments/availableTools.js';
 import { buildScorer } from '../src/internal/mastra/scorers/index.js';
 import { log } from '../src/internal/logger.js';
 import {
@@ -16,6 +18,9 @@ import {
 describe('full evals', () => {
   const runTarget = async (target: any) => {
     const workflow = writeWorkflow;
+    const tools = Object.entries(selectAvailableTools(mastra.listTools() ?? {}))
+      .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
+      .map(([name]) => name);
     await runEvals({
       target: workflow,
       data: [
@@ -25,6 +30,9 @@ describe('full evals', () => {
             goal: target.prompt,
             inputSchema: target.inputSchema,
             exampleInput: target.exampleInput,
+            context: Object.keys(availableContext),
+            modules: Object.keys(availableModules),
+            tools,
           },
         },
       ],

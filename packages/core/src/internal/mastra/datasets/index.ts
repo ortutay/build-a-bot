@@ -1,7 +1,9 @@
 import type { Dataset } from '@mastra/core/datasets';
 import { z } from 'zod';
+import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import { mastra } from '../index.js';
+import { selectAvailableTools } from '../instruments/availableTools.js';
 import { getOrNull } from '../../util/index.js';
 import { basicTargets, realEstateTargets } from './targets.js';
 
@@ -22,6 +24,9 @@ const datasetItemInputSchema = z.object({
   inputSchema: z.record(z.string(), z.unknown()).optional(),
   outputSchema: z.record(z.string(), z.unknown()).optional(),
   exampleInput: z.object({}).passthrough().optional(),
+  modules: z.array(z.string()),
+  context: z.array(z.string()),
+  tools: z.array(z.string()),
 });
 
 class DatasetNotFoundError extends Error {
@@ -111,6 +116,9 @@ const existingItemsByUrl = async (dataset: Dataset) => {
 
 const upsertTargets = async (dataset: Dataset, name: string, targets: Target[]) => {
   const existing = await existingItemsByUrl(dataset);
+  const tools = Object.entries(selectAvailableTools(mastra.listTools() ?? {}))
+    .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
+    .map(([name]) => name);
   const items = [];
   const updates = [];
 
@@ -119,6 +127,9 @@ const upsertTargets = async (dataset: Dataset, name: string, targets: Target[]) 
       url,
       goal,
       inputSchema: z.toJSONSchema(inputSchema),
+      context: Object.keys(availableContext),
+      modules: Object.keys(availableModules),
+      tools,
       ...(outputSchema === undefined ? {} : { outputSchema: z.toJSONSchema(outputSchema) }),
       ...(exampleInput === undefined ? {} : { exampleInput }),
     };

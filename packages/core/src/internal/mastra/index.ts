@@ -213,6 +213,7 @@ export const defaultMastra = async (
   });
 
   const mastra = new Mastra({
+    tools: allTools,
     agents: {
       buildAgent,
       planningAgent,

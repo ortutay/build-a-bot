@@ -1,7 +1,9 @@
 import { type Mastra } from '@mastra/core';
 import { createScorer } from '@mastra/core/evals';
 import { z } from 'zod';
-import { toBot } from '../../compile/toBot.js';
+import { availableContext, availableModules } from '../../compile/Compiler.js';
+import { Script } from '../../compile/Script.js';
+import { selectAvailableTools } from '../instruments/availableTools.js';
 import { srid } from '../../util/index.js';
 
 export const createBuildScorer = (mastra: Mastra) =>
@@ -16,7 +18,14 @@ export const createBuildScorer = (mastra: Mastra) =>
     .preprocess(async (args) => {
       const { run } = args;
       const code = run.output.code;
-      const bot = await toBot(code, mastra);
+      const script = new Script({
+        name: 'build-score',
+        code,
+        context: Object.keys(availableContext),
+        modules: Object.keys(availableModules),
+        tools: Object.keys(selectAvailableTools(mastra.listTools() ?? {})),
+      });
+      const bot = await script.compile(mastra);
       const exampleInput = run.input?.exampleInput ?? bot.exampleInput;
       const runId = srid();
       const results = await bot.run(exampleInput, runId);

@@ -1,6 +1,8 @@
 import type { z } from 'zod';
-import { toBot } from '../internal/compile/toBot.js';
+import { availableContext, availableModules } from '../internal/compile/Compiler.js';
+import { Script } from '../internal/compile/Script.js';
 import { log } from '../internal/logger.js';
+import { selectAvailableTools } from '../internal/mastra/instruments/availableTools.js';
 import { DataSource } from '../source/DataSource.js';
 import {
   type Endpoint,
@@ -11,7 +13,7 @@ import {
 } from './Service.js';
 
 export type DataServiceOptions = ServiceOptions & {
-  sources: Record<string, DataSource>;
+  sources: DataSource[];
   itemSchema: z.ZodType;
   // TODO: optional hint?
 };
@@ -20,7 +22,7 @@ type DataServiceConstructorOptions = ServiceConstructorOptions & DataServiceOpti
 
 export class DataService extends Service {
   itemSchema: z.ZodType;
-  sources: Record<string, DataSource>;
+  sources: DataSource[];
 
   constructor(options: DataServiceConstructorOptions) {
     super(options);
@@ -35,32 +37,70 @@ export class DataService extends Service {
   async _build(context: ServiceContext): Promise<void> {
     log.info(`Build data service: ${JSON.stringify(this.itemSchema)}`);
 
-    for (const source of Object.values(this.sources)) {
+    for (const source of this.sources) {
       const url = source.url;
       const prompt = 'Build a scraper to get data in the output schema format.';
+      const scriptName = `url:${url}`;
+      let script = await Script.findByName(context.storage, this.name, scriptName);
 
-      log.info(`Build a bot:\n\turl=${url}\n\tprompt=${prompt}`);
-      const writeWorkflow = context.mastra.getWorkflowById('write-workflow');
-      const run = await writeWorkflow.createRun();
-      const result = await run.start({
-        inputData: {
-          url,
-          goal: prompt,
-          // inputSchema: options.inputSchema,
-          outputSchema: this.itemSchema,
-        },
-      });
+      if (!script) {
+        log.info(`Writing script: name=${scriptName}, url=${url}`);
+        const writeWorkflow = context.mastra.getWorkflowById('write-workflow');
+        const run = await writeWorkflow.createRun();
+        const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
+          .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
+          .map(([name]) => name);
 
-      if (result.status !== 'success') {
-        throw new Error(`Workflow did not complete successfully: ${result.status}`);
+        const result = await run.start({
+          inputData: {
+            url,
+            goal: prompt,
+            context: Object.keys(availableContext),
+            modules: Object.keys(availableModules),
+            // inputSchema: options.inputSchema,
+            outputSchema: this.itemSchema,
+            tools,
+          },
+        });
+
+        if (result.status !== 'success') {
+          throw new Error(`Workflow did not complete successfully: ${result.status}`);
+        }
+
+        const { code } = result.result as { code: string };
+        script = new Script({
+          name: scriptName,
+          code,
+          context: Object.keys(availableContext),
+          modules: Object.keys(availableModules),
+          tools,
+        });
+        await script.save(context.storage, this.name);
+        log.info(`Wrote script: id=${script.id}, name=${script.name}`);
+      } else {
+        log.info(`Found script: id=${script.id}, name=${script.name}`);
       }
-      const { code } = result.result as { code: string };
-      const bot = await toBot(code, context.mastra);
-      log.info(`Made a bot: ${String(bot)}`);
+
+      const bot = await script.compile(context.mastra);
+      log.info(`Compiled script: id=${script.id}, name=${script.name}`);
+      log.debug(`Made a bot: ${String(bot)}`);
     }
   }
 
   async _heal(context: ServiceContext): Promise<void> {}
-  async _sync(context: ServiceContext): Promise<void> {}
+
+  async _sync(context: ServiceContext): Promise<void> {
+    // TODO:
+    // for each this.sources:
+    //   pull the script from DB
+    //   named error if not found
+    //   run it
+    //   store results
+    // result shape should be output schema, plus field "meta.source", which is { url: ... }
+    // add following to meta as well:
+    // - foundAt: a timestamp
+    // return shape is { results }, which is a list of those results
+  }
+
   async _run(context: ServiceContext): Promise<void> {}
 }

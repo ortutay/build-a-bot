@@ -6,7 +6,12 @@ import {
   type DocumentHeaders,
   type DocumentLibrary,
 } from '../../../documents/index.js';
-import { addInstruments, cacheInstrument, runtimeInstrument } from '../../instruments/index.js';
+import {
+  addInstruments,
+  cacheInstrument,
+  markAvailableTool,
+  runtimeInstrument,
+} from '../../instruments/index.js';
 import { names as proxyNames, proxyFetch } from '../../../proxy.js';
 import { parseResponseBody } from '../../../util/index.js';
 
@@ -96,7 +101,9 @@ export const createTools = async (
   return Object.fromEntries(
     (
       await Promise.all(
-        internal.map((tool) => addInstruments([cacheInstrument, runtimeInstrument], tool))
+        internal.map((tool) =>
+          addInstruments([cacheInstrument, runtimeInstrument, markAvailableTool], tool)
+        )
       )
     ).map((tool) => [tool.id, tool])
   );

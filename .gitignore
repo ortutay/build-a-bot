@@ -11,3 +11,4 @@ dist/
 db/*
 .mastra
 mastra.duckdb*
+.build-a-bot/

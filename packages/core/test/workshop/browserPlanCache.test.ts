@@ -55,7 +55,13 @@ describe('browser plan cache', () => {
     const runPlan = async () => {
       const startedAt = performance.now();
       const result = await (browserPlanStep.execute as any)({
-        inputData: { url, goal: 'List each catalog item with its SKU and name.' },
+        inputData: {
+          url,
+          goal: 'List each catalog item with its SKU and name.',
+          modules: [],
+          context: [],
+          tools: [],
+        },
         mastra: mastra as any,
       });
       return { elapsed: performance.now() - startedAt, result };

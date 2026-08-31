@@ -2,21 +2,22 @@ import { type GlobalContext, type GlobalOptions, fillInContext } from './context
 import { Service } from './service/Service.js';
 
 export type BuildABotOptions = GlobalOptions & {
-  services?: Record<string, Service>;
+  services?: Service[];
 };
 
 export class BuildABot {
-  services: Record<string, Service>;
-  #context: Promise<GlobalContext>;
+  services: Service[];
+  #context?: Promise<GlobalContext>;
+  #options: GlobalOptions;
 
-  constructor(options: BuildABotOptions) {
-    this.services = options.services || {};
-    this.#context = fillInContext(options);
+  constructor(options: BuildABotOptions = {}) {
+    this.services = options.services ?? [];
+    this.#options = options;
   }
 
   async start(context?: GlobalContext): Promise<void> {
-    context ??= await this.#context;
-    await Promise.all(Object.values(this.services).map((it) => it.start(context)));
+    context ??= await (this.#context ??= fillInContext(this.#options));
+    await Promise.all(this.services.map((it) => it._start(context)));
 
     // start all services
     // build all services

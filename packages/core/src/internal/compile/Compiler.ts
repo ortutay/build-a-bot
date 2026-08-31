@@ -53,6 +53,9 @@ const parseWithSchema = async (schema: JSONSchema, value: unknown): Promise<unkn
   return zod.fromJSONSchema(schema as unknown as ZodJSONSchema).parseAsync(value);
 };
 
+// TODO:
+// 1) Constructor takes code, list of exports in that code, list of modules, list of tools
+// 2) compile() takes no arguments, keep return type
 export class Compiler {
   constructor() {}
 
@@ -60,12 +63,7 @@ export class Compiler {
     code: string,
     { additionalContext = {} }: CompileOptions = {}
   ): Promise<CompileResult> {
-    const sharedContext = {
-      ...additionalContext,
-      ...availableContext,
-      // tools: toContextTools(allTools),
-      ...availableModules,
-    };
+    const sharedContext = { ...additionalContext };
     const context = vm.createContext({ ...sharedContext });
 
     const cleaned = code

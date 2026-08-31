@@ -16,7 +16,7 @@ import {
 import { log } from '../../../logger.js';
 import { getOrNull, hash, parseResponseBody, srid } from '../../../util/index.js';
 
-import { addInstruments, runtimeInstrument } from '../../instruments/index.js';
+import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 import { browserCacheInstrument } from './instruments.js';
 import { likelyAdOrTracker } from './block.js';
@@ -354,7 +354,9 @@ export const createTools = async (
   return Object.fromEntries(
     (
       await Promise.all(
-        internal.map((tool) => addInstruments([instrument, runtimeInstrument], tool))
+        internal.map((tool) =>
+          addInstruments([instrument, runtimeInstrument, markAvailableTool], tool)
+        )
       )
     ).map((tool) => [tool.id, tool])
   );

@@ -70,7 +70,13 @@ You should define a function called run as follows:
         const outputSchema = {};
         ${code}
       `,
-      { additionalContext: snippetContext.values }
+      {
+        additionalContext: {
+          ...availableContext,
+          ...availableModules,
+          ...snippetContext.values,
+        },
+      }
     );
 
     return fn({});

@@ -3,31 +3,50 @@ import { z } from 'zod';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
+import { selectAvailableTools } from '../instruments/availableTools.js';
+import { getOrNull } from '../../util/index.js';
 
 const shared = { retries: 2 };
+
+export const writeWorkflowInputSchema = z.object({
+  url: z.string(),
+  goal: z.string(),
+  inputSchema: z.any().optional(),
+  outputSchema: z.any().optional(),
+  modules: z.array(z.string()),
+  context: z.array(z.string()),
+  tools: z.array(z.string()),
+});
 
 const planOutputSchema = z.object({
   url: z.string(),
   goal: z.string(),
   report: z.string(),
+  modules: z.array(z.string()),
+  context: z.array(z.string()),
+  tools: z.array(z.string()),
 });
+
+const getAvailable = <T>(vals: Record<string, T>, name: string, type: string): T => {
+  const val = getOrNull<T>(vals, name);
+  if (val === null) {
+    throw new Error(`Requested ${type} is not available: ${name}`);
+  }
+
+  return val;
+};
 
 const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
     id,
     ...shared,
-    inputSchema: z.object({
-      url: z.string(),
-      goal: z.string(),
-      inputSchema: z.any().optional(),
-      outputSchema: z.any().optional(),
-    }),
+    inputSchema: writeWorkflowInputSchema,
     outputSchema: planOutputSchema,
     execute: async ({ inputData, mastra }) => {
       log.info('Running report step');
 
       const agent = mastra!.getAgentById(agentId);
-      const { url, goal } = inputData;
+      const { url, goal, modules, context, tools } = inputData;
 
       const prompt = templates.plan.render({
         userInput: templates.userInput.render({ url, goal }),
@@ -61,6 +80,9 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
         url,
         goal,
         report,
+        modules,
+        context,
+        tools,
       };
     },
   });
@@ -127,14 +149,26 @@ export const writeCodeStep = createStep({
     log.info('Running write code step');
 
     const agent = mastra!.getAgentById('build-agent');
-    const { url, goal, report } = inputData as any;
+    const { url, goal, report } = inputData;
 
     log.debug(`Write code report: ${report}`);
 
+    const availableTools = selectAvailableTools(mastra!.listTools() ?? {});
     const tools = Object.fromEntries(
-      Object.entries(await agent.listTools()).filter(
-        ([, tool]) => !('requireApproval' in tool) || !tool.requireApproval
-      )
+      inputData.tools.map((name) => {
+        const tool = getAvailable(availableTools, name, 'tool');
+        if ('requireApproval' in tool && tool.requireApproval) {
+          throw new Error(`Requested tool requires approval: ${name}`);
+        }
+
+        return [name, tool];
+      })
+    );
+    const context = Object.fromEntries(
+      inputData.context.map((name) => [name, getAvailable(availableContext, name, 'context')])
+    );
+    const modules = Object.fromEntries(
+      inputData.modules.map((name) => [name, getAvailable(availableModules, name, 'module')])
     );
 
     const renderedReport = templates.report.render({ report });
@@ -145,8 +179,8 @@ export const writeCodeStep = createStep({
         tools: JSON.stringify(tools, null, 2),
       }),
       userInput: templates.userInput.render({ url, goal }),
-      availableModules: JSON.stringify(Object.keys(availableModules)),
-      availableContext: JSON.stringify(Object.keys(availableContext)),
+      availableModules: JSON.stringify(Object.keys(modules)),
+      availableContext: JSON.stringify(Object.keys(context)),
       report: renderedReport,
     });
 

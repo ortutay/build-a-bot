@@ -1,5 +1,5 @@
 import { createWorkflow } from '@mastra/core/workflows';
-import { fullPlanStep, writeCodeStep } from './steps.js';
+import { fullPlanStep, writeCodeStep, writeWorkflowInputSchema } from './steps.js';
 
 export const planWorkflow = createWorkflow({
   id: 'plan-workflow',
@@ -12,7 +12,7 @@ export const planWorkflow = createWorkflow({
 
 export const writeWorkflow = createWorkflow({
   id: 'write-workflow',
-  inputSchema: fullPlanStep.inputSchema,
+  inputSchema: writeWorkflowInputSchema,
   outputSchema: writeCodeStep.outputSchema,
 })
   .then(fullPlanStep)

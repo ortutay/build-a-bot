@@ -1,6 +1,7 @@
 import { type Tool } from '@mastra/core/tools';
 
 export * from './runtime.js';
+export * from './availableTools.js';
 export * from './cacheInstrument.js';
 export * from './concurrency.js';
 

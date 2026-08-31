@@ -22,7 +22,6 @@ export const createToolsSets = async (options: CreateToolsOptions) => {
     createDocumentTools(options),
     createFetchTools(options),
   ]);
-
   return {
     allTools: {
       ...fetchTools,
