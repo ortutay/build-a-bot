@@ -17,20 +17,6 @@ export const userInput = new Template(
 </user-input>`
 );
 
-export const inputSchema = new Template(
-  ['inputSchema'],
-  `<input-schema>
-{{inputSchema}}
-</input-schema>`
-);
-
-export const outputSchema = new Template(
-  ['outputSchema'],
-  `<output-schema>
-{{outputSchema}}
-</output-schema>`
-);
-
 export const report = new Template(
   ['report'],
   `<report>
@@ -64,7 +50,7 @@ export const plan = new Template(
   ['userInput', 'inputSchema', 'outputSchema'],
   `You are writing a JavaScript web scraping bot. Explore and gather information necessary to write this script.
 
-Do not write code yet, simple generate a written report about how to run the script once you have enough information.
+Do not write code yet. Generate a written report about how to run the script once you have enough information, along with input and output schemas. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
@@ -112,24 +98,9 @@ If tools are available, test your assumptions using snippets. You may include sm
 
 # Input and ouput schema
 
-Define an input and output schema for this function. It should be a reusable, paramaterized function. It will be part of HTTP API endpoint, so the input should be a JSON object, mostly strings or numbers as values.
+Define an input and output schema for this function. It should be a reusable, parameterized function. It will be part of an HTTP API endpoint, so the input should be a JSON object, mostly strings or numbers as values.
 
-The schemas should follow JSON schema conventions. A full valid example is below:
-
-  const outputSchema = {
-    type: "object",
-    properties: {
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            number: { type: "string" }
-          }
-        }
-      }
-    }
-  }
+If the user input includes an input or output schema, it is authoritative. Do not add fields, wrappers, or metadata that are not present in the supplied schema.
 
 Guidelines for input schema:
 - Follow the user prompt
@@ -145,16 +116,8 @@ Guidelines for output schema:
 - Follow the user prompt
 - Beyond that, give a nicely structured output with the key data
 - Make it resilient. Unless absolutely necessary, make outputs optional.
-- Do not overcomplicate the schema, avoid excessive nesting
-- For each item scraped, include a meta field:
-  - meta.sourceURL: The source URL for this item. This describes where the data was gathered from
-- Include a meta field, which has:
-  - meta.urlsVisited: list of URLs visited
-  - meta.count: Include for "list" view scrapers: Number of items scraped and available in results
-  - meta.total: Include for "list" view scrapers: Total number of items, will be greater than or equal to meta.count
-  - meta.errors: array of errors, or null
-- If a specific output schema is provided out the user prompt section, ignore above guideloutes and use the user's output schema. Restate the user schema in your output.
-  - However, still include the "meta" output, in addition to the user's specifications
+- Do not overcomplicate the schema or add excessive nesting.
+- If a specific output schema is provided in the user prompt section, use it exactly. Restate the user schema in your output.
 
 # Additional guidelines
 
@@ -175,9 +138,13 @@ Guidelines for output schema:
 
 {{userInput}}
 
+<input-schema>
 {{inputSchema}}
+</input-schema>
 
+<output-schema>
 {{outputSchema}}
+</output-schema>
 
 <== End User Input Section ==>
 
@@ -197,24 +164,22 @@ Keep the same level of details and precision as the original reports. The next s
 );
 
 export const code = new Template(
-  ['toolsForCode', 'availableModules', 'availableContext', 'userInput', 'report'],
+  [
+    'toolsForCode',
+    'availableModules',
+    'availableContext',
+    'userInput',
+    'inputSchema',
+    'outputSchema',
+    'report',
+  ],
   `You are writing a JavaScript web scraping script. You have various reports from sub-agents. Use these to write reports.
 
 If necessary, use tools load pages and inspect the site further to generate the script.
 
-Guidelines for input and output:
-- If you are returning a list of results:
-  - Include the following inputs, in addition to domain specific ones:
-    - limit: Max number of results, default 1000
-    - offset: Starting offset, combines with limit
-  - Use the following output format:
-    - results: Array of results items
-    - total: total number of results
-    - count: number of results in the current result set
-- If you are returning a single result:
-  - Simply return the object itself
+The input and output schemas below are authoritative. Export them exactly, and ensure that exampleInput and the value returned from run() conform to them. Do not add wrappers, pagination fields, or metadata that are absent from the supplied schemas.
 
-- Input schema:
+Guidelines for input schema:
   - Make it permissive. Unless necessary, make inputs optional.
   - Often, there should be zero or one (or may be two) "main" inputs, and the rest are supplementary filters, etc.
   - Avoid putting the input URL as one of the fields in input schema. You can instead hardcode it, with the option to override if necessary.
@@ -222,8 +187,14 @@ Guidelines for input and output:
     - For example, a list endpoint should, by default, return everything, and filters should not have pre-defined defaults
   - For detail getter endpoints, the idenitifer can be required
     - For example, for https://example.com/products/:id, the :id field should be required
-- Output schema:
-  - Make it resilient. Unless absolutely necessary, make outputs optional.
+
+<input-schema>
+{{inputSchema}}
+</input-schema>
+
+<output-schema>
+{{outputSchema}}
+</output-schema>
 
 # Structure
 

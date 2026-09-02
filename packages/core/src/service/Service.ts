@@ -5,8 +5,11 @@ import {
   fillInContext,
 } from '../context/index.js';
 
-export type ServiceContext = Pick<GlobalContext, 'mastra' | 'storage' | 'documentLibrary'>;
-export type ServiceOptions = {} & Pick<GlobalOptions, 'mastra' | 'storage' | 'documentLibrary'>;
+export type ServiceContext = Pick<GlobalContext, 'app' | 'mastra' | 'storage' | 'documentLibrary'>;
+export type ServiceOptions = {} & Pick<
+  GlobalOptions,
+  'app' | 'mastra' | 'storage' | 'documentLibrary'
+>;
 export type ServiceConstructorOptions = ServiceOptions & { name: string };
 
 export abstract class Service<SyncResult = unknown> {
@@ -33,7 +36,7 @@ export abstract class Service<SyncResult = unknown> {
     await this._heal(context);
     const results = await this._sync(context);
     console.log('Got results:', results);
-    // TODO: rest
+    await this._run(context);
   }
 
   async build(options?: ServiceOptions): Promise<void> {

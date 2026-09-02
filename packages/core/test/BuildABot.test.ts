@@ -49,7 +49,7 @@ describe('BuildABot', () => {
     expect(service.buildContexts).toEqual([context]);
   });
 
-  it('does not construct a global context when one is provided to start', async () => {
+  it('starts services only once when a context is provided', async () => {
     const initialize = vi.fn().mockResolvedValue(undefined);
     const context = {
       documentLibrary: {},
@@ -64,6 +64,6 @@ describe('BuildABot', () => {
 
     expect(fillInContext).not.toHaveBeenCalled();
     expect(initialize).toHaveBeenCalledTimes(1);
-    expect(service.buildContexts).toEqual([context, context]);
+    expect(service.buildContexts).toEqual([context]);
   });
 });

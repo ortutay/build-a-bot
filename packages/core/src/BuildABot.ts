@@ -10,6 +10,7 @@ export class BuildABot {
   #context?: Promise<GlobalContext>;
   #initialize?: Promise<void>;
   #options: GlobalOptions;
+  #start?: Promise<void>;
 
   constructor(options: BuildABotOptions = {}) {
     this.services = options.services ?? [];
@@ -17,13 +18,12 @@ export class BuildABot {
   }
 
   async start(context?: GlobalContext): Promise<void> {
+    return (this.#start ??= this.#startOnce(context));
+  }
+
+  async #startOnce(context?: GlobalContext): Promise<void> {
     context ??= await (this.#context ??= fillInContext(this.#options));
     await (this.#initialize ??= context.storage.initialize());
     await Promise.all(this.services.map((it) => it._start(context)));
-
-    // start all services
-    // build all services
-    // heal all services
-    // sync all services
   }
 }

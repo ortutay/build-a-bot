@@ -1,6 +1,9 @@
 import { sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 import { srid } from '../../internal/util/index.js';
 
+export const runStatuses = ['active', 'done', 'error'] as const;
+export type RunStatus = (typeof runStatuses)[number];
+
 export const servicesTable = sqliteTable('services', {
   id: text()
     .primaryKey()
@@ -19,6 +22,7 @@ export const scriptsTable = sqliteTable(
       .references(() => servicesTable.id),
     name: text().notNull(),
     code: text().notNull(),
+    buildInput: text('build_input', { mode: 'json' }).$type<Record<string, unknown>>(),
     exports: text({ mode: 'json' }).$type<string[]>().notNull(),
     context: text({ mode: 'json' }).$type<string[]>().notNull(),
     modules: text({ mode: 'json' }).$type<string[]>().notNull(),
@@ -26,3 +30,35 @@ export const scriptsTable = sqliteTable(
   },
   (table) => [unique('scripts_service_id_name_unique').on(table.serviceId, table.name)]
 );
+
+export const dataSourcesTable = sqliteTable('data_sources', {
+  id: text()
+    .primaryKey()
+    .$defaultFn(() => srid()),
+  url: text().notNull().unique(),
+});
+
+export const runsTable = sqliteTable('runs', {
+  id: text()
+    .primaryKey()
+    .$defaultFn(() => srid()),
+  scriptId: text('script_id')
+    .notNull()
+    .references(() => scriptsTable.id),
+  startTime: text('start_time').notNull(),
+  endTime: text('end_time'),
+  input: text({ mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+  status: text({ enum: runStatuses }).$type<RunStatus>().notNull(),
+  error: text({ mode: 'json' }).$type<Record<string, unknown>>(),
+});
+
+export const resultsTable = sqliteTable('results', {
+  id: text()
+    .primaryKey()
+    .$defaultFn(() => srid(10)),
+  runId: text('run_id')
+    .notNull()
+    .references(() => runsTable.id),
+  createdAt: text('created_at').notNull(),
+  data: text({ mode: 'json' }).$type<unknown>().notNull(),
+});

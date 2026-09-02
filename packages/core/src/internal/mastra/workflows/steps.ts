@@ -3,16 +3,22 @@ import { z } from 'zod';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
-import { selectAvailableTools } from '../instruments/availableTools.js';
 import { getOrNull } from '../../util/index.js';
+import { selectAvailableTools } from '../instruments/availableTools.js';
 
 const shared = { retries: 2 };
+const jsonSchema = z.record(z.string(), z.unknown());
+const planAgentOutputSchema = z.object({
+  report: z.string(),
+  inputSchema: jsonSchema,
+  outputSchema: jsonSchema,
+});
 
 export const writeWorkflowInputSchema = z.object({
   url: z.string(),
   goal: z.string(),
-  inputSchema: z.any().optional(),
-  outputSchema: z.any().optional(),
+  inputSchema: jsonSchema.optional(),
+  outputSchema: jsonSchema.optional(),
   modules: z.array(z.string()),
   context: z.array(z.string()),
   tools: z.array(z.string()),
@@ -22,6 +28,8 @@ const planOutputSchema = z.object({
   url: z.string(),
   goal: z.string(),
   report: z.string(),
+  inputSchema: jsonSchema,
+  outputSchema: jsonSchema,
   modules: z.array(z.string()),
   context: z.array(z.string()),
   tools: z.array(z.string()),
@@ -50,29 +58,21 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
 
       const prompt = templates.plan.render({
         userInput: templates.userInput.render({ url, goal }),
-        inputSchema: inputData.inputSchema
-          ? templates.inputSchema.render({
-              inputSchema: JSON.stringify(inputData.inputSchema, null, 2),
-            })
-          : 'User did not specify an input schema',
-        outputSchema: inputData.outputSchema
-          ? templates.outputSchema.render({
-              outputSchema: JSON.stringify(inputData.outputSchema, null, 2),
-            })
-          : 'User did not specify an output schema',
+        inputSchema:
+          inputData.inputSchema === undefined
+            ? 'No input schema was supplied. Generate one from the user goal and your research.'
+            : JSON.stringify(inputData.inputSchema, null, 2),
+        outputSchema:
+          inputData.outputSchema === undefined
+            ? 'No output schema was supplied. Generate one from the user goal and your research.'
+            : JSON.stringify(inputData.outputSchema, null, 2),
       });
 
-      // TODO: add a non-tool step in case last response is a tool call, to avoid empty text issue
-      const resp = await agent.generate(prompt, { maxSteps: 20 });
-      // const resp = await agent.generate(prompt, { maxSteps: 2 });
-
-      let report: string;
-      if (resp.text) {
-        report = resp.text;
-      } else {
-        const resp = await agent.generate(prompt, { activeTools: [], toolChoice: 'none' });
-        report = resp.text;
-      }
+      const resp = await agent.generate(prompt, {
+        maxSteps: 20,
+        structuredOutput: { schema: planAgentOutputSchema },
+      });
+      const { report, inputSchema, outputSchema } = resp.object;
 
       log.debug(`Generated report (${id}): ${report}`);
 
@@ -80,6 +80,8 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
         url,
         goal,
         report,
+        inputSchema,
+        outputSchema,
         modules,
         context,
         tools,
@@ -99,24 +101,30 @@ export const writePlanStep = createStep({
       url: z.string(),
       goal: z.string(),
       report: z.string(),
+      inputSchema: jsonSchema,
+      outputSchema: jsonSchema,
     }),
     'browser-plan-step': z.object({
       url: z.string(),
       goal: z.string(),
       report: z.string(),
+      inputSchema: jsonSchema,
+      outputSchema: jsonSchema,
     }),
   }),
   outputSchema: z.object({
     url: z.string(),
     goal: z.string(),
     report: z.string(),
+    inputSchema: jsonSchema,
+    outputSchema: jsonSchema,
   }),
   execute: async ({ inputData, mastra }) => {
     const agent = mastra!.getAgentById('build-agent');
     log.debug(`Write plan input: ${JSON.stringify(inputData)}`);
 
     const plans = Object.values(inputData);
-    const { url, goal } = plans[0];
+    const { url, goal, inputSchema, outputSchema } = plans[0];
     const reports = plans.map((plan) => plan.report);
     log.debug(`Reports to consolidate: ${JSON.stringify(reports)}`);
 
@@ -134,6 +142,8 @@ export const writePlanStep = createStep({
       url,
       goal,
       report,
+      inputSchema,
+      outputSchema,
     };
   },
 });
@@ -179,6 +189,8 @@ export const writeCodeStep = createStep({
         tools: JSON.stringify(tools, null, 2),
       }),
       userInput: templates.userInput.render({ url, goal }),
+      inputSchema: JSON.stringify(inputData.inputSchema, null, 2),
+      outputSchema: JSON.stringify(inputData.outputSchema, null, 2),
       availableModules: JSON.stringify(Object.keys(modules)),
       availableContext: JSON.stringify(Object.keys(context)),
       report: renderedReport,

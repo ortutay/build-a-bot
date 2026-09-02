@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { availableContext, availableModules } from '../internal/compile/Compiler.js';
+import { Run } from '../internal/compile/Run.js';
 import { Script } from '../internal/compile/Script.js';
 import { log } from '../internal/logger.js';
 import { selectAvailableTools } from '../internal/mastra/instruments/availableTools.js';
-import { DataSource } from '../source/DataSource.js';
 import { clip } from '../internal/util/index.js';
+import { DataSource } from '../source/DataSource.js';
 import {
   type Endpoint,
   type ServiceContext,
@@ -21,14 +22,10 @@ export type DataServiceOptions = ServiceOptions & {
 
 type DataServiceConstructorOptions = ServiceConstructorOptions & DataServiceOptions;
 
-export type DataServiceResult = Record<string, unknown> & {
-  meta: {
-    source: { url: string };
-    foundAt: string;
-  };
-};
+export type DataServiceResult = { results: unknown[] };
 
-export type DataServiceSyncResult = { results: DataServiceResult[] };
+const pageSize = 100;
+const maxResults = 1000;
 
 export class ScriptNotFoundError extends Error {
   constructor(serviceName: string, sourceUrl: string) {
@@ -37,7 +34,7 @@ export class ScriptNotFoundError extends Error {
   }
 }
 
-export class DataService extends Service<DataServiceSyncResult> {
+export class DataService extends Service<DataServiceResult> {
   itemSchema: z.ZodType;
   sources: DataSource[];
 
@@ -51,6 +48,26 @@ export class DataService extends Service<DataServiceSyncResult> {
     return [];
   }
 
+  #outputSchema() {
+    return z
+      .object({
+        results: z.array(this.itemSchema),
+        count: z.number().int().nonnegative(),
+        total: z.number().int().nonnegative(),
+      })
+      .superRefine(({ count, results, total }, ctx) => {
+        if (count !== results.length) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Bot result count must equal the number of returned results',
+          });
+        }
+        if (count > total) {
+          ctx.addIssue({ code: 'custom', message: 'Bot result count cannot exceed total' });
+        }
+      });
+  }
+
   async _build(context: ServiceContext): Promise<void> {
     log.info(`Build data service: ${JSON.stringify(this.itemSchema)}`);
 
@@ -58,8 +75,10 @@ export class DataService extends Service<DataServiceSyncResult> {
       limit: z.number().describe('Maximum number of results'),
       offset: z.number().describe('Start gathering results at this offset'),
     });
+    const outputSchema = this.#outputSchema();
 
     for (const source of this.sources) {
+      await source.save(context.storage);
       const url = source.url;
       const prompt = 'Build a scraper to get data in the output schema format.';
       const scriptName = `url:${url}`;
@@ -79,8 +98,8 @@ export class DataService extends Service<DataServiceSyncResult> {
             goal: prompt,
             context: Object.keys(availableContext),
             modules: Object.keys(availableModules),
-            inputSchema,
-            outputSchema: this.itemSchema,
+            inputSchema: z.toJSONSchema(inputSchema),
+            outputSchema: z.toJSONSchema(outputSchema),
             tools,
           },
         });
@@ -93,6 +112,7 @@ export class DataService extends Service<DataServiceSyncResult> {
         script = new Script({
           name: scriptName,
           code,
+          buildInput: { goal: prompt, url },
           context: Object.keys(availableContext),
           modules: Object.keys(availableModules),
           tools,
@@ -111,10 +131,12 @@ export class DataService extends Service<DataServiceSyncResult> {
 
   async _heal(context: ServiceContext): Promise<void> {}
 
-  async _sync(context: ServiceContext): Promise<DataServiceSyncResult> {
-    const results: DataServiceResult[] = [];
+  async _sync(context: ServiceContext): Promise<DataServiceResult> {
+    const results: unknown[] = [];
 
     for (const source of this.sources) {
+      await source.save(context.storage);
+
       const url = source.url;
       const scriptName = `url:${url}`;
       const script = await Script.findByName(context.storage, this.name, scriptName);
@@ -125,40 +147,39 @@ export class DataService extends Service<DataServiceSyncResult> {
       log.info(`Running script: id=${script.id}, name=${script.name}`);
       const bot = await script.compile(context.mastra);
 
-      // TODO: real input
-      // const output = await bot.run(bot.exampleInput);
-      const output = await bot.run({
-        limit: 100,
-        offset: 0,
-      });
+      for (let offset = 0; offset < maxResults; offset += pageSize) {
+        const input = { limit: pageSize, offset };
+        const run = new Run({ input, scriptId: script.id! });
+        await run.save(context.storage);
 
-      const botResults = (output as { results: any[] }).results;
-      const { total, count } = output as { total: number; count: number };
-      log.info(
-        `Ran script id=${script.id}, name=${script.name}, got ${count} of ${total} results, first = ${clip(botResults[0])}`
-      );
+        try {
+          const output = await this.#outputSchema().parseAsync(await bot.run(input));
+          const { count, results: botResults, total } = output;
+          await run.complete(context.storage, botResults);
 
-      // console.log('Bot output:', output);
-      // const val = (output as any).results;
-      // const val = await this.itemSchema.parseAsync(output);
-      // if (typeof val !== 'object' || val === null || Array.isArray(val)) {
-      //   throw new Error(`Data script must return an object: name=${script.name}`);
-      // }
+          results.push(...botResults);
+          if (count === 0) {
+            log.info(`No results returned for script=${script.name}, source=${url}`);
+            break;
+          }
 
-      for (const r of botResults) {
-        results.push({
-          ...r,
-          meta: {
-            source: { url },
-            foundAt: new Date().toISOString(),
-          },
-        });
+          log.info(`Bot run summary: total=${total}, count=${count}, first=${clip(botResults[0])}`);
+          if (count < pageSize || offset + count >= total) {
+            break;
+          }
+        } catch (e) {
+          await run.fail(context.storage, e);
+          throw e;
+        }
       }
-      log.info(`Stored result: script=${script.name}, source=${url}`);
     }
 
     return { results };
   }
 
-  async _run(context: ServiceContext): Promise<void> {}
+  async _run(context: ServiceContext): Promise<void> {
+    context.app.get(`/${this.name}/health`, (_req, resp) => {
+      resp.status(200).json({ status: 'ok' });
+    });
+  }
 }

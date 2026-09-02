@@ -10,6 +10,7 @@ import { availableContext, availableModules, Compiler } from './Compiler.js';
 import { toContextTools } from './tool-fns.js';
 
 export type ScriptOptions = {
+  buildInput?: Record<string, unknown> | null;
   id?: string;
   serviceId?: string;
   name: string;
@@ -45,6 +46,7 @@ const selectDependencies = (
 };
 
 export class Script {
+  buildInput: Record<string, unknown> | null;
   id: string | null;
   serviceId: string | null;
   name: string;
@@ -55,6 +57,7 @@ export class Script {
   tools: string[];
 
   constructor(options: ScriptOptions) {
+    this.buildInput = options.buildInput ?? null;
     this.id = options.id ?? null;
     this.serviceId = options.serviceId ?? null;
     this.name = options.name;
@@ -134,6 +137,7 @@ export class Script {
       serviceId: service.id,
       name: this.name,
       code: this.code,
+      buildInput: this.buildInput,
       exports: this.exports,
       context: this.context,
       modules: this.modules,

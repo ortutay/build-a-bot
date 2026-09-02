@@ -45,7 +45,13 @@ describe('browser plan cache', () => {
         await goto({ cursorId, url }, {} as any);
         const { documentId } = (await content({ cursorId }, {} as any)) as any;
         const page = (await getDocument({ documentId }, {} as any)) as any;
-        return { text: `Catalog page: ${page.content}` };
+        return {
+          object: {
+            report: `Catalog page: ${page.content}`,
+            inputSchema: { type: 'object' },
+            outputSchema: { type: 'array' },
+          },
+        };
       },
     };
     const mastra = {
