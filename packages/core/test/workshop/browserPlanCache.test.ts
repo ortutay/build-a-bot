@@ -48,8 +48,8 @@ describe('browser plan cache', () => {
         return {
           object: {
             report: `Catalog page: ${page.content}`,
-            inputSchema: { type: 'object' },
-            outputSchema: { type: 'array' },
+            inputSchema: JSON.stringify({ type: 'object' }),
+            outputSchema: JSON.stringify({ type: 'array' }),
           },
         };
       },
