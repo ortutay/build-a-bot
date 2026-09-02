@@ -59,16 +59,17 @@ export class DataService extends Service<DataServiceResult> {
   }
 
   openApi(): OpenApiDocument {
-    const itemSchema = z.toJSONSchema(this.itemSchema);
+    const itemSchema = z.toJSONSchema(this.itemSchema) as {
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
     const listItemSchema = {
-      allOf: [
-        itemSchema,
-        {
-          type: 'object',
-          properties: { id: { type: 'string', description: 'The item unique ID' } },
-          required: ['id'],
-        },
-      ],
+      ...itemSchema,
+      properties: {
+        ...itemSchema.properties,
+        id: { type: 'string', description: 'The item unique ID' },
+      },
+      required: [...new Set([...(itemSchema.required ?? []), 'id'])],
     };
 
     return {
@@ -283,19 +284,33 @@ export class DataService extends Service<DataServiceResult> {
         try {
           const output = await this.#outputSchema().parseAsync(await bot.run(input));
           const { count, results: botResults, total } = output;
-          await run.complete(context.storage, botResults);
-          for (const data of botResults) {
+          const pageUniqueIds = new Set<string>();
+          const uniqueResults = botResults.flatMap((data) => {
             const uniqueId = bot.uniqueId(data);
-            uniqueIds.add(uniqueId);
-            await new Item({
-              data,
-              dataSourceId: source.id,
-              sourceScriptId: script.id!,
-              uniqueId,
-            }).save(context.storage);
-          }
+            if (pageUniqueIds.has(uniqueId)) {
+              return [];
+            }
 
-          results.push(...botResults);
+            pageUniqueIds.add(uniqueId);
+            uniqueIds.add(uniqueId);
+            return [{ data, uniqueId }];
+          });
+          await run.complete(
+            context.storage,
+            uniqueResults.map((result) => result.data)
+          );
+          await Promise.all(
+            uniqueResults.map(({ data, uniqueId }) =>
+              new Item({
+                data,
+                dataSourceId: source.id!,
+                sourceScriptId: script.id!,
+                uniqueId,
+              }).save(context.storage)
+            )
+          );
+
+          results.push(...uniqueResults.map((result) => result.data));
           if (count === 0) {
             log.info(`No results returned for script=${script.name}, source=${url}`);
             break;

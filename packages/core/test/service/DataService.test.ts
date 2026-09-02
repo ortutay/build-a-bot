@@ -56,7 +56,11 @@ const syncScriptCode = `
   };
   export const exampleInput = {};
   export const uniqueId = (item) => item.value;
-  export const run = async () => ({ results: [{ value: 'scraped' }], count: 1, total: 1 });
+  export const run = async () => ({
+    results: [{ value: 'scraped' }, { value: 'scraped' }],
+    count: 2,
+    total: 2,
+  });
 `;
 
 const invalidSyncScriptCode = `
@@ -279,7 +283,8 @@ describe('DataService', () => {
     });
     await service._register({ app, storage } as unknown as ServiceContext);
 
-    expect(service.openApi()).toMatchObject({
+    const openApi = service.openApi();
+    expect(openApi).toMatchObject({
       openapi: '3.1.0',
       paths: {
         '/example-service/items': {
@@ -288,6 +293,24 @@ describe('DataService', () => {
               expect.objectContaining({ in: 'query', name: 'page' }),
               expect.objectContaining({ in: 'query', name: 'limit' }),
             ]),
+            responses: {
+              200: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      properties: {
+                        results: {
+                          items: {
+                            properties: { id: { type: 'string' } },
+                            required: expect.arrayContaining(['id']),
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         '/example-service/items/{id}': {
@@ -297,6 +320,7 @@ describe('DataService', () => {
         },
       },
     });
+    expect(JSON.stringify(openApi.paths['/example-service/items'])).not.toContain('"allOf"');
 
     const listHandler = app.get.mock.calls.find(
       ([path]) => path === '/example-service/items'
@@ -355,7 +379,7 @@ describe('DataService', () => {
     expect(missingResp.json).toHaveBeenCalledWith({ error: 'Item not found' });
   });
 
-  it('syncs a DataService and persists its run, results, and current items', async () => {
+  it('deduplicates and persists DataService results, runs, and current items', async () => {
     temporaryDb = await createTemporaryDb();
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
@@ -395,6 +419,7 @@ describe('DataService', () => {
       scriptId: script.id,
       status: 'done',
     });
+    await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
     expect(storedResult).toMatchObject({ data: { value: 'scraped' }, runId: run.id });
     expect(item).toMatchObject({
       createdAt: expect.any(String),
