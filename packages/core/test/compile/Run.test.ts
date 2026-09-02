@@ -30,6 +30,7 @@ describe('Run', () => {
       fn: async () => ({ logs: [], out: [{ value: 'scraped' }] }),
       inputSchema: { type: 'object' },
       outputSchema: { type: 'array' },
+      uniqueId: (item) => (item as { value: string }).value,
     });
     const run = new Run({ scriptId: script.id!, input });
 

@@ -5,14 +5,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Script } from '../../src/internal/compile/Script.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
+import { log } from '../../src/internal/logger.js';
 import { markAvailableTool } from '../../src/internal/mastra/instruments/availableTools.js';
-import { DataSource } from '../../src/source/DataSource.js';
-import { DataService, ScriptNotFoundError } from '../../src/service/DataService.js';
+import { DataSource } from '../../src/service/data/DataSource.js';
+import { DataService, ScriptNotFoundError } from '../../src/service/data/DataService.js';
+import { Item } from '../../src/service/data/Item.js';
 import type { ServiceContext } from '../../src/service/Service.js';
-import { dataSourcesTable, resultsTable, runsTable } from '../../src/storage/db/schema.js';
+import {
+  dataSourcesTable,
+  itemsTable,
+  resultsTable,
+  runsTable,
+} from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
+import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 
 const scriptCode = `
+  export const inputSchema = { type: 'object' };
+  export const outputSchema = { type: 'object' };
+  export const exampleInput = {};
+  export const uniqueId = (item) => JSON.stringify(item);
+  export const run = async () => ({});
+`;
+
+const invalidBuildScriptCode = `
   export const inputSchema = { type: 'object' };
   export const outputSchema = { type: 'object' };
   export const exampleInput = {};
@@ -38,6 +54,7 @@ const syncScriptCode = `
     required: ['results', 'count', 'total'],
   };
   export const exampleInput = {};
+  export const uniqueId = (item) => item.value;
   export const run = async () => ({ results: [{ value: 'scraped' }], count: 1, total: 1 });
 `;
 
@@ -45,6 +62,7 @@ const invalidSyncScriptCode = `
   export const inputSchema = { type: 'object' };
   export const outputSchema = { type: 'object' };
   export const exampleInput = {};
+  export const uniqueId = (item) => item.value;
   export const run = async () => ({ results: [{ value: 'scraped' }], count: 2, total: 1 });
 `;
 
@@ -52,6 +70,7 @@ const pagedSyncScriptCode = `
   export const inputSchema = { type: 'object' };
   export const outputSchema = { type: 'object' };
   export const exampleInput = {};
+  export const uniqueId = (item) => item.value;
   export const run = async ({ offset }) => {
     if (offset === 0) {
       return {
@@ -62,6 +81,18 @@ const pagedSyncScriptCode = `
     }
 
     return { results: [], count: 0, total: 200 };
+  };
+`;
+
+const catalogSyncScriptCode = (url: string) => `
+  export const inputSchema = { type: 'object' };
+  export const outputSchema = { type: 'object' };
+  export const exampleInput = {};
+  export const uniqueId = (item) => item.id;
+  export const run = async ({ limit, offset }) => {
+    const catalog = await tools.fetchTool({ url: '${url}/api/catalog' });
+    const results = catalog.products.slice(offset, offset + limit);
+    return { results, count: results.length, total: catalog.products.length };
   };
 `;
 
@@ -125,6 +156,48 @@ describe('DataService', () => {
     );
   });
 
+  it('removes an invalid saved script and regenerates it on the second attempt', async () => {
+    temporaryDb = await createTemporaryDb();
+    let workflowRuns = 0;
+    const mastra = {
+      getWorkflowById: () => ({
+        createRun: async () => ({
+          start: async () => {
+            workflowRuns++;
+            return { result: { code: scriptCode }, status: 'success' };
+          },
+        }),
+      }),
+      listTools: () => ({}),
+    } as unknown as Mastra;
+    const storage = temporaryDb.storage;
+    const source = new DataSource({ url: 'https://example.test/data' });
+    const service = new DataService({
+      name: 'example-service',
+      sources: [source],
+      itemSchema: z.object({ value: z.string() }),
+      mastra,
+      storage,
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+    });
+    const invalidScript = new Script({
+      name: `url:${source.url}`,
+      code: invalidBuildScriptCode,
+      context: [],
+      modules: [],
+      tools: [],
+    });
+    await invalidScript.save(storage, service.name);
+    const invalidScriptId = invalidScript.id;
+
+    await service.build();
+
+    const recoveredScript = await Script.findByName(storage, service.name, invalidScript.name);
+    expect(workflowRuns).toBe(1);
+    expect(recoveredScript).toMatchObject({ code: scriptCode });
+    expect(recoveredScript?.id).not.toBe(invalidScriptId);
+  });
+
   it('adds a health endpoint for the service', async () => {
     const app = { get: vi.fn() };
     const service = new DataService({
@@ -133,7 +206,7 @@ describe('DataService', () => {
       itemSchema: z.object({}),
     });
 
-    await service._run({ app } as unknown as ServiceContext);
+    await service._register({ app } as unknown as ServiceContext);
 
     expect(app.get).toHaveBeenCalledWith('/example-service/health', expect.any(Function));
 
@@ -150,7 +223,133 @@ describe('DataService', () => {
     expect(resp.json).toHaveBeenCalledWith({ status: 'ok' });
   });
 
-  it('syncs a DataService and persists its run and results', async () => {
+  it('adds item endpoints scoped to the service', async () => {
+    temporaryDb = await createTemporaryDb();
+    const storage = temporaryDb.storage;
+    const script = new Script({
+      name: 'source',
+      code: scriptCode,
+      context: [],
+      modules: [],
+      tools: [],
+    });
+    const otherScript = new Script({
+      name: 'source',
+      code: scriptCode,
+      context: [],
+      modules: [],
+      tools: [],
+    });
+    await script.save(storage, 'example-service');
+    await otherScript.save(storage, 'other-service');
+    const source = new DataSource({ url: 'https://example.test/data' });
+    const otherSource = new DataSource({ url: 'https://other.test/data' });
+    await source.save(storage);
+    await otherSource.save(storage);
+    await new Item({
+      data: { value: 'scraped' },
+      dataSourceId: source.id!,
+      sourceScriptId: script.id!,
+      uniqueId: 'scraped',
+    }).save(storage);
+    await new Item({
+      data: { value: 'second' },
+      dataSourceId: source.id!,
+      sourceScriptId: script.id!,
+      uniqueId: 'second',
+    }).save(storage);
+    await new Item({
+      data: { value: 'other' },
+      dataSourceId: otherSource.id!,
+      sourceScriptId: otherScript.id!,
+      uniqueId: 'other',
+    }).save(storage);
+
+    const app = { get: vi.fn() };
+    const service = new DataService({
+      name: 'example-service',
+      sources: [],
+      itemSchema: z.object({ value: z.string() }),
+    });
+    await service._register({ app, storage } as unknown as ServiceContext);
+
+    expect(service.openApi()).toMatchObject({
+      openapi: '3.1.0',
+      paths: {
+        '/example-service/items': {
+          get: {
+            parameters: expect.arrayContaining([
+              expect.objectContaining({ in: 'query', name: 'page' }),
+              expect.objectContaining({ in: 'query', name: 'limit' }),
+            ]),
+          },
+        },
+        '/example-service/items/{id}': {
+          get: {
+            parameters: [expect.objectContaining({ in: 'path', name: 'id' })],
+          },
+        },
+      },
+    });
+
+    const listHandler = app.get.mock.calls.find(
+      ([path]) => path === '/example-service/items'
+    )?.[1] as (
+      req: { query: Record<string, unknown> },
+      resp: { json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
+    ) => Promise<void>;
+    const detailHandler = app.get.mock.calls.find(
+      ([path]) => path === '/example-service/items/:id'
+    )?.[1] as (
+      req: { params: { id: string } },
+      resp: { json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
+    ) => Promise<void>;
+
+    const listResp = { json: vi.fn(), status: vi.fn() };
+    await listHandler({ query: { limit: '1', page: '2' } }, listResp);
+    expect(listResp.json).toHaveBeenCalledWith({
+      count: 1,
+      results: [{ value: 'second' }],
+      total: 2,
+    });
+
+    const detailResp = { json: vi.fn(), status: vi.fn() };
+    detailResp.status.mockReturnValue(detailResp);
+    await detailHandler({ params: { id: 'scraped' } }, detailResp);
+    expect(detailResp.json).toHaveBeenCalledWith({ value: 'scraped' });
+
+    const duplicateScript = new Script({
+      name: 'second-source',
+      code: scriptCode,
+      context: [],
+      modules: [],
+      tools: [],
+    });
+    const duplicateSource = new DataSource({ url: 'https://second.example.test/data' });
+    await duplicateScript.save(storage, 'example-service');
+    await duplicateSource.save(storage);
+    await new Item({
+      data: { value: 'duplicate' },
+      dataSourceId: duplicateSource.id!,
+      sourceScriptId: duplicateScript.id!,
+      uniqueId: 'scraped',
+    }).save(storage);
+
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
+    await detailHandler({ params: { id: 'scraped' } }, detailResp);
+    expect(warn).toHaveBeenCalledWith(
+      'Multiple items found for service=example-service, uniqueId=scraped; returning the first result'
+    );
+    warn.mockRestore();
+
+    const missingResp = { json: vi.fn(), status: vi.fn() };
+    missingResp.status.mockReturnValue(missingResp);
+    await detailHandler({ params: { id: 'missing' } }, missingResp);
+    expect(missingResp.status).toHaveBeenCalledWith(404);
+    expect(missingResp.json).toHaveBeenCalledWith({ error: 'Item not found' });
+  });
+
+  it('syncs a DataService and persists its run, results, and current items', async () => {
     temporaryDb = await createTemporaryDb();
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
@@ -182,6 +381,7 @@ describe('DataService', () => {
       .select()
       .from(resultsTable)
       .where(eq(resultsTable.runId, run.id));
+    const [item] = await storage.db.select().from(itemsTable);
 
     expect(dataSource).toMatchObject({ url: source.url });
     expect(run).toMatchObject({
@@ -190,6 +390,115 @@ describe('DataService', () => {
       status: 'done',
     });
     expect(storedResult).toMatchObject({ data: { value: 'scraped' }, runId: run.id });
+    expect(item).toMatchObject({
+      createdAt: expect.any(String),
+      data: { value: 'scraped' },
+      dataSourceId: source.id,
+      sourceScriptId: script.id,
+      uniqueId: 'scraped',
+      updatedAt: expect.any(String),
+    });
+  });
+
+  it('reconciles current items after the source catalog changes', async () => {
+    temporaryDb = await createTemporaryDb();
+    const site = await startMockDynamicJsonSite();
+    try {
+      const storage = temporaryDb.storage;
+      const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+      const fetchTool = await markAvailableTool({
+        id: 'fetchTool',
+        execute: async () => fetch(`${site.baseUrl}/api/catalog`).then((resp) => resp.json()),
+      });
+      const mastra = { listTools: () => ({ fetchTool }) } as unknown as Mastra;
+      const source = new DataSource({ url: site.baseUrl });
+      const service = new DataService({
+        name: 'catalog-service',
+        sources: [source],
+        itemSchema: z.object({ id: z.string(), name: z.string(), price: z.number() }),
+        mastra,
+        storage,
+        documentLibrary,
+      });
+      const script = new Script({
+        name: `url:${source.url}`,
+        code: catalogSyncScriptCode(site.baseUrl),
+        context: [],
+        modules: [],
+        tools: ['fetchTool'],
+      });
+      await script.save(storage, service.name);
+
+      site.setProducts([
+        { id: 'json-widget', name: 'JSON Widget', price: 24 },
+        { id: 'json-gadget', name: 'JSON Gadget', price: 36 },
+      ]);
+
+      await service.sync();
+      expect(await storage.db.select().from(itemsTable).orderBy(itemsTable.uniqueId)).toMatchObject(
+        [
+          { data: { id: 'json-gadget', name: 'JSON Gadget', price: 36 }, uniqueId: 'json-gadget' },
+          { data: { id: 'json-widget', name: 'JSON Widget', price: 24 }, uniqueId: 'json-widget' },
+        ]
+      );
+
+      site.setProducts([
+        { id: 'json-widget', name: 'JSON Widget Plus', price: 28 },
+        { id: 'json-new', name: 'JSON New Product', price: 42 },
+        { id: 'json-other', name: 'JSON Other Product', price: 64 },
+      ]);
+
+      await service.sync();
+
+      const runs = await storage.db.select().from(runsTable);
+      const results = await storage.db.select().from(resultsTable);
+      const items = await storage.db.select().from(itemsTable).orderBy(itemsTable.uniqueId);
+
+      expect(runs).toHaveLength(2);
+      expect(results).toHaveLength(5);
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            data: { id: 'json-gadget', name: 'JSON Gadget', price: 36 },
+          }),
+          expect.objectContaining({
+            data: { id: 'json-widget', name: 'JSON Widget', price: 24 },
+          }),
+          expect.objectContaining({
+            data: { id: 'json-new', name: 'JSON New Product', price: 42 },
+          }),
+          expect.objectContaining({
+            data: { id: 'json-other', name: 'JSON Other Product', price: 64 },
+          }),
+          expect.objectContaining({
+            data: { id: 'json-widget', name: 'JSON Widget Plus', price: 28 },
+          }),
+        ])
+      );
+      expect(items).toMatchObject([
+        { data: { id: 'json-new', name: 'JSON New Product', price: 42 }, uniqueId: 'json-new' },
+        {
+          data: { id: 'json-other', name: 'JSON Other Product', price: 64 },
+          uniqueId: 'json-other',
+        },
+        {
+          data: { id: 'json-widget', name: 'JSON Widget Plus', price: 28 },
+          uniqueId: 'json-widget',
+        },
+      ]);
+      expect(items.map((item) => item.sourceScriptId)).toEqual([script.id, script.id, script.id]);
+      expect(items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            createdAt: expect.any(String),
+            sourceScriptId: script.id,
+            updatedAt: expect.any(String),
+          }),
+        ])
+      );
+    } finally {
+      await site.close();
+    }
   });
 
   it('marks a run as errored when bot output is invalid', async () => {

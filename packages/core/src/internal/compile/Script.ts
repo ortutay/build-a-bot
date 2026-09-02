@@ -164,4 +164,20 @@ export class Script {
     this.id = script.id;
     log.debug(`Saved script: ${this.id}`);
   }
+
+  async remove(storage: Storage): Promise<void> {
+    if (!this.id) {
+      throw new Error('Cannot remove an unsaved script');
+    }
+
+    const [script] = await storage.db
+      .delete(scriptsTable)
+      .where(eq(scriptsTable.id, this.id))
+      .returning();
+    if (!script) {
+      throw new Error(`Could not remove script: ${this.id}`);
+    }
+
+    this.id = null;
+  }
 }

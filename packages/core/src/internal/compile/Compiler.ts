@@ -14,6 +14,7 @@ export type CompileResult = {
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   exampleInput: unknown;
+  uniqueId: (item: unknown) => string;
 };
 
 export type CompileOptions = {
@@ -80,14 +81,29 @@ export class Compiler {
       outputSchema: typeof outputSchema === 'undefined' ? undefined : outputSchema,
       exampleInput: typeof exampleInput === 'undefined' ? undefined : exampleInput,
       run: typeof run === 'undefined' ? undefined : run,
+      uniqueId: typeof uniqueId === 'undefined' ? undefined : uniqueId,
       };
       })()
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { inputSchema, outputSchema, exampleInput } = await script.runInContext(context, {
-      timeout: 1000,
-    });
+    const { inputSchema, outputSchema, exampleInput, uniqueId } = await script.runInContext(
+      context,
+      {
+        timeout: 1000,
+      }
+    );
+    if (typeof uniqueId !== 'function') {
+      throw new Error('Script must export a uniqueId function');
+    }
+    const uniqueIdFn = (item: unknown): string => {
+      const val = uniqueId(item);
+      if (typeof val !== 'string' || !val) {
+        throw new Error('Script uniqueId must return a non-empty string');
+      }
+
+      return val;
+    };
 
     const fn = async (input: unknown): Promise<{ out: any; logs: any[] }> => {
       const wrappedConsole: Record<string, any> = {};
@@ -119,6 +135,6 @@ export class Compiler {
       return { out, logs };
     };
 
-    return { fn, inputSchema, outputSchema, exampleInput };
+    return { fn, inputSchema, outputSchema, exampleInput, uniqueId: uniqueIdFn };
   }
 }

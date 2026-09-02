@@ -68,6 +68,7 @@ You should define a function called run as follows:
       `
         const inputSchema = { type: 'object', additionalProperties: false };
         const outputSchema = {};
+        const uniqueId = () => 'code-snippet';
         ${code}
       `,
       {

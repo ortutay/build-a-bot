@@ -1,11 +1,15 @@
 import http, { type ServerResponse } from 'node:http';
 
-const catalog = {
-  products: [
-    { id: 'json-widget', name: 'JSON Widget', price: 24 },
-    { id: 'json-gadget', name: 'JSON Gadget', price: 36 },
-  ],
+export type MockCatalogProduct = {
+  id: string;
+  name: string;
+  price: number;
 };
+
+const initialProducts: MockCatalogProduct[] = [
+  { id: 'json-widget', name: 'JSON Widget', price: 24 },
+  { id: 'json-gadget', name: 'JSON Gadget', price: 36 },
+];
 
 const sendHtml = (resp: ServerResponse, body: string): void => {
   resp.writeHead(200, {
@@ -24,6 +28,7 @@ const sendJson = (resp: ServerResponse, body: unknown): void => {
 };
 
 export const startMockDynamicJsonSite = async () => {
+  let products = initialProducts;
   const server = http.createServer((req, resp) => {
     const url = new URL(req.url || '/', 'http://localhost');
 
@@ -50,7 +55,7 @@ export const startMockDynamicJsonSite = async () => {
     }
 
     if (url.pathname === '/api/catalog') {
-      sendJson(resp, catalog);
+      sendJson(resp, { products });
       return;
     }
 
@@ -80,6 +85,9 @@ export const startMockDynamicJsonSite = async () => {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
+    setProducts(vals: MockCatalogProduct[]) {
+      products = vals;
+    },
     async close() {
       if (!server.listening) return;
       await new Promise<void>((resolve, reject) => {

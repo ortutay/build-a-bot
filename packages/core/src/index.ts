@@ -1,4 +1,10 @@
-export { BuildABot } from './BuildABot.js';
-export { DataSource } from './source/DataSource.js';
-export { DataService } from './service/DataService.js';
+export {
+  BuildABot,
+  type BuildABotStartCallback,
+  type BuildABotStartOptions,
+  type BuildABotStartResult,
+} from './BuildABot.js';
+export { DataSource } from './service/data/DataSource.js';
+export { DataService } from './service/data/DataService.js';
+export { Item } from './service/data/Item.js';
 export { ItemStorage } from './storage/item/ItemStorage.js';

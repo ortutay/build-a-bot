@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { dataSourcesTable } from '../storage/db/schema.js';
-import { type Storage } from '../storage/Storage.js';
-import { type Url, parseUrl } from '../types.js';
+import { dataSourcesTable } from '../../storage/db/schema.js';
+import { type Storage } from '../../storage/Storage.js';
+import { type Url, parseUrl } from '../../types.js';
 
 export type DataSourceOptions = {
   id?: string;

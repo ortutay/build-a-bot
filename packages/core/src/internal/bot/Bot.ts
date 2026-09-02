@@ -1,12 +1,13 @@
 import type { JSONSchema } from 'json-schema-to-ts';
-import { srid, clip } from '../util/index.js';
 import { log } from '../logger.js';
+import { clip, srid } from '../util/index.js';
 
 export type BotOptions = {
   fn: (input: unknown) => Promise<{ out: any; logs: any[] }>;
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   exampleInput: unknown;
+  uniqueId: (item: unknown) => string;
 };
 
 export class Bot {
@@ -14,6 +15,7 @@ export class Bot {
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   exampleInput: unknown;
+  uniqueId: (item: unknown) => string;
   logs: Record<string, any[]>;
 
   constructor(options: BotOptions) {
@@ -21,6 +23,10 @@ export class Bot {
     this.inputSchema = options.inputSchema;
     this.outputSchema = options.outputSchema;
     this.exampleInput = options.exampleInput;
+    if (typeof options.uniqueId !== 'function') {
+      throw new Error('Bot requires a uniqueId function');
+    }
+    this.uniqueId = options.uniqueId;
     this.logs = {};
   }
 

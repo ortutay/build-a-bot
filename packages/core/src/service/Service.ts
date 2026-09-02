@@ -12,6 +12,12 @@ export type ServiceOptions = {} & Pick<
 >;
 export type ServiceConstructorOptions = ServiceOptions & { name: string };
 
+export type OpenApiDocument = {
+  openapi: '3.1.0';
+  info: { title: string; version: string };
+  paths: Record<string, unknown>;
+};
+
 export abstract class Service<SyncResult = unknown> {
   name: string;
   #context?: Promise<ServiceContext>;
@@ -36,7 +42,7 @@ export abstract class Service<SyncResult = unknown> {
     await this._heal(context);
     const results = await this._sync(context);
     console.log('Got results:', results);
-    await this._run(context);
+    await this._register(context);
   }
 
   async build(options?: ServiceOptions): Promise<void> {
@@ -51,21 +57,20 @@ export abstract class Service<SyncResult = unknown> {
     return this._sync(await this.context(options));
   }
 
-  async run(options?: ServiceOptions): Promise<void> {
-    return this._run(await this.context(options));
+  async register(options?: ServiceOptions): Promise<void> {
+    return this._register(await this.context(options));
+  }
+
+  openApi(): OpenApiDocument {
+    return {
+      openapi: '3.1.0',
+      info: { title: `${this.name} API`, version: '1.0.0' },
+      paths: {},
+    };
   }
 
   abstract _build(context: ServiceContext): Promise<void>;
   abstract _heal(context: ServiceContext): Promise<void>;
   abstract _sync(context: ServiceContext): Promise<SyncResult>;
-  abstract _run(context: ServiceContext): Promise<void>;
+  abstract _register(context: ServiceContext): Promise<void>;
 }
-
-type Method = any; // TODO: Method is one of 'GET', 'POST', ...
-
-// TODO: can we hook into swagger or something like that?
-export type Endpoint = {
-  method: Method;
-  querySchema: any;
-  bodySchema: any;
-};

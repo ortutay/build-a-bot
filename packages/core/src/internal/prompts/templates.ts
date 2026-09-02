@@ -179,6 +179,8 @@ If necessary, use tools load pages and inspect the site further to generate the 
 
 The input and output schemas below are authoritative. Export them exactly, and ensure that exampleInput and the value returned from run() conform to them. Do not add wrappers, pagination fields, or metadata that are absent from the supplied schemas.
 
+Export a synchronous uniqueId(result) function that returns a stable, non-empty, 12-character digest for every result. Select and normalize the strongest durable identifier components for the kind of item: an email address for a person, a product ID or canonical product URL for commerce, and similarly stable IDs for other domains. For example, trim and lowercase email addresses or normalize absolute URLs. Hash those normalized components with a deterministic synchronous hash implemented in the generated code, then return its 12-character digest. Do not use mutable labels, timestamps, random values, array positions, or unavailable crypto APIs. If no domain identifier exists, prefer a normalized URL or email address.
+
 Guidelines for input schema:
   - Make it permissive. Unless necessary, make inputs optional.
   - Often, there should be zero or one (or may be two) "main" inputs, and the rest are supplementary filters, etc.
@@ -203,6 +205,7 @@ Your code must be structured in the following way:
   export const inputSchema = { /* ... JSON schema ...*/ };
   export const outputSchema = { /* ... JSON schema ...*/ };
   export const exampleInput = { /* ... JSON object that fits the input schema ...*/ };
+  export const uniqueId = (result) => { /* ... return a canonical string ... */ };
   export const run = async (input) => {
     return { ... }
   }

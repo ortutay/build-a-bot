@@ -12,6 +12,7 @@ const scriptCode = `
   };
   export const outputSchema = { type: 'string' };
   export const exampleInput = { input: 'example' };
+  export const uniqueId = ({ input }) => input;
   export const run = async ({ input }) => tools.fetchTool({ input });
 `;
 
@@ -52,6 +53,7 @@ describe('Script', () => {
     });
     expect(found?.id).toBe(script.id);
     await expect(Script.findById(temporaryDb.storage, 'missing')).resolves.toBeNull();
+    expect(bot.uniqueId({ input: 'hello' })).toBe('hello');
     await expect(bot.run({ input: 'hello' })).resolves.toBe('echo:hello');
   });
 
@@ -97,6 +99,7 @@ describe('Script', () => {
         export const inputSchema = { type: 'object' };
         export const outputSchema = {};
         export const exampleInput = {};
+        export const uniqueId = () => 'unselected-module';
         export const run = async () => playwright;
       `,
       context: [],

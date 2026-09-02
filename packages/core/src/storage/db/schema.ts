@@ -62,3 +62,29 @@ export const resultsTable = sqliteTable('results', {
   createdAt: text('created_at').notNull(),
   data: text({ mode: 'json' }).$type<unknown>().notNull(),
 });
+
+export const itemsTable = sqliteTable(
+  'items',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => srid()),
+    sourceScriptId: text('source_script_id')
+      .notNull()
+      .references(() => scriptsTable.id),
+    dataSourceId: text('data_source_id')
+      .notNull()
+      .references(() => dataSourcesTable.id),
+    uniqueId: text('unique_id').notNull(),
+    data: text({ mode: 'json' }).$type<unknown>().notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    unique('items_source_script_id_data_source_id_unique_id_unique').on(
+      table.sourceScriptId,
+      table.dataSourceId,
+      table.uniqueId
+    ),
+  ]
+);

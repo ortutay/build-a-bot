@@ -1,0 +1,75 @@
+import { eq } from 'drizzle-orm';
+import { itemsTable } from '../../storage/db/schema.js';
+import { type Storage } from '../../storage/Storage.js';
+
+export type ItemOptions = {
+  id?: string;
+  uniqueId: string;
+  createdAt?: string;
+  updatedAt?: string;
+  data: unknown;
+  dataSourceId: string;
+  sourceScriptId: string;
+};
+
+export class Item {
+  id: string | null;
+  uniqueId: string;
+  createdAt: string;
+  updatedAt: string | null;
+  data: unknown;
+  dataSourceId: string;
+  sourceScriptId: string;
+
+  constructor(options: ItemOptions) {
+    this.id = options.id ?? null;
+    this.uniqueId = options.uniqueId;
+    this.createdAt = options.createdAt ?? new Date().toISOString();
+    this.updatedAt = options.updatedAt ?? null;
+    this.data = options.data;
+    this.dataSourceId = options.dataSourceId;
+    this.sourceScriptId = options.sourceScriptId;
+  }
+
+  async save(storage: Storage): Promise<void> {
+    const updatedAt = new Date().toISOString();
+    const [item] = await storage.db
+      .insert(itemsTable)
+      .values({
+        createdAt: this.createdAt,
+        data: this.data,
+        dataSourceId: this.dataSourceId,
+        sourceScriptId: this.sourceScriptId,
+        uniqueId: this.uniqueId,
+        updatedAt,
+      })
+      .onConflictDoUpdate({
+        target: [itemsTable.sourceScriptId, itemsTable.dataSourceId, itemsTable.uniqueId],
+        set: { data: this.data, updatedAt },
+      })
+      .returning();
+    if (!item) {
+      throw new Error(`Could not save item: ${this.uniqueId}`);
+    }
+
+    this.createdAt = item.createdAt;
+    this.id = item.id;
+    this.updatedAt = item.updatedAt;
+  }
+
+  async remove(storage: Storage): Promise<void> {
+    if (!this.id) {
+      throw new Error('Cannot remove an unsaved item');
+    }
+
+    const [item] = await storage.db
+      .delete(itemsTable)
+      .where(eq(itemsTable.id, this.id))
+      .returning();
+    if (!item) {
+      throw new Error(`Could not remove item: ${this.id}`);
+    }
+
+    this.id = null;
+  }
+}
