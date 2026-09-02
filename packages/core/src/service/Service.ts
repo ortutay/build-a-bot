@@ -4,6 +4,7 @@ import {
   mergeContext,
   fillInContext,
 } from '../context/index.js';
+import { log } from '../internal/logger.js';
 
 export type ServiceContext = Pick<GlobalContext, 'app' | 'mastra' | 'storage' | 'documentLibrary'>;
 export type ServiceOptions = {} & Pick<
@@ -16,6 +17,18 @@ export type OpenApiDocument = {
   openapi: '3.1.0';
   info: { title: string; version: string };
   paths: Record<string, unknown>;
+};
+
+const resultCount = (val: unknown): number | null => {
+  if (Array.isArray(val)) {
+    return val.length;
+  }
+
+  if (val && typeof val === 'object' && 'results' in val && Array.isArray(val.results)) {
+    return val.results.length;
+  }
+
+  return null;
 };
 
 export abstract class Service<SyncResult = unknown> {
@@ -41,7 +54,10 @@ export abstract class Service<SyncResult = unknown> {
     await this._build(context);
     await this._heal(context);
     const results = await this._sync(context);
-    console.log('Got results:', results);
+    const count = resultCount(results);
+    log.info(
+      `Service sync complete: service=${this.name}${count === null ? '' : `, resultCount=${count}`}`
+    );
     await this._register(context);
   }
 
