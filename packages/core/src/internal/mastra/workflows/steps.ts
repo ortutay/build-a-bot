@@ -10,8 +10,8 @@ const shared = { retries: 2 };
 const jsonSchema = z.record(z.string(), z.unknown());
 const planAgentOutputSchema = z.object({
   report: z.string(),
-  inputSchema: jsonSchema,
-  outputSchema: jsonSchema,
+  inputSchema: z.string().describe('A JSON-encoded input schema without Markdown fences'),
+  outputSchema: z.string().describe('A JSON-encoded output schema without Markdown fences'),
 });
 
 export const writeWorkflowInputSchema = z.object({
@@ -44,6 +44,14 @@ const getAvailable = <T>(vals: Record<string, T>, name: string, type: string): T
   return val;
 };
 
+const parseGeneratedSchema = (val: string, name: string): Record<string, unknown> => {
+  try {
+    return jsonSchema.parse(JSON.parse(val));
+  } catch (e) {
+    throw new Error(`Generated ${name} must be a JSON object`, { cause: e });
+  }
+};
+
 const planStep = <TId extends string>(id: TId, agentId: string) =>
   createStep({
     id,
@@ -72,7 +80,13 @@ const planStep = <TId extends string>(id: TId, agentId: string) =>
         maxSteps: 20,
         structuredOutput: { schema: planAgentOutputSchema },
       });
-      const { report, inputSchema, outputSchema } = resp.object;
+      const {
+        report,
+        inputSchema: generatedInputSchema,
+        outputSchema: generatedOutputSchema,
+      } = resp.object;
+      const inputSchema = parseGeneratedSchema(generatedInputSchema, 'input schema');
+      const outputSchema = parseGeneratedSchema(generatedOutputSchema, 'output schema');
 
       log.debug(`Generated report (${id}): ${report}`);
 

@@ -28,8 +28,11 @@ describe('write workflow input', () => {
     const generate = vi.fn().mockResolvedValue({
       object: {
         report: 'Use the catalog endpoint.',
-        inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
-        outputSchema: { type: 'array', items: { type: 'string' } },
+        inputSchema: JSON.stringify({
+          type: 'object',
+          properties: { query: { type: 'string' } },
+        }),
+        outputSchema: JSON.stringify({ type: 'array', items: { type: 'string' } }),
       },
     });
 
@@ -61,8 +64,8 @@ describe('write workflow input', () => {
     const generate = vi.fn().mockResolvedValue({
       object: {
         report: 'Use the detail endpoint.',
-        inputSchema,
-        outputSchema,
+        inputSchema: JSON.stringify(inputSchema),
+        outputSchema: JSON.stringify(outputSchema),
       },
     });
 
@@ -80,6 +83,29 @@ describe('write workflow input', () => {
     });
 
     expect(result).toMatchObject({ inputSchema, outputSchema });
+  });
+
+  it('rejects a generated schema that is not JSON', async () => {
+    const generate = vi.fn().mockResolvedValue({
+      object: {
+        report: 'Use the catalog endpoint.',
+        inputSchema: 'not JSON',
+        outputSchema: JSON.stringify({ type: 'array' }),
+      },
+    });
+
+    await expect(
+      (fullPlanStep.execute as any)({
+        inputData: {
+          url: 'https://example.test',
+          goal: 'Extract the page data.',
+          context: [],
+          modules: [],
+          tools: [],
+        },
+        mastra: { getAgentById: () => ({ generate }) },
+      })
+    ).rejects.toThrow('Generated input schema must be a JSON object');
   });
 
   it('delimits schemas in the code prompt', () => {

@@ -71,7 +71,16 @@ describe('BuildABot', () => {
     expect(service.buildContexts).toEqual([context]);
     expect(app.listen).toHaveBeenCalledWith(0, expect.any(Function));
     expect(callback).toHaveBeenCalledWith(expect.objectContaining({ port: 4321, server }));
+    expect(app.get).toHaveBeenCalledWith('/', expect.any(Function));
     expect(app.get).toHaveBeenCalledWith('/openapi.json', expect.any(Function));
+
+    const servicesHandler = app.get.mock.calls.find(([path]) => path === '/')?.[1] as (
+      req: unknown,
+      resp: { json: ReturnType<typeof vi.fn> }
+    ) => void;
+    const servicesResp = { json: vi.fn() };
+    servicesHandler({}, servicesResp);
+    expect(servicesResp.json).toHaveBeenCalledWith({ services: ['test-service'] });
 
     const openApiHandler = app.get.mock.calls.find(([path]) => path === '/openapi.json')?.[1] as (
       req: unknown,

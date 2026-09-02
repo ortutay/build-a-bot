@@ -47,6 +47,9 @@ export class BuildABot {
     }));
     await (this.#initialize ??= context.storage.initialize());
     await Promise.all(this.services.map((it) => it._start(context)));
+    context.app.get('/', (_req, resp) => {
+      resp.json({ services: this.services.map((service) => service.name) });
+    });
     const openApi = this.#openApi();
     context.app.get('/openapi.json', (_req, resp) => {
       resp.json(openApi);

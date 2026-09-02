@@ -60,6 +60,16 @@ export class DataService extends Service<DataServiceResult> {
 
   openApi(): OpenApiDocument {
     const itemSchema = z.toJSONSchema(this.itemSchema);
+    const listItemSchema = {
+      allOf: [
+        itemSchema,
+        {
+          type: 'object',
+          properties: { id: { type: 'string', description: 'The item unique ID' } },
+          required: ['id'],
+        },
+      ],
+    };
 
     return {
       openapi: '3.1.0',
@@ -105,9 +115,9 @@ export class DataService extends Service<DataServiceResult> {
                     schema: {
                       type: 'object',
                       properties: {
-                        results: { type: 'array', items: itemSchema },
                         count: { type: 'integer', minimum: 0 },
                         total: { type: 'integer', minimum: 0 },
+                        results: { type: 'array', items: listItemSchema },
                       },
                       required: ['results', 'count', 'total'],
                     },
@@ -179,11 +189,12 @@ export class DataService extends Service<DataServiceResult> {
       const url = source.url;
       const prompt = 'Build a scraper to get data in the output schema format.';
       const scriptName = `url:${url}`;
+      let regenerate = false;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         let script = await Script.findByName(context.storage, this.name, scriptName);
 
         try {
-          if (!script) {
+          if (!script || regenerate) {
             log.info(`Writing script: name=${scriptName}, url=${url}`);
             const writeWorkflow = context.mastra.getWorkflowById('write-workflow');
             const run = await writeWorkflow.createRun();
@@ -209,6 +220,7 @@ export class DataService extends Service<DataServiceResult> {
 
             const { code } = result.result as { code: string };
             script = new Script({
+              id: script?.id ?? undefined,
               name: scriptName,
               code,
               buildInput: { goal: prompt, url },
@@ -217,6 +229,7 @@ export class DataService extends Service<DataServiceResult> {
               tools,
             });
             await script.save(context.storage, this.name);
+            regenerate = false;
             log.info(`Wrote script: id=${script.id}, name=${script.name}`);
           } else {
             log.info(`Found script: id=${script.id}, name=${script.name}`);
@@ -231,9 +244,7 @@ export class DataService extends Service<DataServiceResult> {
             throw e;
           }
 
-          if (script) {
-            await script.remove(context.storage);
-          }
+          regenerate = true;
           log.warn(
             `Build attempt ${attempt} of ${maxAttempts} failed for script=${scriptName}; retrying`
           );
@@ -338,7 +349,7 @@ export class DataService extends Service<DataServiceResult> {
           .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
           .where(where),
         context.storage.db
-          .select({ data: itemsTable.data })
+          .select({ data: itemsTable.data, uniqueId: itemsTable.uniqueId })
           .from(itemsTable)
           .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
           .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
@@ -349,8 +360,11 @@ export class DataService extends Service<DataServiceResult> {
       ]);
       const [totalResult] = totalResults;
 
-      const results = items.map((item) => item.data);
-      resp.json({ count: results.length, results, total: totalResult?.total ?? 0 });
+      const results = items.map((item) => {
+        const { id: _id, ...data } = item.data as Record<string, unknown>;
+        return { id: item.uniqueId, ...data };
+      });
+      resp.json({ count: results.length, total: totalResult?.total ?? 0, results });
     });
 
     context.app.get(`/${this.name}/items/:id`, async (req, resp) => {

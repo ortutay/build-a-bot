@@ -50,7 +50,7 @@ export const plan = new Template(
   ['userInput', 'inputSchema', 'outputSchema'],
   `You are writing a JavaScript web scraping bot. Explore and gather information necessary to write this script.
 
-Do not write code yet. Generate a written report about how to run the script once you have enough information, along with input and output schemas. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research.
+Do not write code yet. Generate a written report about how to run the script once you have enough information, along with input and output schemas. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return each schema as a JSON-encoded string without Markdown fences.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.

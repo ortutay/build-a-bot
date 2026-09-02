@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import express from 'express';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { Run } from '../../src/internal/compile/Run.js';
 import { Script } from '../../src/internal/compile/Script.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
 import { log } from '../../src/internal/logger.js';
@@ -156,7 +157,7 @@ describe('DataService', () => {
     );
   });
 
-  it('removes an invalid saved script and regenerates it on the second attempt', async () => {
+  it('regenerates an invalid saved script in place on the second attempt', async () => {
     temporaryDb = await createTemporaryDb();
     let workflowRuns = 0;
     const mastra = {
@@ -189,13 +190,18 @@ describe('DataService', () => {
     });
     await invalidScript.save(storage, service.name);
     const invalidScriptId = invalidScript.id;
+    const run = new Run({ input: {}, scriptId: invalidScriptId! });
+    await run.save(storage);
+    await run.complete(storage, [{ value: 'historical' }]);
 
     await service.build();
 
     const recoveredScript = await Script.findByName(storage, service.name, invalidScript.name);
     expect(workflowRuns).toBe(1);
     expect(recoveredScript).toMatchObject({ code: scriptCode });
-    expect(recoveredScript?.id).not.toBe(invalidScriptId);
+    expect(recoveredScript?.id).toBe(invalidScriptId);
+    await expect(storage.db.select().from(runsTable)).resolves.toHaveLength(1);
+    await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
   });
 
   it('adds a health endpoint for the service', async () => {
@@ -309,8 +315,8 @@ describe('DataService', () => {
     await listHandler({ query: { limit: '1', page: '2' } }, listResp);
     expect(listResp.json).toHaveBeenCalledWith({
       count: 1,
-      results: [{ value: 'second' }],
       total: 2,
+      results: [{ id: 'second', value: 'second' }],
     });
 
     const detailResp = { json: vi.fn(), status: vi.fn() };
