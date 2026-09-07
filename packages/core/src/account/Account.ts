@@ -4,7 +4,7 @@ import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import { accountsTable } from '../storage/db/schema.js';
-import { findById, findByKey } from '../storage/helpers.js';
+import { findById } from '../storage/helpers.js';
 
 export type AccountConfig = { username: string };
 
@@ -15,7 +15,7 @@ export type AccountOptions = AccountConfig & {
 
 export class Account implements ISerializable<AccountConfig>, ISaveable {
   id: string | null;
-  readonly username: string;
+  username: string;
   #context: GlobalContext;
 
   constructor(options: AccountOptions) {
@@ -24,24 +24,21 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
     this.username = options.username;
   }
 
-  get key(): string {
-    return this.username;
-  }
-
   static async findById(context: GlobalContext, id: string): Promise<Account | null> {
     const account = await findById(accountsTable, context, id);
 
     return account ? new Account({ context, ...account }) : null;
   }
 
-  static async findByKey(context: GlobalContext, key: string): Promise<Account | null> {
-    const account = await findByKey(accountsTable, context, key);
+  static async findByUsername(context: GlobalContext, username: string): Promise<Account | null> {
+    await context.init();
+    const [account] = await context.storage.db
+      .select()
+      .from(accountsTable)
+      .where(eq(accountsTable.username, username))
+      .limit(1);
 
     return account ? new Account({ context, ...account }) : null;
-  }
-
-  static findByUsername(context: GlobalContext, username: string): Promise<Account | null> {
-    return Account.findByKey(context, username);
   }
 
   static async local(context: GlobalContext, tx?: StorageTransaction): Promise<Account> {
@@ -50,7 +47,7 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
     const [row] = await db
       .select()
       .from(accountsTable)
-      .where(eq(accountsTable.key, 'local'))
+      .where(eq(accountsTable.username, 'local'))
       .limit(1);
     if (row) {
       return new Account({ context, ...row });
@@ -66,9 +63,9 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
     await this.#context.storage.fillInTransaction(tx, async (tx) => {
       const [account] = await tx
         .insert(accountsTable)
-        .values({ key: this.key, username: this.username })
+        .values({ username: this.username })
         .onConflictDoUpdate({
-          target: accountsTable.key,
+          target: accountsTable.username,
           set: { username: this.username },
         })
         .returning();

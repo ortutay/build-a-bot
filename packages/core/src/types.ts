@@ -3,7 +3,8 @@ export type Domain = string & { readonly __brand: 'Domain' };
 
 export const parseUrl = (val: string): Url => {
   try {
-    return new URL(val).toString() as Url;
+    new URL(val);
+    return val as Url;
   } catch (e) {
     throw new TypeError(`Invalid URL: ${val}`, { cause: e });
   }

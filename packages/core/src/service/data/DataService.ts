@@ -18,7 +18,7 @@ import {
   scriptsTable,
   servicesTable,
 } from '../../storage/db/schema.js';
-import { findById, findByKey } from '../../storage/helpers.js';
+import { findById } from '../../storage/helpers.js';
 import {
   type ServiceContext,
   type ServiceConfig,
@@ -87,20 +87,25 @@ export class DataService
     return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
   }
 
-  static async findByKey(context: GlobalContext, key: string): Promise<DataService | null> {
-    const service = await findByKey(servicesTable, context, key);
-
-    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
-  }
-
   static async findByName(
     context: GlobalContext,
-    account: Account,
+    accountId: string,
     name: string
   ): Promise<DataService | null> {
-    const service = await findByKey(servicesTable, context, `${account.key}/${name}`);
+    await context.init();
+    const [service] = await context.storage.db
+      .select()
+      .from(servicesTable)
+      .where(
+        and(
+          eq(servicesTable.accountId, accountId),
+          eq(servicesTable.name, name),
+          eq(servicesTable.type, 'data')
+        )
+      )
+      .limit(1);
 
-    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
+    return service ? DataService.#fromRow(context, service) : null;
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
@@ -116,12 +121,11 @@ export class DataService
         .insert(servicesTable)
         .values({
           accountId,
-          key: this.key,
           name: this.name,
           type: this.type,
         })
         .onConflictDoUpdate({
-          target: servicesTable.key,
+          target: [servicesTable.accountId, servicesTable.name],
           set: { type: this.type },
         })
         .returning();
@@ -143,7 +147,7 @@ export class DataService
 
       for (const source of this.sources) {
         source.bindContext(context);
-        source.bindDataService(this);
+        source.dataServiceId = service.id;
         await source.save(tx);
       }
     });
@@ -163,7 +167,7 @@ export class DataService
       await tx.delete(servicesTable).where(eq(servicesTable.id, id));
       this.id = null;
       for (const source of this.sources) {
-        source.detachDataService();
+        source.dataServiceId = null;
         source.id = null;
       }
     });
@@ -225,7 +229,6 @@ export class DataService
         (source) =>
           new DataSource({
             context,
-            dataServiceKey: service.key,
             ...source,
           })
       ),
@@ -280,19 +283,21 @@ export class DataService
 
     const context = await this.context();
     await context.init();
-    const where = eq(servicesTable.key, this.key);
+    const serviceId = this.id;
+    if (!serviceId) {
+      throw new Error(`Cannot list items for an unsaved data service: ${this.name}`);
+    }
+    const where = eq(scriptsTable.serviceId, serviceId);
     const [totalResults, items] = await Promise.all([
       context.storage.db
         .select({ total: count() })
         .from(itemsTable)
         .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-        .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
         .where(where),
       context.storage.db
         .select({ data: itemsTable.data, uniqueId: itemsTable.uniqueId })
         .from(itemsTable)
         .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-        .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
         .where(where)
         .orderBy(itemsTable.uniqueId, itemsTable.dataSourceId)
         .limit(limit)
@@ -310,12 +315,15 @@ export class DataService
   async detail(uniqueId: string): Promise<unknown | null> {
     const context = await this.context();
     await context.init();
+    const serviceId = this.id;
+    if (!serviceId) {
+      throw new Error(`Cannot get an item for an unsaved data service: ${this.name}`);
+    }
     const items = await context.storage.db
       .select({ data: itemsTable.data })
       .from(itemsTable)
       .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-      .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
-      .where(and(eq(servicesTable.key, this.key), eq(itemsTable.uniqueId, uniqueId)));
+      .where(and(eq(scriptsTable.serviceId, serviceId), eq(itemsTable.uniqueId, uniqueId)));
     const [item] = items;
 
     if (items.length > 1) {

@@ -16,7 +16,6 @@ export const accountsTable = sqliteTable('accounts', {
     .$defaultFn(() => srid()),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-  key: text().notNull().unique(),
   username: text().notNull().unique(),
 });
 
@@ -28,7 +27,6 @@ export const servicesTable = sqliteTable(
       .$defaultFn(() => srid()),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
-    key: text().notNull().unique(),
     accountId: text('account_id')
       .notNull()
       .references(() => accountsTable.id),
@@ -77,7 +75,6 @@ export const dataSourcesTable = sqliteTable(
       .$defaultFn(() => srid()),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
-    key: text().notNull().unique(),
     dataServiceId: text('data_service_id')
       .notNull()
       .references(() => dataServicesTable.serviceId),

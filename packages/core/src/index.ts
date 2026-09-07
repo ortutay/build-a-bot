@@ -1,7 +1,7 @@
 export { BuildABot, type BuildABotStartOptions } from './BuildABot.js';
 export { Account, type AccountConfig } from './account/Account.js';
 export { createGlobalContext, type GlobalContext, type GlobalOptions } from './context/index.js';
-export { findConfigByKey, type ISaveable, type ISaveableClass } from './interface/ISaveable.js';
+export { type ISaveable, type ISaveableClass } from './interface/ISaveable.js';
 export { type ISerializable } from './interface/ISerializable.js';
 export {
   Service,

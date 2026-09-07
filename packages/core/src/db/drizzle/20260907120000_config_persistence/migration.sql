@@ -10,14 +10,12 @@ CREATE TABLE `accounts` (
 	`id` text PRIMARY KEY,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
-	`key` text NOT NULL UNIQUE,
 	`username` text NOT NULL UNIQUE
 );--> statement-breakpoint
 CREATE TABLE `services` (
 	`id` text PRIMARY KEY,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
-	`key` text NOT NULL UNIQUE,
 	`account_id` text NOT NULL,
 	`name` text NOT NULL,
 	`type` text NOT NULL,
@@ -35,7 +33,6 @@ CREATE TABLE `data_sources` (
 	`id` text PRIMARY KEY,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
-	`key` text NOT NULL UNIQUE,
 	`data_service_id` text NOT NULL,
 	`url` text NOT NULL,
 	CONSTRAINT `fk_data_sources_data_service_id_data_services_service_id_fk` FOREIGN KEY (`data_service_id`) REFERENCES `data_services`(`service_id`),

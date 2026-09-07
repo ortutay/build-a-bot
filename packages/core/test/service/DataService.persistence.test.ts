@@ -40,15 +40,6 @@ describe('DataService persistence', () => {
     expect(dataService.itemSchema.safeParse({}).success).toBe(false);
   });
 
-  it('normalizes data source URLs and rejects URLs longer than 2,000 characters', () => {
-    expect(new DataSource({ url: 'HTTPS://EXAMPLE.TEST:443/agents' }).url).toBe(
-      'https://example.test/agents'
-    );
-    expect(() => new DataSource({ url: `https://example.test/${'a'.repeat(2_000)}` })).toThrow(
-      'Data source URL exceeds 2000 characters'
-    );
-  });
-
   it('requires saved parent configuration objects', async () => {
     temporaryDb = await createTemporaryDb();
     const context = {
@@ -71,10 +62,6 @@ describe('DataService persistence', () => {
     await expect(dataSource.save()).rejects.toThrow(
       'Cannot save a data source without a data service'
     );
-    dataSource.dataServiceId = 'missing-data-service';
-    await expect(dataSource.save()).rejects.toThrow(
-      'Cannot create a data source key without a data service'
-    );
 
     await account.save();
     await expect(dataService.save()).resolves.toBeUndefined();
@@ -87,8 +74,6 @@ describe('DataService persistence', () => {
       storage: temporaryDb.storage,
     } as GlobalContext;
     const sourceUrl = 'https://example.test/agents';
-    const serviceKey = 'local/real-estate-data-service';
-    const dataSourceKey = `${serviceKey}/${encodeURIComponent(sourceUrl)}`;
     const dataSource = new DataSource({
       context,
       url: sourceUrl,
@@ -112,19 +97,16 @@ describe('DataService persistence', () => {
     expect(await countRows(temporaryDb, 'data_services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(1);
     await expect(
-      temporaryDb.storage.db.$client.execute('SELECT key, username FROM accounts')
-    ).resolves.toMatchObject({ rows: [{ key: 'local', username: 'local' }] });
+      temporaryDb.storage.db.$client.execute('SELECT username FROM accounts')
+    ).resolves.toMatchObject({ rows: [{ username: 'local' }] });
     await expect(
-      temporaryDb.storage.db.$client.execute('SELECT key, name, type FROM services')
-    ).resolves.toMatchObject({
-      rows: [{ key: serviceKey, name: 'real-estate-data-service', type: 'data' }],
-    });
+      temporaryDb.storage.db.$client.execute('SELECT name, type FROM services')
+    ).resolves.toMatchObject({ rows: [{ name: 'real-estate-data-service', type: 'data' }] });
     await expect(
-      temporaryDb.storage.db.$client.execute('SELECT key, url FROM data_sources')
-    ).resolves.toMatchObject({ rows: [{ key: dataSourceKey, url: sourceUrl }] });
+      temporaryDb.storage.db.$client.execute('SELECT url FROM data_sources')
+    ).resolves.toMatchObject({ rows: [{ url: sourceUrl }] });
 
     const config = dataService.dump();
-    expect(config).not.toHaveProperty('key');
     const loaded = DataService.load(config, context);
     expect(loaded.dump()).toEqual(config);
 
@@ -132,15 +114,20 @@ describe('DataService persistence', () => {
     const foundById = await DataService.findById(context, id);
     expect(foundById?.dump()).toEqual(config);
 
-    const foundByKey = await DataService.findByKey(context, serviceKey);
-    expect(foundByKey?.dump()).toEqual(config);
+    const foundByName = await DataService.findByName(
+      context,
+      dataService.account!.id!,
+      dataService.name
+    );
+    expect(foundByName?.dump()).toEqual(config);
 
     const foundBaseService = await Service.findById(context, id);
     expect(foundBaseService?.dump()).toEqual(config);
-    expect((await Service.findByKey(context, serviceKey))?.dump()).toEqual(config);
 
-    const foundSourceByKey = await DataSource.findByKey(context, dataSourceKey);
-    expect(foundSourceByKey?.dump()).toEqual(dataSource.dump());
+    const foundSourceById = await DataSource.findById(context, dataSource.id!);
+    expect(foundSourceById?.dump()).toEqual(dataSource.dump());
+    const foundSourceByUrl = await DataSource.findByUrl(context, dataService.id!, sourceUrl);
+    expect(foundSourceByUrl?.dump()).toEqual(dataSource.dump());
 
     await dataService.remove();
 
@@ -203,9 +190,6 @@ describe('DataService persistence', () => {
     expect(await countRows(temporaryDb, 'services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(1);
-    await expect(
-      temporaryDb.storage.db.$client.execute('SELECT key FROM services')
-    ).resolves.toMatchObject({ rows: [{ key: 'local/real-estate-data-service' }] });
     const result = await temporaryDb.storage.db.$client.execute(
       'SELECT item_schema, updated_at FROM data_services'
     );

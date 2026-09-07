@@ -5,7 +5,7 @@ import type { ISaveable } from '../interface/ISaveable.js';
 import { log } from '../internal/logger.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import { servicesTable } from '../storage/db/schema.js';
-import { findById as findServiceById, findByKey as findServiceByKey } from '../storage/helpers.js';
+import { findById as findServiceById } from '../storage/helpers.js';
 
 export type ServiceOptions = GlobalOptions & { context?: GlobalContext };
 export type ServiceContext = GlobalContext;
@@ -41,12 +41,6 @@ export abstract class Service<SyncResult = unknown>
     return service ? Service.#fromRow(context, service) : null;
   }
 
-  static async findByKey(context: GlobalContext, key: string): Promise<Service | null> {
-    const service = await findServiceByKey(servicesTable, context, key);
-
-    return service ? Service.#fromRow(context, service) : null;
-  }
-
   static async sharedContext(services: readonly Service[]): Promise<ServiceContext> {
     let context: ServiceContext | undefined;
     for (const service of services) {
@@ -70,15 +64,6 @@ export abstract class Service<SyncResult = unknown>
     }
 
     return context;
-  }
-
-  get key(): string {
-    const account = this.account;
-    if (!account) {
-      throw new Error(`Cannot create a service key without an account: ${this.name}`);
-    }
-
-    return `${account.key}/${this.name}`;
   }
 
   abstract readonly type: string;
