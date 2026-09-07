@@ -1,6 +1,7 @@
 import { BuildABot } from '@build-a-bot/core';
-import { startApiServer } from './server.js';
+import { BuildABotAPI } from './BuildABotAPI.js';
 
-const server = await startApiServer(new BuildABot());
+const api = new BuildABotAPI({ buildABot: new BuildABot() });
+const server = await api.start();
 
 console.log(`Build-A-Bot API listening on http://localhost:${server.port}`);

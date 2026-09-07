@@ -21,9 +21,9 @@ export const createBuildScorer = (mastra: Mastra) =>
       const script = new Script({
         name: 'build-score',
         code,
-        context: Object.keys(availableContext),
         modules: Object.keys(availableModules),
         tools: Object.keys(selectAvailableTools(mastra.listTools() ?? {})),
+        vmContext: Object.keys(availableContext),
       });
       const bot = await script.compile(mastra);
       const exampleInput = run.input?.exampleInput ?? bot.exampleInput;

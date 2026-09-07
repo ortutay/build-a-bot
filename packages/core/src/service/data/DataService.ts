@@ -1,45 +1,54 @@
 import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { Account } from '../../account/Account.js';
+import type { GlobalContext } from '../../context/index.js';
+import type { ISerializable } from '../../interface/ISerializable.js';
+import type { ISaveable } from '../../interface/ISaveable.js';
 import { availableContext, availableModules } from '../../internal/compile/Compiler.js';
 import { Run } from '../../internal/compile/Run.js';
 import { Script } from '../../internal/compile/Script.js';
 import { log } from '../../internal/logger.js';
 import { selectAvailableTools } from '../../internal/mastra/instruments/availableTools.js';
 import { clip } from '../../internal/util/index.js';
+import type { StorageTransaction } from '../../storage/Storage.js';
 import {
-  type OpenApiDocument,
+  dataServicesTable,
+  dataSourcesTable,
+  itemsTable,
+  scriptsTable,
+  servicesTable,
+} from '../../storage/db/schema.js';
+import { findById, findByKey } from '../../storage/helpers.js';
+import {
   type ServiceContext,
-  type ServiceOptions,
+  type ServiceConfig,
   type ServiceConstructorOptions,
+  type ServiceOptions,
   Service,
 } from '../Service.js';
-import { itemsTable, scriptsTable, servicesTable } from '../../storage/db/schema.js';
-import { DataSource } from './DataSource.js';
+import { DataSource, type DataSourceConfig } from './DataSource.js';
 import { Item } from './Item.js';
 
 export type DataServiceOptions = ServiceOptions & {
   sources: DataSource[];
-  itemSchema: z.ZodType;
-  // TODO: optional hint?
+  itemSchema: DataServiceItemSchema;
 };
-
 type DataServiceConstructorOptions = ServiceConstructorOptions & DataServiceOptions;
 
 export type DataServiceResult = { results: unknown[] };
+export type DataServiceListOptions = { limit?: number; page?: number };
+export type DataServiceConfig = ServiceConfig & {
+  itemSchema: Record<string, unknown>;
+  sources: DataSourceConfig[];
+  type: 'data';
+};
+
+export type DataServiceItemSchema = z.ZodType | Record<string, unknown>;
 
 const pageSize = 100;
 const maxResults = 1000;
-const apiDefaultLimit = 100;
+export const defaultListLimit = 100;
 const maxAttempts = 2;
-
-const parsePositiveInteger = (val: unknown, defaultVal: number): number | null => {
-  if (val === undefined) {
-    return defaultVal;
-  }
-
-  const parsed = Number(val);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-};
 
 export class ScriptNotFoundError extends Error {
   constructor(serviceName: string, sourceUrl: string) {
@@ -48,109 +57,197 @@ export class ScriptNotFoundError extends Error {
   }
 }
 
-export class DataService extends Service<DataServiceResult> {
+export class DataService
+  extends Service<DataServiceResult>
+  implements ISerializable<DataServiceConfig>, ISaveable
+{
   itemSchema: z.ZodType;
   sources: DataSource[];
+
+  readonly type = 'data';
+
+  #initPromise?: Promise<void>;
+  #itemSchemaConfig: Record<string, unknown>;
 
   constructor(options: DataServiceConstructorOptions) {
     super(options);
     this.sources = options.sources;
-    this.itemSchema = options.itemSchema;
+    if (options.itemSchema instanceof z.ZodType) {
+      this.#itemSchemaConfig = z.toJSONSchema(options.itemSchema) as Record<string, unknown>;
+      this.itemSchema = options.itemSchema;
+    } else {
+      this.#itemSchemaConfig = options.itemSchema;
+      this.itemSchema = z.fromJSONSchema(options.itemSchema);
+    }
   }
 
-  openApi(): OpenApiDocument {
-    const itemSchema = z.toJSONSchema(this.itemSchema) as {
-      properties?: Record<string, unknown>;
-      required?: string[];
-    };
-    const listItemSchema = {
-      ...itemSchema,
-      properties: {
-        ...itemSchema.properties,
-        id: { type: 'string', description: 'The item unique ID' },
-      },
-      required: [...new Set([...(itemSchema.required ?? []), 'id'])],
-    };
+  static async findById(context: GlobalContext, id: string): Promise<DataService | null> {
+    const service = await findById(servicesTable, context, id);
 
+    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
+  }
+
+  static async findByKey(context: GlobalContext, key: string): Promise<DataService | null> {
+    const service = await findByKey(servicesTable, context, key);
+
+    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
+  }
+
+  static async findByName(
+    context: GlobalContext,
+    account: Account,
+    name: string
+  ): Promise<DataService | null> {
+    const service = await findByKey(servicesTable, context, `${account.key}/${name}`);
+
+    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
+  }
+
+  async save(tx?: StorageTransaction): Promise<void> {
+    await this.#init();
+    const context = await this.context();
+    const accountId = this.account?.id;
+    if (!accountId) {
+      throw new Error(`Cannot save data service without a saved account: ${this.name}`);
+    }
+
+    await context.storage.fillInTransaction(tx, async (tx) => {
+      const [service] = await tx
+        .insert(servicesTable)
+        .values({
+          accountId,
+          key: this.key,
+          name: this.name,
+          type: this.type,
+        })
+        .onConflictDoUpdate({
+          target: servicesTable.key,
+          set: { type: this.type },
+        })
+        .returning();
+      if (!service) {
+        throw new Error(`Could not save data service: ${this.name}`);
+      }
+
+      this.id = service.id;
+      await tx
+        .insert(dataServicesTable)
+        .values({
+          itemSchema: this.#schemaConfig(),
+          serviceId: service.id,
+        })
+        .onConflictDoUpdate({
+          target: dataServicesTable.serviceId,
+          set: { itemSchema: this.#schemaConfig() },
+        });
+
+      for (const source of this.sources) {
+        source.bindContext(context);
+        source.bindDataService(this);
+        await source.save(tx);
+      }
+    });
+  }
+
+  async remove(tx?: StorageTransaction): Promise<void> {
+    if (!this.id) {
+      throw new Error('Cannot remove an unsaved data service');
+    }
+
+    const context = await this.context();
+    await context.init();
+    const id = this.id;
+    await context.storage.fillInTransaction(tx, async (tx) => {
+      await tx.delete(dataSourcesTable).where(eq(dataSourcesTable.dataServiceId, id));
+      await tx.delete(dataServicesTable).where(eq(dataServicesTable.serviceId, id));
+      await tx.delete(servicesTable).where(eq(servicesTable.id, id));
+      this.id = null;
+      for (const source of this.sources) {
+        source.detachDataService();
+        source.id = null;
+      }
+    });
+  }
+
+  dump(): DataServiceConfig {
     return {
-      openapi: '3.1.0',
-      info: { title: `${this.name} API`, version: '1.0.0' },
-      paths: {
-        [`/${this.name}/health`]: {
-          get: {
-            responses: {
-              200: {
-                description: 'Service is healthy',
-                content: {
-                  'application/json': {
-                    schema: {
-                      type: 'object',
-                      properties: { status: { const: 'ok' } },
-                      required: ['status'],
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        [`/${this.name}/items`]: {
-          get: {
-            parameters: [
-              {
-                name: 'page',
-                in: 'query',
-                schema: { type: 'integer', minimum: 1, default: 1 },
-              },
-              {
-                name: 'limit',
-                in: 'query',
-                schema: { type: 'integer', minimum: 1, default: apiDefaultLimit },
-              },
-            ],
-            responses: {
-              200: {
-                description: 'Current items',
-                content: {
-                  'application/json': {
-                    schema: {
-                      type: 'object',
-                      properties: {
-                        count: { type: 'integer', minimum: 0 },
-                        total: { type: 'integer', minimum: 0 },
-                        results: { type: 'array', items: listItemSchema },
-                      },
-                      required: ['results', 'count', 'total'],
-                    },
-                  },
-                },
-              },
-              400: { description: 'Invalid page or limit' },
-            },
-          },
-        },
-        [`/${this.name}/items/{id}`]: {
-          get: {
-            parameters: [
-              {
-                name: 'id',
-                in: 'path',
-                required: true,
-                description: 'The item unique ID',
-                schema: { type: 'string' },
-              },
-            ],
-            responses: {
-              200: {
-                description: 'Current item',
-                content: { 'application/json': { schema: itemSchema } },
-              },
-              404: { description: 'Item not found' },
-            },
-          },
-        },
-      },
+      itemSchema: this.#schemaConfig(),
+      name: this.name,
+      sources: this.sources.map((source) => source.dump()),
+      type: this.type,
     };
+  }
+
+  static load(config: DataServiceConfig, context?: GlobalContext, account?: Account): DataService {
+    if (config.type !== 'data') {
+      throw new Error(`Cannot load a non-data service: ${config.type}`);
+    }
+
+    return new DataService({
+      account,
+      context,
+      itemSchema: config.itemSchema,
+      name: config.name,
+      sources: config.sources.map((source) => DataSource.load(source, context)),
+    });
+  }
+
+  static async #fromRow(
+    context: GlobalContext,
+    service: typeof servicesTable.$inferSelect
+  ): Promise<DataService | null> {
+    const [dataService] = await context.storage.db
+      .select()
+      .from(dataServicesTable)
+      .where(eq(dataServicesTable.serviceId, service.id))
+      .limit(1);
+    if (!dataService) {
+      return null;
+    }
+
+    const account = await Account.findById(context, service.accountId);
+    if (!account) {
+      throw new Error(`Could not load account for data service: ${service.id}`);
+    }
+
+    const sources = await context.storage.db
+      .select()
+      .from(dataSourcesTable)
+      .where(eq(dataSourcesTable.dataServiceId, service.id));
+
+    return new DataService({
+      context,
+      id: service.id,
+      account,
+      itemSchema: dataService.itemSchema,
+      name: service.name,
+      sources: sources.map(
+        (source) =>
+          new DataSource({
+            context,
+            dataServiceKey: service.key,
+            ...source,
+          })
+      ),
+    });
+  }
+
+  #schemaConfig(): Record<string, unknown> {
+    return this.#itemSchemaConfig;
+  }
+
+  async #init(): Promise<void> {
+    this.#initPromise ??= this.#initOnce();
+    return this.#initPromise;
+  }
+
+  async #initOnce(): Promise<void> {
+    const context = await this.context();
+    await context.init();
+    if (!this.account) {
+      this.account = new Account({ context, username: 'local' });
+      await this.account.save();
+    }
   }
 
   #outputSchema() {
@@ -173,7 +270,65 @@ export class DataService extends Service<DataServiceResult> {
       });
   }
 
+  async list({ limit = defaultListLimit, page = 1 }: DataServiceListOptions = {}) {
+    if (!Number.isSafeInteger(page) || page < 1) {
+      throw new Error('DataService list page must be a positive integer');
+    }
+    if (!Number.isSafeInteger(limit) || limit < 1) {
+      throw new Error('DataService list limit must be a positive integer');
+    }
+
+    const context = await this.context();
+    await context.init();
+    const where = eq(servicesTable.key, this.key);
+    const [totalResults, items] = await Promise.all([
+      context.storage.db
+        .select({ total: count() })
+        .from(itemsTable)
+        .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
+        .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
+        .where(where),
+      context.storage.db
+        .select({ data: itemsTable.data, uniqueId: itemsTable.uniqueId })
+        .from(itemsTable)
+        .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
+        .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
+        .where(where)
+        .orderBy(itemsTable.uniqueId, itemsTable.dataSourceId)
+        .limit(limit)
+        .offset((page - 1) * limit),
+    ]);
+    const [totalResult] = totalResults;
+    const results = items.map((item) => {
+      const { id: _id, ...data } = item.data as Record<string, unknown>;
+      return { id: item.uniqueId, ...data };
+    });
+
+    return { count: results.length, total: totalResult?.total ?? 0, results };
+  }
+
+  async detail(uniqueId: string): Promise<unknown | null> {
+    const context = await this.context();
+    await context.init();
+    const items = await context.storage.db
+      .select({ data: itemsTable.data })
+      .from(itemsTable)
+      .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
+      .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
+      .where(and(eq(servicesTable.key, this.key), eq(itemsTable.uniqueId, uniqueId)));
+    const [item] = items;
+
+    if (items.length > 1) {
+      log.warn(
+        `Multiple items found for service=${this.name}, uniqueId=${uniqueId}; returning the first result`
+      );
+    }
+
+    return item?.data ?? null;
+  }
+
   async _build(context: ServiceContext): Promise<void> {
+    await this.save();
     log.info(`Build data service: ${JSON.stringify(this.itemSchema)}`);
 
     const inputSchema = z.object({
@@ -183,7 +338,7 @@ export class DataService extends Service<DataServiceResult> {
     const outputSchema = this.#outputSchema();
 
     for (const source of this.sources) {
-      await source.save(context.storage);
+      await source.save();
       if (!source.id) {
         throw new Error(`Data source did not receive an ID: ${source.url}`);
       }
@@ -192,7 +347,7 @@ export class DataService extends Service<DataServiceResult> {
       const scriptName = `url:${url}`;
       let regenerate = false;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let script = await Script.findByName(context.storage, this.name, scriptName);
+        let script = await Script.findByName(context, this.id!, scriptName);
 
         try {
           if (!script || regenerate) {
@@ -221,22 +376,24 @@ export class DataService extends Service<DataServiceResult> {
 
             const { code } = result.result as { code: string };
             script = new Script({
+              context,
               id: script?.id ?? undefined,
               name: scriptName,
+              serviceId: this.id!,
               code,
               buildInput: { goal: prompt, url },
-              context: Object.keys(availableContext),
               modules: Object.keys(availableModules),
               tools,
+              vmContext: Object.keys(availableContext),
             });
-            await script.save(context.storage, this.name);
+            await script.save();
             regenerate = false;
             log.info(`Wrote script: id=${script.id}, name=${script.name}`);
           } else {
             log.info(`Found script: id=${script.id}, name=${script.name}`);
           }
 
-          const bot = await script.compile(context.mastra);
+          const bot = await script.compile();
           log.info(`Compiled script: id=${script.id}, name=${script.name}`);
           log.debug(`Made a bot: ${String(bot)}`);
           break;
@@ -257,23 +414,24 @@ export class DataService extends Service<DataServiceResult> {
   async _heal(context: ServiceContext): Promise<void> {}
 
   async _sync(context: ServiceContext): Promise<DataServiceResult> {
+    await this.save();
     const results: unknown[] = [];
 
     for (const source of this.sources) {
-      await source.save(context.storage);
+      await source.save();
       if (!source.id) {
         throw new Error(`Data source did not receive an ID: ${source.url}`);
       }
 
       const url = source.url;
       const scriptName = `url:${url}`;
-      const script = await Script.findByName(context.storage, this.name, scriptName);
+      const script = await Script.findByName(context, this.id!, scriptName);
       if (!script) {
         throw new ScriptNotFoundError(this.name, url);
       }
 
       log.info(`Running script: id=${script.id}, name=${script.name}`);
-      const bot = await script.compile(context.mastra);
+      const bot = await script.compile();
       const uniqueIds = new Set<string>();
 
       for (let offset = 0; offset < maxResults; offset += pageSize) {
@@ -340,69 +498,5 @@ export class DataService extends Service<DataServiceResult> {
     }
 
     return { results };
-  }
-
-  async _register(context: ServiceContext): Promise<void> {
-    context.app.get(`/${this.name}/health`, (_req, resp) => {
-      resp.status(200).json({ status: 'ok' });
-    });
-
-    context.app.get(`/${this.name}/items`, async (req, resp) => {
-      const page = parsePositiveInteger(req.query.page, 1);
-      const limit = parsePositiveInteger(req.query.limit, apiDefaultLimit);
-      if (page === null || limit === null) {
-        resp.status(400).json({ error: 'page and limit must be positive integers' });
-        return;
-      }
-
-      const where = eq(servicesTable.name, this.name);
-      const [totalResults, items] = await Promise.all([
-        context.storage.db
-          .select({ total: count() })
-          .from(itemsTable)
-          .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-          .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
-          .where(where),
-        context.storage.db
-          .select({ data: itemsTable.data, uniqueId: itemsTable.uniqueId })
-          .from(itemsTable)
-          .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-          .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
-          .where(where)
-          .orderBy(itemsTable.uniqueId, itemsTable.dataSourceId)
-          .limit(limit)
-          .offset((page - 1) * limit),
-      ]);
-      const [totalResult] = totalResults;
-
-      const results = items.map((item) => {
-        const { id: _id, ...data } = item.data as Record<string, unknown>;
-        return { id: item.uniqueId, ...data };
-      });
-      resp.json({ count: results.length, total: totalResult?.total ?? 0, results });
-    });
-
-    context.app.get(`/${this.name}/items/:id`, async (req, resp) => {
-      const items = await context.storage.db
-        .select({ data: itemsTable.data })
-        .from(itemsTable)
-        .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-        .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
-        .where(and(eq(servicesTable.name, this.name), eq(itemsTable.uniqueId, req.params.id)));
-      const [item] = items;
-
-      if (!item) {
-        resp.status(404).json({ error: 'Item not found' });
-        return;
-      }
-
-      if (items.length > 1) {
-        log.warn(
-          `Multiple items found for service=${this.name}, uniqueId=${req.params.id}; returning the first result`
-        );
-      }
-
-      resp.json(item.data);
-    });
   }
 }

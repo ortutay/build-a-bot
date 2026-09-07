@@ -4,11 +4,47 @@ import { srid } from '../../internal/util/index.js';
 export const runStatuses = ['active', 'done', 'error'] as const;
 export type RunStatus = (typeof runStatuses)[number];
 
-export const servicesTable = sqliteTable('services', {
+const currentTimestamp = (): string => new Date().toISOString();
+
+const createdAt = () => text('created_at').notNull().$defaultFn(currentTimestamp);
+const updatedAt = () =>
+  text('updated_at').notNull().$defaultFn(currentTimestamp).$onUpdateFn(currentTimestamp);
+
+export const accountsTable = sqliteTable('accounts', {
   id: text()
     .primaryKey()
     .$defaultFn(() => srid()),
-  name: text().notNull().unique(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+  key: text().notNull().unique(),
+  username: text().notNull().unique(),
+});
+
+export const servicesTable = sqliteTable(
+  'services',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => srid()),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    key: text().notNull().unique(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accountsTable.id),
+    name: text().notNull(),
+    type: text().notNull(),
+  },
+  (table) => [unique('services_account_id_name_unique').on(table.accountId, table.name)]
+);
+
+export const dataServicesTable = sqliteTable('data_services', {
+  serviceId: text('service_id')
+    .primaryKey()
+    .references(() => servicesTable.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+  itemSchema: text('item_schema', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
 });
 
 export const scriptsTable = sqliteTable(
@@ -17,6 +53,8 @@ export const scriptsTable = sqliteTable(
     id: text()
       .primaryKey()
       .$defaultFn(() => srid()),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
     serviceId: text('service_id')
       .notNull()
       .references(() => servicesTable.id),
@@ -24,19 +62,29 @@ export const scriptsTable = sqliteTable(
     code: text().notNull(),
     buildInput: text('build_input', { mode: 'json' }).$type<Record<string, unknown>>(),
     exports: text({ mode: 'json' }).$type<string[]>().notNull(),
-    context: text({ mode: 'json' }).$type<string[]>().notNull(),
+    vmContext: text('vm_context', { mode: 'json' }).$type<string[]>().notNull(),
     modules: text({ mode: 'json' }).$type<string[]>().notNull(),
     tools: text({ mode: 'json' }).$type<string[]>().notNull(),
   },
   (table) => [unique('scripts_service_id_name_unique').on(table.serviceId, table.name)]
 );
 
-export const dataSourcesTable = sqliteTable('data_sources', {
-  id: text()
-    .primaryKey()
-    .$defaultFn(() => srid()),
-  url: text().notNull().unique(),
-});
+export const dataSourcesTable = sqliteTable(
+  'data_sources',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => srid()),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    key: text().notNull().unique(),
+    dataServiceId: text('data_service_id')
+      .notNull()
+      .references(() => dataServicesTable.serviceId),
+    url: text().notNull(),
+  },
+  (table) => [unique('data_sources_data_service_id_url_unique').on(table.dataServiceId, table.url)]
+);
 
 export const runsTable = sqliteTable('runs', {
   id: text()
@@ -59,7 +107,7 @@ export const resultsTable = sqliteTable('results', {
   runId: text('run_id')
     .notNull()
     .references(() => runsTable.id),
-  createdAt: text('created_at').notNull(),
+  createdAt: createdAt(),
   data: text({ mode: 'json' }).$type<unknown>().notNull(),
 });
 
@@ -77,8 +125,8 @@ export const itemsTable = sqliteTable(
       .references(() => dataSourcesTable.id),
     uniqueId: text('unique_id').notNull(),
     data: text({ mode: 'json' }).$type<unknown>().notNull(),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (table) => [
     unique('items_source_script_id_data_source_id_unique_id_unique').on(

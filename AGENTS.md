@@ -22,6 +22,8 @@ Do not put new lines between the categories.
 # Style
 
 - Prefer post-increment (`i++`) for incrementing loop counters.
-- Prefer "val" to "value"
-- Prefer "resp" to "response"
+- Prefer `val` to `value`
+- Prefer `resp` to `response`
+- Prefer `init()` to `initialize()`.
+- Prefer `tx` to `transaction`.
 - Name caught errors `e`, including Promise `.catch()` parameters.

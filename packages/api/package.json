@@ -25,13 +25,15 @@
     "build": "tsc",
     "dev": "tsx watch src/dev.ts",
     "start": "node dist/dev.js",
-    "test": "vitest run --passWithNoTests"
+    "test": "cd ../.. && ENV=test FORCE_COLOR=1 vitest run --dir packages/api/test"
   },
   "dependencies": {
     "@build-a-bot/core": "^0.1.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.3"
+    "@types/express": "^5.0.3",
+    "vitest": "^4.1.4"
   }
 }

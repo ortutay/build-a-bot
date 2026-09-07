@@ -1,34 +1,31 @@
 import { type Mastra } from '@mastra/core';
-import express, { type Express } from 'express';
 import { DocumentLibrary, DiskLibraryBackend } from '../internal/documents/index.js';
 import { defaultMastra } from '../internal/mastra/index.js';
 import { Storage } from '../storage/Storage.js';
 
 export type GlobalOptions = {
-  app?: Express;
   mastra?: Mastra;
   storage?: Storage;
   documentLibrary?: DocumentLibrary;
 };
 
 export type GlobalContext = {
-  app: Express;
   mastra: Mastra;
   storage: Storage;
   documentLibrary: DocumentLibrary;
+  init: () => Promise<void>;
 };
 
 export const mergeContext = (context: GlobalContext, options?: GlobalOptions): GlobalContext => {
   return {
-    app: options?.app || context.app,
-    mastra: options?.mastra || context.mastra,
-    storage: options?.storage || context.storage,
-    documentLibrary: options?.documentLibrary || context.documentLibrary,
+    mastra: options?.mastra ?? context.mastra,
+    storage: options?.storage ?? context.storage,
+    documentLibrary: options?.documentLibrary ?? context.documentLibrary,
+    init: async () => (options?.storage ?? context.storage).init(),
   };
 };
 
-export const fillInContext = async (options: GlobalOptions): Promise<GlobalContext> => {
-  const app = options.app ?? express();
+export const createGlobalContext = async (options: GlobalOptions = {}): Promise<GlobalContext> => {
   const storage = options.storage ?? new Storage();
   const documentLibrary =
     options.documentLibrary ??
@@ -48,9 +45,9 @@ export const fillInContext = async (options: GlobalOptions): Promise<GlobalConte
   }
 
   return {
-    app,
     storage,
     documentLibrary,
     mastra,
+    init: async () => storage.init(),
   };
 };

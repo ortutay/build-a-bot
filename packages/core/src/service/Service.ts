@@ -1,49 +1,120 @@
-import {
-  type GlobalContext,
-  type GlobalOptions,
-  mergeContext,
-  fillInContext,
-} from '../context/index.js';
+import { createGlobalContext, type GlobalContext, type GlobalOptions } from '../context/index.js';
+import { Account } from '../account/Account.js';
+import type { ISerializable } from '../interface/ISerializable.js';
+import type { ISaveable } from '../interface/ISaveable.js';
 import { log } from '../internal/logger.js';
+import type { StorageTransaction } from '../storage/Storage.js';
+import { servicesTable } from '../storage/db/schema.js';
+import { findById as findServiceById, findByKey as findServiceByKey } from '../storage/helpers.js';
 
-export type ServiceContext = Pick<GlobalContext, 'app' | 'mastra' | 'storage' | 'documentLibrary'>;
-export type ServiceOptions = {} & Pick<
-  GlobalOptions,
-  'app' | 'mastra' | 'storage' | 'documentLibrary'
->;
-export type ServiceConstructorOptions = ServiceOptions & { name: string };
+export type ServiceOptions = GlobalOptions & { context?: GlobalContext };
+export type ServiceContext = GlobalContext;
+export type ServiceConfig = { name: string; type: string };
 
-export type OpenApiDocument = {
-  openapi: '3.1.0';
-  info: { title: string; version: string };
-  paths: Record<string, unknown>;
-};
-
-const resultCount = (val: unknown): number | null => {
-  if (Array.isArray(val)) {
-    return val.length;
-  }
-
-  if (val && typeof val === 'object' && 'results' in val && Array.isArray(val.results)) {
-    return val.results.length;
-  }
-
-  return null;
-};
-
-export abstract class Service<SyncResult = unknown> {
+export type ServiceConstructorOptions = ServiceOptions & {
+  id?: string;
+  account?: Account;
   name: string;
-  #context?: Promise<ServiceContext>;
+};
+
+export abstract class Service<SyncResult = unknown>
+  implements ISerializable<ServiceConfig>, ISaveable
+{
+  id: string | null;
+  account: Account | null;
+  name: string;
+  #context?: ServiceContext;
+  #contextPromise?: Promise<ServiceContext>;
   #options: ServiceOptions;
 
   constructor(options: ServiceConstructorOptions) {
+    this.id = options.id ?? null;
     this.name = options.name;
+    this.account = options.account ?? null;
     this.#options = options;
+    this.#context = options.context;
   }
 
+  static async findById(context: GlobalContext, id: string): Promise<Service | null> {
+    const service = await findServiceById(servicesTable, context, id);
+
+    return service ? Service.#fromRow(context, service) : null;
+  }
+
+  static async findByKey(context: GlobalContext, key: string): Promise<Service | null> {
+    const service = await findServiceByKey(servicesTable, context, key);
+
+    return service ? Service.#fromRow(context, service) : null;
+  }
+
+  static async sharedContext(services: readonly Service[]): Promise<ServiceContext> {
+    let context: ServiceContext | undefined;
+    for (const service of services) {
+      const candidate = service.#context ?? (await service.#contextPromise);
+      if (candidate && context && candidate !== context) {
+        throw new Error('Services must use the same context');
+      }
+
+      context ??= candidate;
+    }
+
+    context ??= await createGlobalContext();
+    for (const service of services) {
+      const candidate = service.#context ?? (await service.#contextPromise);
+      if (candidate && candidate !== context) {
+        throw new Error('Services must use the same context');
+      }
+      if (!candidate) {
+        service.bindContext(context);
+      }
+    }
+
+    return context;
+  }
+
+  get key(): string {
+    const account = this.account;
+    if (!account) {
+      throw new Error(`Cannot create a service key without an account: ${this.name}`);
+    }
+
+    return `${account.key}/${this.name}`;
+  }
+
+  abstract readonly type: string;
+
+  abstract save(tx?: StorageTransaction): Promise<void>;
+
+  abstract remove(tx?: StorageTransaction): Promise<void>;
+
+  abstract dump(): ServiceConfig;
+
   async context(options?: ServiceOptions): Promise<ServiceContext> {
-    this.#context ??= fillInContext(this.#options);
-    return mergeContext(await this.#context, options);
+    if (options?.context) {
+      this.bindContext(options.context);
+    }
+    if (this.#context) {
+      return this.#context;
+    }
+
+    const context = await (this.#contextPromise ??= createGlobalContext({
+      ...this.#options,
+      ...options,
+    }));
+    this.#context = context;
+    return context;
+  }
+
+  bindContext(context: ServiceContext): void {
+    if (this.#context && this.#context !== context) {
+      throw new Error('Service already has a different bound context');
+    }
+    if (this.#contextPromise && !this.#context) {
+      throw new Error('Service context is already being created');
+    }
+
+    this.#context = context;
+    this.#contextPromise = Promise.resolve(context);
   }
 
   async start(options?: ServiceOptions): Promise<void> {
@@ -51,14 +122,15 @@ export abstract class Service<SyncResult = unknown> {
   }
 
   async _start(context: ServiceContext): Promise<void> {
+    this.bindContext(context);
     await this._build(context);
     await this._heal(context);
     const results = await this._sync(context);
-    const count = resultCount(results);
     log.info(
-      `Service sync complete: service=${this.name}${count === null ? '' : `, resultCount=${count}`}`
+      `Service sync complete: service=${this.name}, resultCount=${
+        (results as { results?: unknown[] } | null)?.results?.length
+      }`
     );
-    await this._register(context);
   }
 
   async build(options?: ServiceOptions): Promise<void> {
@@ -73,20 +145,26 @@ export abstract class Service<SyncResult = unknown> {
     return this._sync(await this.context(options));
   }
 
-  async register(options?: ServiceOptions): Promise<void> {
-    return this._register(await this.context(options));
-  }
-
-  openApi(): OpenApiDocument {
-    return {
-      openapi: '3.1.0',
-      info: { title: `${this.name} API`, version: '1.0.0' },
-      paths: {},
-    };
-  }
-
   abstract _build(context: ServiceContext): Promise<void>;
   abstract _heal(context: ServiceContext): Promise<void>;
   abstract _sync(context: ServiceContext): Promise<SyncResult>;
-  abstract _register(context: ServiceContext): Promise<void>;
+
+  static async #fromRow(
+    context: GlobalContext,
+    service: typeof servicesTable.$inferSelect
+  ): Promise<Service> {
+    switch (service.type) {
+      case 'data': {
+        const { DataService } = await import('./data/DataService.js');
+        const dataService = await DataService.findById(context, service.id);
+        if (!dataService) {
+          throw new Error(`Could not load data service: ${service.id}`);
+        }
+
+        return dataService;
+      }
+      default:
+        throw new Error(`Unsupported service type: ${service.type}`);
+    }
+  }
 }

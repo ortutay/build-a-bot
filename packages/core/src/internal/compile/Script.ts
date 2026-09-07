@@ -1,9 +1,10 @@
 import type { Mastra } from '@mastra/core';
 import { and, eq } from 'drizzle-orm';
-import { scriptsTable, servicesTable } from '../../storage/db/schema.js';
-import { type Storage } from '../../storage/Storage.js';
+import { createGlobalContext, type GlobalContext } from '../../context/index.js';
+import type { StorageTransaction } from '../../storage/Storage.js';
+import { scriptsTable } from '../../storage/db/schema.js';
+import { findById } from '../../storage/helpers.js';
 import { Bot } from '../bot/Bot.js';
-import { log } from '../logger.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
 import { getOrNull } from '../util/index.js';
 import { availableContext, availableModules, Compiler } from './Compiler.js';
@@ -11,14 +12,15 @@ import { toContextTools } from './tool-fns.js';
 
 export type ScriptOptions = {
   buildInput?: Record<string, unknown> | null;
+  context?: GlobalContext;
   id?: string;
   serviceId?: string;
   name: string;
   code: string;
   exports?: string[];
-  context: string[];
   modules: string[];
   tools: string[];
+  vmContext: string[];
 };
 
 export class ScriptDependencyUnavailableError extends Error {
@@ -45,62 +47,71 @@ const selectDependencies = (
   );
 };
 
+const fromRow = (context: GlobalContext, row: typeof scriptsTable.$inferSelect): Script => {
+  return new Script({
+    ...row,
+    context,
+    vmContext: row.vmContext,
+  });
+};
+
 export class Script {
   buildInput: Record<string, unknown> | null;
-  id: string | null;
-  serviceId: string | null;
-  name: string;
   code: string;
   exports: string[];
-  context: string[];
+  id: string | null;
   modules: string[];
+  name: string;
+  serviceId: string | null;
   tools: string[];
+  vmContext: string[];
+  #context?: GlobalContext;
 
   constructor(options: ScriptOptions) {
+    this.#context = options.context;
     this.buildInput = options.buildInput ?? null;
-    this.id = options.id ?? null;
-    this.serviceId = options.serviceId ?? null;
-    this.name = options.name;
     this.code = options.code;
     this.exports = options.exports ?? [];
-    this.context = options.context;
+    this.id = options.id ?? null;
     this.modules = options.modules;
+    this.name = options.name;
+    this.serviceId = options.serviceId ?? null;
     this.tools = options.tools;
+    this.vmContext = options.vmContext;
   }
 
-  static async findById(storage: Storage, id: string): Promise<Script | null> {
-    log.debug(`Find script by ID: ${id}`);
-    const { db } = storage;
-    const [script] = await db.select().from(scriptsTable).where(eq(scriptsTable.id, id)).limit(1);
+  async context(): Promise<GlobalContext> {
+    this.#context ??= await createGlobalContext();
+    return this.#context;
+  }
 
-    return script ? new Script(script) : null;
+  static async findById(context: GlobalContext, id: string): Promise<Script | null> {
+    const script = await findById(scriptsTable, context, id);
+
+    return script ? fromRow(context, script) : null;
   }
 
   static async findByName(
-    storage: Storage,
-    serviceName: string,
+    context: GlobalContext,
+    serviceId: string,
     name: string
   ): Promise<Script | null> {
-    log.debug(`Find script: service=${serviceName}, name=${name}`);
-    const { db } = storage;
-    const [result] = await db
-      .select({ script: scriptsTable })
+    await context.init();
+    const [script] = await context.storage.db
+      .select()
       .from(scriptsTable)
-      .innerJoin(servicesTable, eq(scriptsTable.serviceId, servicesTable.id))
-      .where(and(eq(servicesTable.name, serviceName), eq(scriptsTable.name, name)))
+      .where(and(eq(scriptsTable.serviceId, serviceId), eq(scriptsTable.name, name)))
       .limit(1);
 
-    return result ? new Script(result.script) : null;
+    return script ? fromRow(context, script) : null;
   }
 
-  async compile(mastra: Mastra): Promise<Bot> {
-    log.debug(
-      `Compile script: name=${this.name}, context=${JSON.stringify(this.context)}, modules=${JSON.stringify(this.modules)}, tools=${JSON.stringify(this.tools)}`
-    );
-    const context = selectDependencies(availableContext, this.context, 'context');
+  async compile(mastra?: Mastra): Promise<Bot> {
+    const context = selectDependencies(availableContext, this.vmContext, 'context');
     const modules = selectDependencies(availableModules, this.modules, 'module');
+    const activeMastra = mastra ?? (await this.context()).mastra;
     const tools = selectDependencies(
-      selectAvailableTools(mastra.listTools() ?? {}),
+      selectAvailableTools(activeMastra.listTools() ?? {}),
       this.tools,
       'tool'
     );
@@ -117,67 +128,62 @@ export class Script {
     );
   }
 
-  async save(storage: Storage, serviceName: string): Promise<void> {
-    log.debug(`Save script: service=${serviceName}, name=${this.name}, id=${this.id}`);
-    const { db } = storage;
-    const [service] = await db
-      .insert(servicesTable)
-      .values({ name: serviceName })
-      .onConflictDoUpdate({
-        target: servicesTable.name,
-        set: { name: serviceName },
-      })
-      .returning();
-    if (!service) {
-      throw new Error(`Could not sync service: ${serviceName}`);
+  async save(tx?: StorageTransaction): Promise<void> {
+    const serviceId = this.serviceId;
+    if (!serviceId) {
+      throw new Error(`Cannot save a script without a service: ${this.name}`);
     }
 
-    this.serviceId = service.id;
-    const vals = {
-      serviceId: service.id,
-      name: this.name,
-      code: this.code,
-      buildInput: this.buildInput,
-      exports: this.exports,
-      context: this.context,
-      modules: this.modules,
-      tools: this.tools,
-    };
-
-    if (this.id) {
-      const [script] = await db
-        .update(scriptsTable)
-        .set(vals)
-        .where(eq(scriptsTable.id, this.id))
-        .returning();
-      if (script) {
-        log.debug(`Updated script: ${this.id}`);
-        return;
+    const context = await this.context();
+    await context.init();
+    await context.storage.fillInTransaction(tx, async (tx) => {
+      const vals = {
+        buildInput: this.buildInput,
+        code: this.code,
+        exports: this.exports,
+        modules: this.modules,
+        name: this.name,
+        serviceId,
+        tools: this.tools,
+        vmContext: this.vmContext,
+      };
+      if (this.id) {
+        const [script] = await tx
+          .update(scriptsTable)
+          .set(vals)
+          .where(eq(scriptsTable.id, this.id))
+          .returning();
+        if (script) {
+          return;
+        }
       }
-    }
 
-    const [script] = await db.insert(scriptsTable).values(vals).returning();
-    if (!script) {
-      throw new Error(`Could not sync script: ${this.name}`);
-    }
+      const [script] = await tx
+        .insert(scriptsTable)
+        .values(vals)
+        .onConflictDoUpdate({
+          target: [scriptsTable.serviceId, scriptsTable.name],
+          set: vals,
+        })
+        .returning();
+      if (!script) {
+        throw new Error(`Could not save script: ${this.name}`);
+      }
 
-    this.id = script.id;
-    log.debug(`Saved script: ${this.id}`);
+      this.id = script.id;
+    });
   }
 
-  async remove(storage: Storage): Promise<void> {
+  async remove(tx?: StorageTransaction): Promise<void> {
     if (!this.id) {
       throw new Error('Cannot remove an unsaved script');
     }
 
-    const [script] = await storage.db
-      .delete(scriptsTable)
-      .where(eq(scriptsTable.id, this.id))
-      .returning();
-    if (!script) {
-      throw new Error(`Could not remove script: ${this.id}`);
-    }
-
-    this.id = null;
+    const context = await this.context();
+    await context.init();
+    await context.storage.fillInTransaction(tx, async (tx) => {
+      await tx.delete(scriptsTable).where(eq(scriptsTable.id, this.id!));
+      this.id = null;
+    });
   }
 }

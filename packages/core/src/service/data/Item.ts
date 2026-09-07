@@ -15,7 +15,7 @@ export type ItemOptions = {
 export class Item {
   id: string | null;
   uniqueId: string;
-  createdAt: string;
+  createdAt: string | null;
   updatedAt: string | null;
   data: unknown;
   dataSourceId: string;
@@ -24,7 +24,7 @@ export class Item {
   constructor(options: ItemOptions) {
     this.id = options.id ?? null;
     this.uniqueId = options.uniqueId;
-    this.createdAt = options.createdAt ?? new Date().toISOString();
+    this.createdAt = options.createdAt ?? null;
     this.updatedAt = options.updatedAt ?? null;
     this.data = options.data;
     this.dataSourceId = options.dataSourceId;
@@ -32,20 +32,17 @@ export class Item {
   }
 
   async save(storage: Storage): Promise<void> {
-    const updatedAt = new Date().toISOString();
     const [item] = await storage.db
       .insert(itemsTable)
       .values({
-        createdAt: this.createdAt,
         data: this.data,
         dataSourceId: this.dataSourceId,
         sourceScriptId: this.sourceScriptId,
         uniqueId: this.uniqueId,
-        updatedAt,
       })
       .onConflictDoUpdate({
         target: [itemsTable.sourceScriptId, itemsTable.dataSourceId, itemsTable.uniqueId],
-        set: { data: this.data, updatedAt },
+        set: { data: this.data },
       })
       .returning();
     if (!item) {

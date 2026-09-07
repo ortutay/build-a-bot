@@ -1,6 +1,5 @@
 import type { Mastra } from '@mastra/core';
 import { eq } from 'drizzle-orm';
-import express from 'express';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Run } from '../../src/internal/compile/Run.js';
@@ -126,7 +125,6 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
-    const app = express();
     const service = new DataService({
       name: 'example-service',
       sources: [new DataSource({ url: 'https://example.test/data' })],
@@ -135,7 +133,7 @@ describe('DataService', () => {
       storage,
       documentLibrary,
     });
-    const context: ServiceContext = { app, documentLibrary, mastra, storage };
+    const context: ServiceContext = { documentLibrary, mastra, storage };
 
     await service._build(context);
     await service._build(context);
@@ -208,32 +206,7 @@ describe('DataService', () => {
     await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
   });
 
-  it('adds a health endpoint for the service', async () => {
-    const app = { get: vi.fn() };
-    const service = new DataService({
-      name: 'example-service',
-      sources: [],
-      itemSchema: z.object({}),
-    });
-
-    await service._register({ app } as unknown as ServiceContext);
-
-    expect(app.get).toHaveBeenCalledWith('/example-service/health', expect.any(Function));
-
-    const handler = app.get.mock.calls[0][1] as (
-      req: unknown,
-      resp: { json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
-    ) => void;
-    const resp = { json: vi.fn(), status: vi.fn() };
-    resp.status.mockReturnValue(resp);
-
-    handler({}, resp);
-
-    expect(resp.status).toHaveBeenCalledWith(200);
-    expect(resp.json).toHaveBeenCalledWith({ status: 'ok' });
-  });
-
-  it('adds item endpoints scoped to the service', async () => {
+  it('lists and gets current items scoped to the service', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const script = new Script({
@@ -275,78 +248,18 @@ describe('DataService', () => {
       uniqueId: 'other',
     }).save(storage);
 
-    const app = { get: vi.fn() };
     const service = new DataService({
       name: 'example-service',
       sources: [],
       itemSchema: z.object({ value: z.string() }),
+      storage,
     });
-    await service._register({ app, storage } as unknown as ServiceContext);
-
-    const openApi = service.openApi();
-    expect(openApi).toMatchObject({
-      openapi: '3.1.0',
-      paths: {
-        '/example-service/items': {
-          get: {
-            parameters: expect.arrayContaining([
-              expect.objectContaining({ in: 'query', name: 'page' }),
-              expect.objectContaining({ in: 'query', name: 'limit' }),
-            ]),
-            responses: {
-              200: {
-                content: {
-                  'application/json': {
-                    schema: {
-                      properties: {
-                        results: {
-                          items: {
-                            properties: { id: { type: 'string' } },
-                            required: expect.arrayContaining(['id']),
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        '/example-service/items/{id}': {
-          get: {
-            parameters: [expect.objectContaining({ in: 'path', name: 'id' })],
-          },
-        },
-      },
-    });
-    expect(JSON.stringify(openApi.paths['/example-service/items'])).not.toContain('"allOf"');
-
-    const listHandler = app.get.mock.calls.find(
-      ([path]) => path === '/example-service/items'
-    )?.[1] as (
-      req: { query: Record<string, unknown> },
-      resp: { json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
-    ) => Promise<void>;
-    const detailHandler = app.get.mock.calls.find(
-      ([path]) => path === '/example-service/items/:id'
-    )?.[1] as (
-      req: { params: { id: string } },
-      resp: { json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> }
-    ) => Promise<void>;
-
-    const listResp = { json: vi.fn(), status: vi.fn() };
-    await listHandler({ query: { limit: '1', page: '2' } }, listResp);
-    expect(listResp.json).toHaveBeenCalledWith({
+    await expect(service.list({ limit: 1, page: 2 })).resolves.toEqual({
       count: 1,
       total: 2,
       results: [{ id: 'second', value: 'second' }],
     });
-
-    const detailResp = { json: vi.fn(), status: vi.fn() };
-    detailResp.status.mockReturnValue(detailResp);
-    await detailHandler({ params: { id: 'scraped' } }, detailResp);
-    expect(detailResp.json).toHaveBeenCalledWith({ value: 'scraped' });
+    await expect(service.detail('scraped')).resolves.toEqual({ value: 'scraped' });
 
     const duplicateScript = new Script({
       name: 'second-source',
@@ -366,17 +279,12 @@ describe('DataService', () => {
     }).save(storage);
 
     const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
-    await detailHandler({ params: { id: 'scraped' } }, detailResp);
+    await expect(service.detail('scraped')).resolves.toMatchObject({ value: expect.any(String) });
     expect(warn).toHaveBeenCalledWith(
       'Multiple items found for service=example-service, uniqueId=scraped; returning the first result'
     );
     warn.mockRestore();
-
-    const missingResp = { json: vi.fn(), status: vi.fn() };
-    missingResp.status.mockReturnValue(missingResp);
-    await detailHandler({ params: { id: 'missing' } }, missingResp);
-    expect(missingResp.status).toHaveBeenCalledWith(404);
-    expect(missingResp.json).toHaveBeenCalledWith({ error: 'Item not found' });
+    await expect(service.detail('missing')).resolves.toBeNull();
   });
 
   it('deduplicates and persists DataService results, runs, and current items', async () => {

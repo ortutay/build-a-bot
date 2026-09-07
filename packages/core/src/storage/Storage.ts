@@ -5,32 +5,41 @@ import { migrate } from 'drizzle-orm/libsql/migrator';
 import { storageDatabaseFilepath, storageDirectory } from '../internal/constants.js';
 import { log } from '../internal/logger.js';
 
+export type StorageDb = ReturnType<typeof drizzle>;
+export type StorageTransaction = Parameters<Parameters<StorageDb['transaction']>[0]>[0];
+
 const migrationsFolder = fileURLToPath(new URL('../db/drizzle', import.meta.url));
 
-export const initializeDb = async (db: ReturnType<typeof drizzle>): Promise<void> => {
+export const initializeDb = async (db: StorageDb): Promise<void> => {
   log.info(`Initialize storage migrations: ${migrationsFolder}`);
   await migrate(db, { migrationsFolder });
 };
 
 export class Storage {
-  #db?: ReturnType<typeof drizzle>;
-  #initialize?: Promise<void>;
+  #db?: StorageDb;
+  #init?: Promise<void>;
 
-  get db(): ReturnType<typeof drizzle> {
+  get db(): StorageDb {
     if (!this.#db) {
       throw new Error('Storage has not been initialized');
     }
     return this.#db;
   }
 
-  async initialize(): Promise<void> {
-    this.#initialize ??= this.#initializeStorage();
-    return this.#initialize;
+  async init(): Promise<void> {
+    this.#init ??= (async () => {
+      await mkdir(storageDirectory, { recursive: true });
+      this.#db = drizzle({ connection: { url: storageDatabaseFilepath } });
+      await initializeDb(this.#db);
+    })();
+    return this.#init;
   }
 
-  async #initializeStorage(): Promise<void> {
-    await mkdir(storageDirectory, { recursive: true });
-    this.#db = drizzle({ connection: { url: storageDatabaseFilepath } });
-    await initializeDb(this.#db);
+  async fillInTransaction<T>(
+    tx: StorageTransaction | undefined,
+    fn: (tx: StorageTransaction) => Promise<T>
+  ): Promise<T> {
+    await this.init();
+    return tx ? fn(tx) : this.db.transaction(fn);
   }
 }
