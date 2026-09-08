@@ -2,9 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Account } from '../../src/account/Account.js';
 import type { GlobalContext } from '../../src/context/index.js';
-import { Service } from '../../src/service/Service.js';
-import { DataService } from '../../src/service/data/DataService.js';
-import { DataSource } from '../../src/service/data/DataSource.js';
+import { DataService } from '../../src/service/DataService.js';
+import { DataSource } from '../../src/service/DataSource.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const countRows = async (temporaryDb: TemporaryDb, table: string): Promise<number> => {
@@ -83,7 +82,7 @@ describe('DataService persistence', () => {
       name: 'real-estate-data-service',
       sources: [dataSource],
       itemSchema: z.object({
-        email: z.string().email(),
+        email: z.string(),
         name: z.string(),
       }),
     });
@@ -93,15 +92,14 @@ describe('DataService persistence', () => {
     expect(dataService.id).toEqual(expect.any(String));
     expect(dataSource.id).toEqual(expect.any(String));
     expect(await countRows(temporaryDb, 'accounts')).toBe(1);
-    expect(await countRows(temporaryDb, 'services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(1);
     await expect(
       temporaryDb.storage.db.$client.execute('SELECT username FROM accounts')
     ).resolves.toMatchObject({ rows: [{ username: 'local' }] });
     await expect(
-      temporaryDb.storage.db.$client.execute('SELECT name, type FROM services')
-    ).resolves.toMatchObject({ rows: [{ name: 'real-estate-data-service', type: 'data' }] });
+      temporaryDb.storage.db.$client.execute('SELECT name FROM data_services')
+    ).resolves.toMatchObject({ rows: [{ name: 'real-estate-data-service' }] });
     await expect(
       temporaryDb.storage.db.$client.execute('SELECT url FROM data_sources')
     ).resolves.toMatchObject({ rows: [{ url: sourceUrl }] });
@@ -121,9 +119,6 @@ describe('DataService persistence', () => {
     );
     expect(foundByName?.dump()).toEqual(config);
 
-    const foundBaseService = await Service.findById(context, id);
-    expect(foundBaseService?.dump()).toEqual(config);
-
     const foundSourceById = await DataSource.findById(context, dataSource.id!);
     expect(foundSourceById?.dump()).toEqual(dataSource.dump());
     const foundSourceByUrl = await DataSource.findByUrl(context, dataService.id!, sourceUrl);
@@ -132,7 +127,6 @@ describe('DataService persistence', () => {
     await dataService.remove();
 
     expect(await countRows(temporaryDb, 'accounts')).toBe(1);
-    expect(await countRows(temporaryDb, 'services')).toBe(0);
     expect(await countRows(temporaryDb, 'data_services')).toBe(0);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(0);
 
@@ -187,7 +181,6 @@ describe('DataService persistence', () => {
 
     expect(second.id).toBe(first.id);
     expect(await countRows(temporaryDb, 'accounts')).toBe(1);
-    expect(await countRows(temporaryDb, 'services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_services')).toBe(1);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(1);
     const result = await temporaryDb.storage.db.$client.execute(

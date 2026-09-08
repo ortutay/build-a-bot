@@ -39,7 +39,7 @@ export const executors: Record<string, any> = {
     const headers = Object.fromEntries(resp.headers);
     const contentType = contentTypeFromHeaders(headers);
     const content = parseResponseBody(contentType, await resp.arrayBuffer());
-    const useUrl = resp.url || url;
+    const useUrl = proxy === 'unblock' ? url : resp.url || url;
     const documentId = documentLibrary.save({
       url: useUrl,
       origin: 'dynamic',

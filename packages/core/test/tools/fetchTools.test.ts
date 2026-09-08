@@ -89,6 +89,20 @@ describe('fetch tools', () => {
     expect(result).not.toHaveProperty('output');
   });
 
+  it('uses the target URL for unblock responses', async () => {
+    const url = uniqueUrl('unblock');
+    proxyFetch.mockResolvedValue(
+      response({
+        url: 'https://api.brightdata.com/request',
+        body: '<p>Unblocked</p>',
+      })
+    );
+
+    const result = await execute(fetchTools, 'fetch', { url, proxy: 'unblock' });
+
+    expect(result.url).toBe(url);
+  });
+
   it('saves fetched content for document tools to retrieve', async () => {
     const url = uniqueUrl('product');
     const body = '<html><body><h1>Product</h1></body></html>';

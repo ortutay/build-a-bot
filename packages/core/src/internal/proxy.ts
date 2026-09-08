@@ -1,5 +1,18 @@
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
-import './env.js';
+import {
+  proxyDatacenterDedicatedPassword,
+  proxyDatacenterDedicatedServer,
+  proxyDatacenterDedicatedUsername,
+  proxyDatacenterSharedPassword,
+  proxyDatacenterSharedServer,
+  proxyDatacenterSharedUsername,
+  proxyResidentialPassword,
+  proxyResidentialServer,
+  proxyResidentialUsername,
+  proxyUnblockApiUrl,
+  proxyUnblockToken,
+  proxyUnblockZone,
+} from './constants.js';
 
 export type ProxyName = 'datacenterDedicated' | 'datacenterShared' | 'residential' | 'unblock';
 // 'residentialCdp' |
@@ -19,37 +32,44 @@ export type Proxy = {
   fetch?: ProxyFetch;
 };
 
+const requireSetting = (proxy: ProxyName, name: string, val: string | undefined): string => {
+  if (!val) {
+    throw new Error(`Proxy tier "${proxy}" requires ${name} to be configured.`);
+  }
+  return val;
+};
+
 const proxies: Record<ProxyName, Proxy> = {
   // none: {},
   datacenterDedicated: {
-    server: process.env.PROXY_DATACENTER_DEDICATED_SERVER,
-    username: process.env.PROXY_DATACENTER_DEDICATED_USERNAME,
-    password: process.env.PROXY_DATACENTER_DEDICATED_PASSWORD,
+    server: proxyDatacenterDedicatedServer,
+    username: proxyDatacenterDedicatedUsername,
+    password: proxyDatacenterDedicatedPassword,
   },
   datacenterShared: {
-    server: process.env.PROXY_DATACENTER_SHARED_SERVER,
-    username: process.env.PROXY_DATACENTER_SHARED_USERNAME,
-    password: process.env.PROXY_DATACENTER_SHARED_PASSWORD,
+    server: proxyDatacenterSharedServer,
+    username: proxyDatacenterSharedUsername,
+    password: proxyDatacenterSharedPassword,
   },
   residential: {
-    server: process.env.PROXY_RESIDENTIAL_SERVER,
-    username: process.env.PROXY_RESIDENTIAL_USERNAME,
-    password: process.env.PROXY_RESIDENTIAL_PASSWORD,
+    server: proxyResidentialServer,
+    username: proxyResidentialUsername,
+    password: proxyResidentialPassword,
   },
   // residentialCdp: {
-  //   cdp: process.env.PROXY_RESIDENTIAL_CDP_URL,
+  //   cdp: proxyResidentialCdpUrl,
   // },
   unblock: {
     fetch: async ({ url, headers = {} }: ProxyFetchOptions): Promise<Response> =>
-      fetch(process.env.PROXY_UNBLOCK_API_URL!, {
+      fetch(requireSetting('unblock', 'PROXY_UNBLOCK_API_URL', proxyUnblockApiUrl), {
         method: 'POST',
         headers: {
           ...headers,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.PROXY_UNBLOCK_TOKEN}`,
+          Authorization: `Bearer ${requireSetting('unblock', 'PROXY_UNBLOCK_TOKEN', proxyUnblockToken)}`,
         },
         body: JSON.stringify({
-          zone: process.env.PROXY_UNBLOCK_ZONE,
+          zone: requireSetting('unblock', 'PROXY_UNBLOCK_ZONE', proxyUnblockZone),
           url,
           format: 'raw',
         }),

@@ -1,6 +1,6 @@
+import { DataService, defaultListLimit } from '@build-a-bot/core';
 import { type Express } from 'express';
 import { z } from 'zod';
-import { DataService, defaultListLimit } from '@build-a-bot/core';
 
 export type DataServiceAPIOptions = { dataService: DataService };
 
@@ -37,9 +37,10 @@ export class DataServiceAPI {
       required: [...new Set([...(itemSchema.required ?? []), 'id'])],
     };
     const { name } = this.dataService;
+    const basePath = `/local/${name}`;
 
     return {
-      [`/${name}/health`]: {
+      [`${basePath}/health`]: {
         get: {
           responses: {
             200: {
@@ -57,7 +58,7 @@ export class DataServiceAPI {
           },
         },
       },
-      [`/${name}/items`]: {
+      [`${basePath}/items`]: {
         get: {
           parameters: [
             {
@@ -92,7 +93,7 @@ export class DataServiceAPI {
           },
         },
       },
-      [`/${name}/items/{id}`]: {
+      [`${basePath}/items/{id}`]: {
         get: {
           parameters: [
             {
@@ -112,16 +113,24 @@ export class DataServiceAPI {
           },
         },
       },
+      [`${basePath}/sync`]: {
+        post: {
+          responses: {
+            200: { description: 'Service synchronization result' },
+          },
+        },
+      },
     };
   }
 
   register(app: Express): void {
     const { name } = this.dataService;
+    const basePath = `/local/${name}`;
 
-    app.get(`/${name}/health`, (_req, resp) => {
+    app.get(`${basePath}/health`, (_req, resp) => {
       resp.json({ status: 'ok' });
     });
-    app.get(`/${name}/items`, async (req, resp, next) => {
+    app.get(`${basePath}/items`, async (req, resp, next) => {
       const page = parsePositiveInteger(req.query.page, 1);
       const limit = parsePositiveInteger(req.query.limit, defaultListLimit);
       if (page === null || limit === null) {
@@ -135,7 +144,7 @@ export class DataServiceAPI {
         next(e);
       }
     });
-    app.get(`/${name}/items/:id`, async (req, resp, next) => {
+    app.get(`${basePath}/items/:id`, async (req, resp, next) => {
       try {
         const item = await this.dataService.detail(req.params.id);
         if (item === null) {
@@ -144,6 +153,13 @@ export class DataServiceAPI {
         }
 
         resp.json(item);
+      } catch (e) {
+        next(e);
+      }
+    });
+    app.post(`${basePath}/sync`, async (_req, resp, next) => {
+      try {
+        resp.json(await this.dataService.sync());
       } catch (e) {
         next(e);
       }

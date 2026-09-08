@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { itemsTable } from '../../storage/db/schema.js';
-import { type Storage } from '../../storage/Storage.js';
+import { itemsTable } from '../storage/db/schema.js';
+import { type Storage } from '../storage/Storage.js';
 
 export type ItemOptions = {
   id?: string;

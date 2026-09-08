@@ -55,6 +55,23 @@ describe('available tools', () => {
       availableThenCache: availableThenCached,
     });
   });
+
+  it('does not cache tool errors', async () => {
+    let calls = 0;
+    const failingTool = {
+      ...tool(`failing-${crypto.randomUUID()}`),
+      execute: async () => {
+        calls++;
+        throw new Error('Temporary failure');
+      },
+    };
+    const cachedTool = await cacheInstrument(failingTool);
+
+    await expect(cachedTool.execute!({}, {} as any)).rejects.toThrow('Temporary failure');
+    await expect(cachedTool.execute!({}, {} as any)).rejects.toThrow('Temporary failure');
+
+    expect(calls).toBe(2);
+  });
 });
 
 const tool = (id: string): Tool =>

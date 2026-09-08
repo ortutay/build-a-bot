@@ -18,6 +18,7 @@ export const initializeDb = async (db: StorageDb): Promise<void> => {
 export class Storage {
   #db?: StorageDb;
   #init?: Promise<void>;
+  #transaction = Promise.resolve();
 
   get db(): StorageDb {
     if (!this.#db) {
@@ -29,7 +30,7 @@ export class Storage {
   async init(): Promise<void> {
     this.#init ??= (async () => {
       await mkdir(storageDirectory, { recursive: true });
-      this.#db = drizzle({ connection: { url: storageDatabaseFilepath } });
+      this.#db = drizzle({ connection: { timeout: 5_000, url: storageDatabaseFilepath } });
       await initializeDb(this.#db);
     })();
     return this.#init;
@@ -40,6 +41,21 @@ export class Storage {
     fn: (tx: StorageTransaction) => Promise<T>
   ): Promise<T> {
     await this.init();
-    return tx ? fn(tx) : this.db.transaction(fn);
+    if (tx) {
+      return fn(tx);
+    }
+
+    const previous = this.#transaction;
+    let finish!: () => void;
+    this.#transaction = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    await previous;
+
+    try {
+      return await this.db.transaction(fn);
+    } finally {
+      finish();
+    }
   }
 }

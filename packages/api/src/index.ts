@@ -1,9 +1,9 @@
 export {
-  BuildABotAPI,
+  API,
   defaultApiPort,
-  type BuildABotAPIOptions,
-  type BuildABotAPIStartOptions,
-  type BuildABotAPIStartResult,
+  type APIOptions,
+  type APIStartOptions,
+  type APIStartResult,
   type OpenApiDocument,
-} from './BuildABotAPI.js';
-export { DataServiceAPI, type DataServiceAPIOptions } from './service/data/DataServiceAPI.js';
+} from './API.js';
+export { DataServiceAPI, type DataServiceAPIOptions } from './service/DataServiceAPI.js';

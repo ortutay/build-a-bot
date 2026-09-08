@@ -1,46 +1,41 @@
 import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { Account } from '../../account/Account.js';
-import type { GlobalContext } from '../../context/index.js';
-import type { ISerializable } from '../../interface/ISerializable.js';
-import type { ISaveable } from '../../interface/ISaveable.js';
-import { availableContext, availableModules } from '../../internal/compile/Compiler.js';
-import { Run } from '../../internal/compile/Run.js';
-import { Script } from '../../internal/compile/Script.js';
-import { log } from '../../internal/logger.js';
-import { selectAvailableTools } from '../../internal/mastra/instruments/availableTools.js';
-import { clip } from '../../internal/util/index.js';
-import type { StorageTransaction } from '../../storage/Storage.js';
+import { Account } from '../account/Account.js';
+import { createGlobalContext, type GlobalContext } from '../context/index.js';
+import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
+import type { ISerializable } from '../interface/ISerializable.js';
+import type { ISaveable } from '../interface/ISaveable.js';
+import { availableContext, availableModules } from '../internal/compile/Compiler.js';
+import { Run } from '../internal/compile/Run.js';
+import { Script } from '../internal/compile/Script.js';
+import { log } from '../internal/logger.js';
+import { selectAvailableTools } from '../internal/mastra/instruments/availableTools.js';
+import { clip } from '../internal/util/index.js';
+import type { StorageTransaction } from '../storage/Storage.js';
 import {
   dataServicesTable,
   dataSourcesTable,
   itemsTable,
   scriptsTable,
-  servicesTable,
-} from '../../storage/db/schema.js';
-import { findById } from '../../storage/helpers.js';
-import {
-  type ServiceContext,
-  type ServiceConfig,
-  type ServiceConstructorOptions,
-  type ServiceOptions,
-  Service,
-} from '../Service.js';
+} from '../storage/db/schema.js';
+import { findById } from '../storage/helpers.js';
 import { DataSource, type DataSourceConfig } from './DataSource.js';
 import { Item } from './Item.js';
 
-export type DataServiceOptions = ServiceOptions & {
+export type DataServiceOptions = UsesContextOptions & {
+  account?: Account;
+  id?: string;
+  name: string;
   sources: DataSource[];
   itemSchema: DataServiceItemSchema;
 };
-type DataServiceConstructorOptions = ServiceConstructorOptions & DataServiceOptions;
 
 export type DataServiceResult = { results: unknown[] };
 export type DataServiceListOptions = { limit?: number; page?: number };
-export type DataServiceConfig = ServiceConfig & {
+export type DataServiceConfig = {
   itemSchema: Record<string, unknown>;
+  name: string;
   sources: DataSourceConfig[];
-  type: 'data';
 };
 
 export type DataServiceItemSchema = z.ZodType | Record<string, unknown>;
@@ -58,19 +53,23 @@ export class ScriptNotFoundError extends Error {
 }
 
 export class DataService
-  extends Service<DataServiceResult>
+  extends UsesContext
   implements ISerializable<DataServiceConfig>, ISaveable
 {
+  account: Account | null;
+  id: string | null;
   itemSchema: z.ZodType;
+  name: string;
   sources: DataSource[];
-
-  readonly type = 'data';
 
   #initPromise?: Promise<void>;
   #itemSchemaConfig: Record<string, unknown>;
 
-  constructor(options: DataServiceConstructorOptions) {
+  constructor(options: DataServiceOptions) {
     super(options);
+    this.account = options.account ?? null;
+    this.id = options.id ?? null;
+    this.name = options.name;
     this.sources = options.sources;
     if (options.itemSchema instanceof z.ZodType) {
       this.#itemSchemaConfig = z.toJSONSchema(options.itemSchema) as Record<string, unknown>;
@@ -82,9 +81,9 @@ export class DataService
   }
 
   static async findById(context: GlobalContext, id: string): Promise<DataService | null> {
-    const service = await findById(servicesTable, context, id);
+    const dataService = await findById(dataServicesTable, context, id);
 
-    return service?.type === 'data' ? DataService.#fromRow(context, service) : null;
+    return dataService ? DataService.#fromRow(context, dataService) : null;
   }
 
   static async findByName(
@@ -93,61 +92,46 @@ export class DataService
     name: string
   ): Promise<DataService | null> {
     await context.init();
-    const [service] = await context.storage.db
+    const [dataService] = await context.storage.db
       .select()
-      .from(servicesTable)
-      .where(
-        and(
-          eq(servicesTable.accountId, accountId),
-          eq(servicesTable.name, name),
-          eq(servicesTable.type, 'data')
-        )
-      )
+      .from(dataServicesTable)
+      .where(and(eq(dataServicesTable.accountId, accountId), eq(dataServicesTable.name, name)))
       .limit(1);
 
-    return service ? DataService.#fromRow(context, service) : null;
+    return dataService ? DataService.#fromRow(context, dataService) : null;
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
-    await this.#init();
     const context = await this.context();
-    const accountId = this.account?.id;
-    if (!accountId) {
-      throw new Error(`Cannot save data service without a saved account: ${this.name}`);
-    }
 
     await context.storage.fillInTransaction(tx, async (tx) => {
-      const [service] = await tx
-        .insert(servicesTable)
+      await this.#init(context, tx);
+      const accountId = this.account?.id;
+      if (!accountId) {
+        throw new Error(`Cannot save data service without a saved account: ${this.name}`);
+      }
+
+      const [dataService] = await tx
+        .insert(dataServicesTable)
         .values({
           accountId,
+          itemSchema: this.#schemaConfig(),
           name: this.name,
-          type: this.type,
         })
         .onConflictDoUpdate({
-          target: [servicesTable.accountId, servicesTable.name],
-          set: { type: this.type },
+          target: [dataServicesTable.accountId, dataServicesTable.name],
+          set: { itemSchema: this.#schemaConfig() },
         })
         .returning();
-      if (!service) {
+      if (!dataService) {
         throw new Error(`Could not save data service: ${this.name}`);
       }
 
-      this.id = service.id;
-      await tx
-        .insert(dataServicesTable)
-        .values({
-          itemSchema: this.#schemaConfig(),
-          serviceId: service.id,
-        })
-        .onConflictDoUpdate({
-          target: dataServicesTable.serviceId,
-          set: { itemSchema: this.#schemaConfig() },
-        });
+      this.id = dataService.id;
 
       for (const source of this.sources) {
         source.bindContext(context);
-        source.dataServiceId = service.id;
+        source.dataServiceId = dataService.id;
         await source.save(tx);
       }
     });
@@ -159,12 +143,10 @@ export class DataService
     }
 
     const context = await this.context();
-    await context.init();
     const id = this.id;
     await context.storage.fillInTransaction(tx, async (tx) => {
       await tx.delete(dataSourcesTable).where(eq(dataSourcesTable.dataServiceId, id));
-      await tx.delete(dataServicesTable).where(eq(dataServicesTable.serviceId, id));
-      await tx.delete(servicesTable).where(eq(servicesTable.id, id));
+      await tx.delete(dataServicesTable).where(eq(dataServicesTable.id, id));
       this.id = null;
       for (const source of this.sources) {
         source.dataServiceId = null;
@@ -178,15 +160,10 @@ export class DataService
       itemSchema: this.#schemaConfig(),
       name: this.name,
       sources: this.sources.map((source) => source.dump()),
-      type: this.type,
     };
   }
 
   static load(config: DataServiceConfig, context?: GlobalContext, account?: Account): DataService {
-    if (config.type !== 'data') {
-      throw new Error(`Cannot load a non-data service: ${config.type}`);
-    }
-
     return new DataService({
       account,
       context,
@@ -196,35 +173,76 @@ export class DataService
     });
   }
 
-  static async #fromRow(
-    context: GlobalContext,
-    service: typeof servicesTable.$inferSelect
-  ): Promise<DataService | null> {
-    const [dataService] = await context.storage.db
-      .select()
-      .from(dataServicesTable)
-      .where(eq(dataServicesTable.serviceId, service.id))
-      .limit(1);
-    if (!dataService) {
-      return null;
+  static async sharedContext(services: readonly DataService[]): Promise<GlobalContext> {
+    let context: GlobalContext | undefined;
+    for (const service of services) {
+      const candidate = service.boundContext();
+      if (candidate && context && candidate !== context) {
+        throw new Error('Data services must use the same context');
+      }
+
+      context ??= candidate;
     }
 
-    const account = await Account.findById(context, service.accountId);
+    context ??= await createGlobalContext();
+    for (const service of services) {
+      const candidate = service.boundContext();
+      if (candidate && candidate !== context) {
+        throw new Error('Data services must use the same context');
+      }
+      if (!candidate) {
+        service.bindContext(context);
+      }
+    }
+
+    return context;
+  }
+
+  async start(): Promise<void> {
+    const context = await this.context();
+    await this.#build(context);
+    await this.#heal(context);
+    const results = await this.#sync(context);
+    log.info(
+      `Data service sync complete: service=${this.name}, resultCount=${results.results.length}`
+    );
+  }
+
+  async build(): Promise<void> {
+    const context = await this.context();
+    return this.#build(context);
+  }
+
+  async heal(): Promise<void> {
+    const context = await this.context();
+    return this.#heal(context);
+  }
+
+  async sync(): Promise<DataServiceResult> {
+    const context = await this.context();
+    return this.#sync(context);
+  }
+
+  static async #fromRow(
+    context: GlobalContext,
+    dataService: typeof dataServicesTable.$inferSelect
+  ): Promise<DataService | null> {
+    const account = await Account.findById(context, dataService.accountId);
     if (!account) {
-      throw new Error(`Could not load account for data service: ${service.id}`);
+      throw new Error(`Could not load account for data service: ${dataService.id}`);
     }
 
     const sources = await context.storage.db
       .select()
       .from(dataSourcesTable)
-      .where(eq(dataSourcesTable.dataServiceId, service.id));
+      .where(eq(dataSourcesTable.dataServiceId, dataService.id));
 
     return new DataService({
       context,
-      id: service.id,
+      id: dataService.id,
       account,
       itemSchema: dataService.itemSchema,
-      name: service.name,
+      name: dataService.name,
       sources: sources.map(
         (source) =>
           new DataSource({
@@ -239,17 +257,14 @@ export class DataService
     return this.#itemSchemaConfig;
   }
 
-  async #init(): Promise<void> {
-    this.#initPromise ??= this.#initOnce();
+  async #init(context: GlobalContext, tx: StorageTransaction): Promise<void> {
+    this.#initPromise ??= this.#initOnce(context, tx);
     return this.#initPromise;
   }
 
-  async #initOnce(): Promise<void> {
-    const context = await this.context();
-    await context.init();
+  async #initOnce(context: GlobalContext, tx: StorageTransaction): Promise<void> {
     if (!this.account) {
-      this.account = new Account({ context, username: 'local' });
-      await this.account.save();
+      this.account = await Account.local(context, tx);
     }
   }
 
@@ -282,12 +297,11 @@ export class DataService
     }
 
     const context = await this.context();
-    await context.init();
-    const serviceId = this.id;
-    if (!serviceId) {
+    const dataServiceId = this.id;
+    if (!dataServiceId) {
       throw new Error(`Cannot list items for an unsaved data service: ${this.name}`);
     }
-    const where = eq(scriptsTable.serviceId, serviceId);
+    const where = eq(scriptsTable.dataServiceId, dataServiceId);
     const [totalResults, items] = await Promise.all([
       context.storage.db
         .select({ total: count() })
@@ -314,16 +328,15 @@ export class DataService
 
   async detail(uniqueId: string): Promise<unknown | null> {
     const context = await this.context();
-    await context.init();
-    const serviceId = this.id;
-    if (!serviceId) {
+    const dataServiceId = this.id;
+    if (!dataServiceId) {
       throw new Error(`Cannot get an item for an unsaved data service: ${this.name}`);
     }
     const items = await context.storage.db
       .select({ data: itemsTable.data })
       .from(itemsTable)
       .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
-      .where(and(eq(scriptsTable.serviceId, serviceId), eq(itemsTable.uniqueId, uniqueId)));
+      .where(and(eq(scriptsTable.dataServiceId, dataServiceId), eq(itemsTable.uniqueId, uniqueId)));
     const [item] = items;
 
     if (items.length > 1) {
@@ -335,7 +348,7 @@ export class DataService
     return item?.data ?? null;
   }
 
-  async _build(context: ServiceContext): Promise<void> {
+  async #build(context: GlobalContext): Promise<void> {
     await this.save();
     log.info(`Build data service: ${JSON.stringify(this.itemSchema)}`);
 
@@ -387,7 +400,7 @@ export class DataService
               context,
               id: script?.id ?? undefined,
               name: scriptName,
-              serviceId: this.id!,
+              dataServiceId: this.id!,
               code,
               buildInput: { goal: prompt, url },
               modules: Object.keys(availableModules),
@@ -419,9 +432,9 @@ export class DataService
     }
   }
 
-  async _heal(context: ServiceContext): Promise<void> {}
+  async #heal(_context: GlobalContext): Promise<void> {}
 
-  async _sync(context: ServiceContext): Promise<DataServiceResult> {
+  async #sync(context: GlobalContext): Promise<DataServiceResult> {
     await this.save();
     const results: unknown[] = [];
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServiceContext } from '../src/service/Service.js';
+import { z } from 'zod';
+import type { GlobalContext } from '../src/context/index.js';
 
 const { createGlobalContext } = vi.hoisted(() => ({ createGlobalContext: vi.fn() }));
 
@@ -9,18 +10,10 @@ vi.mock('../src/context/index.js', async (importOriginal) => {
 });
 
 import { BuildABot } from '../src/BuildABot.js';
-import { Service } from '../src/service/Service.js';
+import { DataService } from '../src/service/DataService.js';
 
-class TestService extends Service {
-  buildContexts: ServiceContext[] = [];
-
-  async _build(context: ServiceContext): Promise<void> {
-    this.buildContexts.push(context);
-  }
-
-  async _heal(_context: ServiceContext): Promise<void> {}
-  async _sync(_context: ServiceContext): Promise<void> {}
-}
+const testService = (): DataService =>
+  new DataService({ itemSchema: z.object({}), name: 'test-service', sources: [] });
 
 describe('BuildABot', () => {
   beforeEach(() => {
@@ -34,16 +27,17 @@ describe('BuildABot', () => {
       mastra: {},
       init,
       storage: {},
-    } as unknown as ServiceContext;
+    } as unknown as GlobalContext;
     createGlobalContext.mockResolvedValue(context);
-    const service = new TestService({ name: 'test-service' });
+    const service = testService();
+    const start = vi.spyOn(service, 'start').mockResolvedValue(undefined);
     const buildABot = new BuildABot({ services: [service] });
 
     await expect(buildABot.start()).resolves.toBeUndefined();
 
     expect(createGlobalContext).toHaveBeenCalledTimes(1);
     expect(init).toHaveBeenCalledTimes(1);
-    expect(service.buildContexts).toEqual([context]);
+    expect(start).toHaveBeenCalledWith();
     await expect(service.context()).resolves.toStrictEqual(context);
   });
 
@@ -54,9 +48,10 @@ describe('BuildABot', () => {
       mastra: {},
       init,
       storage: {},
-    } as unknown as ServiceContext;
+    } as unknown as GlobalContext;
     createGlobalContext.mockResolvedValue(context);
-    const service = new TestService({ name: 'test-service' });
+    const service = testService();
+    const start = vi.spyOn(service, 'start').mockImplementation(async () => undefined);
     const buildABot = new BuildABot({ services: [service] });
 
     await buildABot.start();
@@ -64,6 +59,6 @@ describe('BuildABot', () => {
 
     expect(createGlobalContext).toHaveBeenCalledTimes(1);
     expect(init).toHaveBeenCalledTimes(1);
-    expect(service.buildContexts).toEqual([context]);
+    expect(start).toHaveBeenCalledTimes(1);
   });
 });

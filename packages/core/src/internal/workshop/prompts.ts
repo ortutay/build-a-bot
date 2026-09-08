@@ -18,6 +18,8 @@ ${options.agentState}
 The following are the valid proxy options:
 ${JSON.stringify(names)}
 </proxy-options>
+
+Do not use Google Search, including google.com/search, as a workaround for a bot block. It does not provide access to the blocked page or its data. Instead, test the supported rendering and proxy options, or report that access is unavailable.
 `;
 
 export const access = (options: {
@@ -34,10 +36,9 @@ export const access = (options: {
 
 # Proxy options
 
-- "none": direct connection.
-- "datacenter": configured datacenter proxy.
+- "datacenterDedicated": configured dedicated datacenter proxy.
+- "datacenterShared": configured shared datacenter proxy.
 - "residential": configured residential proxy.
-- "residentialCdp": configured residential browser connection. Use only with launchBrowser().
 - "unblock": Configured unblocking fetch API. Use only with nodeFetch() or jsFetch().
 
 Use the lightest, least expensive option that successfully accesses the required data.
@@ -212,6 +213,8 @@ The process that loads your code expects this format, with these exact names.
 
 - Because you have availableModules, do not write any "import" lines.
 - Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
+- For paginated sites, determine page-number semantics from the observed pagination links or page indicator. Do not assume page query parameters are zero-based. Ensure the requested offset plus limit is covered before slicing the collected results.
+- Before returning, normalize every required output field to its schema type, even when source data or a detail fetch is unavailable. In particular, required string fields must be empty strings, never undefined or null; apply normalization after selecting any fallbacks.
 
 ${options.reports}
 

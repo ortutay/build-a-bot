@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { GlobalContext } from '../../src/context/index.js';
 import { Bot } from '../../src/internal/bot/Bot.js';
 import { Run } from '../../src/internal/compile/Run.js';
 import { Script } from '../../src/internal/compile/Script.js';
+import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
+import { DataService } from '../../src/service/DataService.js';
 import { resultsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
@@ -16,14 +20,28 @@ describe('Run', () => {
   it('persists a Bot run and its results', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra: {} as never,
+      storage,
+    });
+    const service = new DataService({
+      context,
+      itemSchema: z.object({}),
+      name: 'example-service',
+      sources: [],
+    });
+    await service.save();
     const script = new Script({
+      context,
+      dataServiceId: service.id!,
       name: 'example-script',
       code: '',
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await script.save(storage, 'example-service');
+    await script.save();
     const input = { query: 'example' };
     const bot = new Bot({
       exampleInput: input,

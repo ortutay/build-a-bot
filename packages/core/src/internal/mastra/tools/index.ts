@@ -1,4 +1,7 @@
-import { tools as codeTools } from './codeTools/index.js';
+import {
+  createTools as createCodeTools,
+  type CreateToolsOptions as CreateCodeToolsOptions,
+} from './codeTools/index.js';
 import {
   createTools as createBrowserTools,
   type CreateBrowserToolsOptions,
@@ -13,12 +16,14 @@ import {
 } from './fetchTools/index.js';
 
 export type CreateToolsOptions = CreateBrowserToolsOptions &
+  CreateCodeToolsOptions &
   CreateDocumentToolsOptions &
   CreateFetchToolsOptions;
 
 export const createToolsSets = async (options: CreateToolsOptions) => {
-  const [browserTools, documentTools, fetchTools] = await Promise.all([
+  const [browserTools, codeTools, documentTools, fetchTools] = await Promise.all([
     createBrowserTools(options),
+    createCodeTools(options),
     createDocumentTools(options),
     createFetchTools(options),
   ]);

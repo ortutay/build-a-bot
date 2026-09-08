@@ -9,20 +9,28 @@ export type GlobalOptions = {
   documentLibrary?: DocumentLibrary;
 };
 
-export type GlobalContext = {
-  mastra: Mastra;
-  storage: Storage;
-  documentLibrary: DocumentLibrary;
-  init: () => Promise<void>;
-};
+export class GlobalContext {
+  readonly documentLibrary: DocumentLibrary;
+  readonly mastra: Mastra;
+  readonly storage: Storage;
+
+  constructor({ documentLibrary, mastra, storage }: Required<GlobalOptions>) {
+    this.documentLibrary = documentLibrary;
+    this.mastra = mastra;
+    this.storage = storage;
+  }
+
+  async init(): Promise<void> {
+    await this.storage.init();
+  }
+}
 
 export const mergeContext = (context: GlobalContext, options?: GlobalOptions): GlobalContext => {
-  return {
+  return new GlobalContext({
     mastra: options?.mastra ?? context.mastra,
     storage: options?.storage ?? context.storage,
     documentLibrary: options?.documentLibrary ?? context.documentLibrary,
-    init: async () => (options?.storage ?? context.storage).init(),
-  };
+  });
 };
 
 export const createGlobalContext = async (options: GlobalOptions = {}): Promise<GlobalContext> => {
@@ -44,10 +52,11 @@ export const createGlobalContext = async (options: GlobalOptions = {}): Promise<
     });
   }
 
-  return {
+  return new GlobalContext({
     storage,
     documentLibrary,
     mastra,
-    init: async () => storage.init(),
-  };
+  });
 };
+
+export { UsesContext, type UsesContextOptions } from './UsesContext.js';

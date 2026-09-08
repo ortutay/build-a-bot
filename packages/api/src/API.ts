@@ -1,13 +1,13 @@
 import { createServer, type Server } from 'node:http';
+import { DataService } from '@build-a-bot/core';
 import express, { type Express } from 'express';
-import { BuildABot, DataService } from '@build-a-bot/core';
-import { DataServiceAPI } from './service/data/DataServiceAPI.js';
+import { DataServiceAPI } from './service/DataServiceAPI.js';
 
 export const defaultApiPort = 3000;
 
-export type BuildABotAPIOptions = { buildABot: BuildABot };
-export type BuildABotAPIStartOptions = { host?: string; port?: number };
-export type BuildABotAPIStartResult = { close: () => Promise<void>; port: number };
+export type APIOptions = { services: DataService[] };
+export type APIStartOptions = { host?: string; port?: number };
+export type APIStartResult = { close: () => Promise<void>; port: number };
 export type OpenApiDocument = {
   info: { title: string; version: string };
   openapi: '3.1.0';
@@ -35,18 +35,16 @@ const listen = async (server: Server, host: string, port: number): Promise<void>
   });
 };
 
-export class BuildABotAPI {
+export class API {
   app: Express;
-  buildABot: BuildABot;
   dataServices: DataServiceAPI[];
-  #start?: Promise<BuildABotAPIStartResult>;
+  services: DataService[];
+  #start?: Promise<APIStartResult>;
 
-  constructor(options: BuildABotAPIOptions) {
+  constructor(options: APIOptions) {
     this.app = express();
-    this.buildABot = options.buildABot;
-    this.dataServices = this.buildABot.services
-      .filter((service): service is DataService => service instanceof DataService)
-      .map((dataService) => new DataServiceAPI({ dataService }));
+    this.services = options.services;
+    this.dataServices = this.services.map((dataService) => new DataServiceAPI({ dataService }));
     this.#register();
   }
 
@@ -68,13 +66,13 @@ export class BuildABotAPI {
     };
   }
 
-  async start(options: BuildABotAPIStartOptions = {}): Promise<BuildABotAPIStartResult> {
+  async start(options: APIStartOptions = {}): Promise<APIStartResult> {
     return (this.#start ??= this.#startOnce(options));
   }
 
   #register(): void {
     this.app.get('/', (_req, resp) => {
-      resp.json({ services: this.buildABot.services.map((service) => service.name) });
+      resp.json({ services: this.services.map((service) => service.name) });
     });
     this.app.get('/openapi.json', (_req, resp) => {
       resp.json(this.openApi());
@@ -84,8 +82,11 @@ export class BuildABotAPI {
     }
   }
 
-  async #startOnce({ host = '127.0.0.1', port }: BuildABotAPIStartOptions) {
-    await this.buildABot.start();
+  async #startOnce({ host = '127.0.0.1', port }: APIStartOptions): Promise<APIStartResult> {
+    await DataService.sharedContext(this.services);
+    for (const service of this.services) {
+      await service.start();
+    }
 
     for (let candidatePort = port ?? defaultApiPort; candidatePort <= 65535; candidatePort++) {
       const server = createServer(this.app);

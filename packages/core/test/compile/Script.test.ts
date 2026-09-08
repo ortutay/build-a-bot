@@ -1,7 +1,11 @@
 import type { Mastra } from '@mastra/core';
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { GlobalContext } from '../../src/context/index.js';
 import { Script, ScriptDependencyUnavailableError } from '../../src/internal/compile/Script.js';
+import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
 import { markAvailableTool } from '../../src/internal/mastra/instruments/availableTools.js';
+import { DataService } from '../../src/service/DataService.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const scriptCode = `
@@ -24,20 +28,40 @@ describe('Script', () => {
     temporaryDb = null;
   });
 
+  const createService = async (name: string) => {
+    const storage = temporaryDb!.storage;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra: {} as Mastra,
+      storage,
+    });
+    const service = new DataService({
+      context,
+      itemSchema: z.object({}),
+      name,
+      sources: [],
+    });
+    await service.save();
+    return { context, service };
+  };
+
   it('saves, loads, finds, and compiles a script', async () => {
     temporaryDb = await createTemporaryDb();
+    const { context, service } = await createService('example-service');
     const script = new Script({
+      context,
+      dataServiceId: service.id!,
       name: 'url:https://example.test',
       code: scriptCode,
-      context: [],
       modules: [],
       tools: ['fetchTool'],
+      vmContext: [],
     });
 
-    await script.save(temporaryDb.storage, 'example-service');
+    await script.save();
 
-    const loaded = await Script.findById(temporaryDb.storage, script.id!);
-    const found = await Script.findByName(temporaryDb.storage, 'example-service', script.name);
+    const loaded = await Script.findById(context, script.id!);
+    const found = await Script.findByName(context, service.id!, script.name);
     const fetchTool = await markAvailableTool({
       id: 'fetchTool',
       execute: async ({ input }: { input: string }) => `echo:${input}`,
@@ -47,12 +71,12 @@ describe('Script', () => {
 
     expect(loaded).toMatchObject({
       id: script.id,
-      serviceId: script.serviceId,
+      dataServiceId: script.dataServiceId,
       name: script.name,
       tools: ['fetchTool'],
     });
     expect(found?.id).toBe(script.id);
-    await expect(Script.findById(temporaryDb.storage, 'missing')).resolves.toBeNull();
+    await expect(Script.findById(context, 'missing')).resolves.toBeNull();
     expect(bot.uniqueId({ input: 'hello' })).toBe('hello');
     await expect(bot.run({ input: 'hello' })).resolves.toBe('echo:hello');
   });
@@ -61,9 +85,9 @@ describe('Script', () => {
     const script = new Script({
       name: 'missing-dependency',
       code: scriptCode,
-      context: ['missingContext'],
       modules: [],
       tools: [],
+      vmContext: ['missingContext'],
     });
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
 
@@ -72,24 +96,30 @@ describe('Script', () => {
 
   it('allows only one script with a name for each service', async () => {
     temporaryDb = await createTemporaryDb();
+    const { context, service } = await createService('example-service');
     const first = new Script({
+      context,
+      dataServiceId: service.id!,
       name: 'url:https://example.test',
       code: scriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
     const duplicate = new Script({
+      context,
+      dataServiceId: service.id!,
       name: first.name,
       code: scriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
 
-    await first.save(temporaryDb.storage, 'example-service');
+    await first.save();
 
-    await expect(duplicate.save(temporaryDb.storage, 'example-service')).rejects.toThrow();
+    await duplicate.save();
+    expect(duplicate.id).toBe(first.id);
   });
 
   it('does not expose unselected modules', async () => {
@@ -102,9 +132,9 @@ describe('Script', () => {
         export const uniqueId = () => 'unselected-module';
         export const run = async () => playwright;
       `,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const bot = await script.compile(mastra);

@@ -19,8 +19,8 @@ export const accountsTable = sqliteTable('accounts', {
   username: text().notNull().unique(),
 });
 
-export const servicesTable = sqliteTable(
-  'services',
+export const dataServicesTable = sqliteTable(
+  'data_services',
   {
     id: text()
       .primaryKey()
@@ -31,19 +31,10 @@ export const servicesTable = sqliteTable(
       .notNull()
       .references(() => accountsTable.id),
     name: text().notNull(),
-    type: text().notNull(),
+    itemSchema: text('item_schema', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
   },
-  (table) => [unique('services_account_id_name_unique').on(table.accountId, table.name)]
+  (table) => [unique('data_services_account_id_name_unique').on(table.accountId, table.name)]
 );
-
-export const dataServicesTable = sqliteTable('data_services', {
-  serviceId: text('service_id')
-    .primaryKey()
-    .references(() => servicesTable.id),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-  itemSchema: text('item_schema', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
-});
 
 export const scriptsTable = sqliteTable(
   'scripts',
@@ -53,9 +44,9 @@ export const scriptsTable = sqliteTable(
       .$defaultFn(() => srid()),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
-    serviceId: text('service_id')
+    dataServiceId: text('data_service_id')
       .notNull()
-      .references(() => servicesTable.id),
+      .references(() => dataServicesTable.id),
     name: text().notNull(),
     code: text().notNull(),
     buildInput: text('build_input', { mode: 'json' }).$type<Record<string, unknown>>(),
@@ -64,7 +55,7 @@ export const scriptsTable = sqliteTable(
     modules: text({ mode: 'json' }).$type<string[]>().notNull(),
     tools: text({ mode: 'json' }).$type<string[]>().notNull(),
   },
-  (table) => [unique('scripts_service_id_name_unique').on(table.serviceId, table.name)]
+  (table) => [unique('scripts_data_service_id_name_unique').on(table.dataServiceId, table.name)]
 );
 
 export const dataSourcesTable = sqliteTable(
@@ -77,7 +68,7 @@ export const dataSourcesTable = sqliteTable(
     updatedAt: updatedAt(),
     dataServiceId: text('data_service_id')
       .notNull()
-      .references(() => dataServicesTable.serviceId),
+      .references(() => dataServicesTable.id),
     url: text().notNull(),
   },
   (table) => [unique('data_sources_data_service_id_url_unique').on(table.dataServiceId, table.url)]

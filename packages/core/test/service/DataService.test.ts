@@ -7,10 +7,10 @@ import { Script } from '../../src/internal/compile/Script.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
 import { log } from '../../src/internal/logger.js';
 import { markAvailableTool } from '../../src/internal/mastra/instruments/availableTools.js';
-import { DataSource } from '../../src/service/data/DataSource.js';
-import { DataService, ScriptNotFoundError } from '../../src/service/data/DataService.js';
-import { Item } from '../../src/service/data/Item.js';
-import type { ServiceContext } from '../../src/service/Service.js';
+import { DataSource } from '../../src/service/DataSource.js';
+import { DataService, ScriptNotFoundError } from '../../src/service/DataService.js';
+import { Item } from '../../src/service/Item.js';
+import { GlobalContext } from '../../src/context/index.js';
 import {
   dataSourcesTable,
   itemsTable,
@@ -125,24 +125,18 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const serviceContext = new GlobalContext({ documentLibrary, mastra, storage });
     const service = new DataService({
+      context: serviceContext,
       name: 'example-service',
       sources: [new DataSource({ url: 'https://example.test/data' })],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary,
     });
-    const context: ServiceContext = { documentLibrary, mastra, storage };
+    await service.build();
+    await service.build();
+    const context = await service.context();
 
-    await service._build(context);
-    await service._build(context);
-
-    const script = await Script.findByName(
-      temporaryDb.storage,
-      service.name,
-      'url:https://example.test/data'
-    );
+    const script = await Script.findByName(context, service.id!, 'url:https://example.test/data');
     expect(workflowRuns).toBe(1);
     expect(script).toMatchObject({
       buildInput: {
@@ -150,13 +144,13 @@ describe('DataService', () => {
         url: 'https://example.test/data',
       },
       name: 'url:https://example.test/data',
-      serviceId: expect.any(String),
+      dataServiceId: expect.any(String),
     });
-    await expect(DataSource.findByUrl(storage, 'https://example.test/data')).resolves.toMatchObject(
-      {
-        id: expect.any(String),
-      }
-    );
+    await expect(
+      DataSource.findByUrl(context, service.id!, 'https://example.test/data')
+    ).resolves.toMatchObject({
+      id: expect.any(String),
+    });
   });
 
   it('regenerates an invalid saved script in place on the second attempt', async () => {
@@ -175,22 +169,28 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const source = new DataSource({ url: 'https://example.test/data' });
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra,
+      storage,
+    });
     const service = new DataService({
+      context,
       name: 'example-service',
       sources: [source],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
     });
+    await service.save();
     const invalidScript = new Script({
+      context: await service.context(),
+      dataServiceId: service.id!,
       name: `url:${source.url}`,
       code: invalidBuildScriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await invalidScript.save(storage, service.name);
+    await invalidScript.save();
     const invalidScriptId = invalidScript.id;
     const run = new Run({ input: {}, scriptId: invalidScriptId! });
     await run.save(storage);
@@ -198,7 +198,11 @@ describe('DataService', () => {
 
     await service.build();
 
-    const recoveredScript = await Script.findByName(storage, service.name, invalidScript.name);
+    const recoveredScript = await Script.findByName(
+      await service.context(),
+      service.id!,
+      invalidScript.name
+    );
     expect(workflowRuns).toBe(1);
     expect(recoveredScript).toMatchObject({ code: scriptCode });
     expect(recoveredScript?.id).toBe(invalidScriptId);
@@ -209,26 +213,58 @@ describe('DataService', () => {
   it('lists and gets current items scoped to the service', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra: {} as Mastra,
+      storage,
+    });
+    const service = new DataService({
+      context,
+      name: 'example-service',
+      sources: [],
+      itemSchema: z.object({ value: z.string() }),
+    });
+    const otherService = new DataService({
+      context,
+      name: 'other-service',
+      sources: [],
+      itemSchema: z.object({ value: z.string() }),
+    });
+    await service.save();
+    await otherService.save();
+
     const script = new Script({
+      context,
+      dataServiceId: service.id!,
       name: 'source',
       code: scriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
     const otherScript = new Script({
+      context,
+      dataServiceId: otherService.id!,
       name: 'source',
       code: scriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await script.save(storage, 'example-service');
-    await otherScript.save(storage, 'other-service');
-    const source = new DataSource({ url: 'https://example.test/data' });
-    const otherSource = new DataSource({ url: 'https://other.test/data' });
-    await source.save(storage);
-    await otherSource.save(storage);
+    await script.save();
+    await otherScript.save();
+    const source = new DataSource({
+      context,
+      dataServiceId: service.id!,
+      url: 'https://example.test/data',
+    });
+    const otherSource = new DataSource({
+      context,
+      dataServiceId: otherService.id!,
+      url: 'https://other.test/data',
+    });
+    await source.save();
+    await otherSource.save();
     await new Item({
       data: { value: 'scraped' },
       dataSourceId: source.id!,
@@ -248,12 +284,6 @@ describe('DataService', () => {
       uniqueId: 'other',
     }).save(storage);
 
-    const service = new DataService({
-      name: 'example-service',
-      sources: [],
-      itemSchema: z.object({ value: z.string() }),
-      storage,
-    });
     await expect(service.list({ limit: 1, page: 2 })).resolves.toEqual({
       count: 1,
       total: 2,
@@ -262,15 +292,21 @@ describe('DataService', () => {
     await expect(service.detail('scraped')).resolves.toEqual({ value: 'scraped' });
 
     const duplicateScript = new Script({
+      context,
+      dataServiceId: service.id!,
       name: 'second-source',
       code: scriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    const duplicateSource = new DataSource({ url: 'https://second.example.test/data' });
-    await duplicateScript.save(storage, 'example-service');
-    await duplicateSource.save(storage);
+    const duplicateSource = new DataSource({
+      context,
+      dataServiceId: service.id!,
+      url: 'https://second.example.test/data',
+    });
+    await duplicateScript.save();
+    await duplicateSource.save();
     await new Item({
       data: { value: 'duplicate' },
       dataSourceId: duplicateSource.id!,
@@ -293,22 +329,24 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const context = new GlobalContext({ documentLibrary, mastra, storage });
     const service = new DataService({
+      context,
       name: 'example-service',
       sources: [source],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary,
     });
+    await service.save();
     const script = new Script({
+      context: await service.context(),
+      dataServiceId: service.id!,
       name: `url:${source.url}`,
       code: syncScriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await script.save(storage, service.name);
+    await script.save();
 
     const result = await service.sync();
 
@@ -351,22 +389,24 @@ describe('DataService', () => {
       });
       const mastra = { listTools: () => ({ fetchTool }) } as unknown as Mastra;
       const source = new DataSource({ url: site.baseUrl });
+      const context = new GlobalContext({ documentLibrary, mastra, storage });
       const service = new DataService({
+        context,
         name: 'catalog-service',
         sources: [source],
         itemSchema: z.object({ id: z.string(), name: z.string(), price: z.number() }),
-        mastra,
-        storage,
-        documentLibrary,
       });
+      await service.save();
       const script = new Script({
+        context: await service.context(),
+        dataServiceId: service.id!,
         name: `url:${source.url}`,
         code: catalogSyncScriptCode(site.baseUrl),
-        context: [],
         modules: [],
         tools: ['fetchTool'],
+        vmContext: [],
       });
-      await script.save(storage, service.name);
+      await script.save();
 
       site.setProducts([
         { id: 'json-widget', name: 'JSON Widget', price: 24 },
@@ -446,22 +486,24 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const context = new GlobalContext({ documentLibrary, mastra, storage });
     const service = new DataService({
+      context,
       name: 'example-service',
       sources: [source],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary,
     });
+    await service.save();
     const script = new Script({
+      context: await service.context(),
+      dataServiceId: service.id!,
       name: `url:${source.url}`,
       code: invalidSyncScriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await script.save(storage, service.name);
+    await script.save();
 
     await expect(service.sync()).rejects.toBeInstanceOf(z.ZodError);
 
@@ -479,22 +521,24 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const context = new GlobalContext({ documentLibrary, mastra, storage });
     const service = new DataService({
+      context,
       name: 'example-service',
       sources: [source],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary,
     });
+    await service.save();
     const script = new Script({
+      context: await service.context(),
+      dataServiceId: service.id!,
       name: `url:${source.url}`,
       code: pagedSyncScriptCode,
-      context: [],
       modules: [],
       tools: [],
+      vmContext: [],
     });
-    await script.save(storage, service.name);
+    await script.save();
 
     const result = await service.sync();
 
@@ -503,16 +547,32 @@ describe('DataService', () => {
     await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(100);
   });
 
-  it('reuses a data source for multiple services', async () => {
+  it('allows the same data source URL for multiple services', async () => {
     temporaryDb = await createTemporaryDb();
-    const first = new DataSource({ url: 'https://example.test/data' });
-    const second = new DataSource({ url: 'https://example.test/data' });
+    const storage = temporaryDb.storage;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra: {} as Mastra,
+      storage,
+    });
+    const first = new DataService({
+      context,
+      itemSchema: z.object({}),
+      name: 'first-service',
+      sources: [new DataSource({ url: 'https://example.test/data' })],
+    });
+    const second = new DataService({
+      context,
+      itemSchema: z.object({}),
+      name: 'second-service',
+      sources: [new DataSource({ url: 'https://example.test/data' })],
+    });
 
-    await first.save(temporaryDb.storage);
-    await second.save(temporaryDb.storage);
+    await first.save();
+    await second.save();
 
-    expect(second.id).toBe(first.id);
-    await expect(temporaryDb.storage.db.select().from(dataSourcesTable)).resolves.toHaveLength(1);
+    expect(second.sources[0]!.id).not.toBe(first.sources[0]!.id);
+    await expect(storage.db.select().from(dataSourcesTable)).resolves.toHaveLength(2);
   });
 
   it('reports a named error when a source has no saved script', async () => {
@@ -520,13 +580,12 @@ describe('DataService', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const context = new GlobalContext({ documentLibrary, mastra, storage });
     const service = new DataService({
+      context,
       name: 'example-service',
       sources: [new DataSource({ url: 'https://example.test/missing' })],
       itemSchema: z.object({ value: z.string() }),
-      mastra,
-      storage,
-      documentLibrary,
     });
 
     await expect(service.sync()).rejects.toBeInstanceOf(ScriptNotFoundError);

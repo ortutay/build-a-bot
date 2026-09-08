@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { GlobalContext } from '../context/index.js';
+import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
 import type { StorageTransaction } from '../storage/Storage.js';
@@ -8,31 +9,39 @@ import { findById } from '../storage/helpers.js';
 
 export type AccountConfig = { username: string };
 
-export type AccountOptions = AccountConfig & {
-  context: GlobalContext;
-  id?: string;
-};
+export type AccountOptions = AccountConfig &
+  UsesContextOptions & {
+    id?: string;
+  };
 
-export class Account implements ISerializable<AccountConfig>, ISaveable {
+export class Account extends UsesContext implements ISerializable<AccountConfig>, ISaveable {
   id: string | null;
   username: string;
-  #context: GlobalContext;
 
   constructor(options: AccountOptions) {
-    this.#context = options.context;
+    super(options);
     this.id = options.id ?? null;
     this.username = options.username;
   }
 
-  static async findById(context: GlobalContext, id: string): Promise<Account | null> {
-    const account = await findById(accountsTable, context, id);
+  static async findById(
+    context: GlobalContext,
+    id: string,
+    tx?: StorageTransaction
+  ): Promise<Account | null> {
+    const account = await findById(accountsTable, context, id, tx);
 
     return account ? new Account({ context, ...account }) : null;
   }
 
-  static async findByUsername(context: GlobalContext, username: string): Promise<Account | null> {
+  static async findByUsername(
+    context: GlobalContext,
+    username: string,
+    tx?: StorageTransaction
+  ): Promise<Account | null> {
     await context.init();
-    const [account] = await context.storage.db
+    const db = tx ?? context.storage.db;
+    const [account] = await db
       .select()
       .from(accountsTable)
       .where(eq(accountsTable.username, username))
@@ -43,24 +52,25 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
 
   static async local(context: GlobalContext, tx?: StorageTransaction): Promise<Account> {
     await context.init();
-    const db = tx ?? context.storage.db;
-    const [row] = await db
-      .select()
-      .from(accountsTable)
-      .where(eq(accountsTable.username, 'local'))
-      .limit(1);
-    if (row) {
-      return new Account({ context, ...row });
-    }
 
-    const account = new Account({ context, username: 'local' });
-    await account.save(tx);
-    return account;
+    const local = await context.storage.fillInTransaction(tx, async (tx) => {
+      const existing = await this.findByUsername(context, 'local', tx);
+      if (existing) {
+        return existing;
+      } else {
+        const account = new Account({ context, username: 'local' });
+        await account.save(tx);
+        return account;
+      }
+    });
+
+    return local;
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
-    await this.#context.init();
-    await this.#context.storage.fillInTransaction(tx, async (tx) => {
+    const context = await this.context();
+
+    await context.storage.fillInTransaction(tx, async (tx) => {
       const [account] = await tx
         .insert(accountsTable)
         .values({ username: this.username })
@@ -78,6 +88,8 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
   }
 
   async remove(tx?: StorageTransaction): Promise<void> {
+    const context = await this.context();
+
     if (!this.id) {
       throw new Error('Cannot remove an unsaved account');
     }
@@ -85,8 +97,7 @@ export class Account implements ISerializable<AccountConfig>, ISaveable {
       throw new Error('Cannot remove the local account');
     }
 
-    await this.#context.init();
-    await this.#context.storage.fillInTransaction(tx, async (tx) => {
+    await context.storage.fillInTransaction(tx, async (tx) => {
       await tx.delete(accountsTable).where(eq(accountsTable.id, this.id!));
       this.id = null;
     });
