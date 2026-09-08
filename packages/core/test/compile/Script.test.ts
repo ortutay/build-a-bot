@@ -2,9 +2,9 @@ import type { Mastra } from '@mastra/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { GlobalContext } from '../../src/context/index.js';
-import { Script, ScriptDependencyUnavailableError } from '../../src/internal/compile/Script.js';
-import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
-import { markAvailableTool } from '../../src/internal/mastra/instruments/availableTools.js';
+import { Script, ScriptDependencyUnavailableError } from '../../src/compile/Script.js';
+import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
+import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
 import { DataService } from '../../src/service/DataService.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 

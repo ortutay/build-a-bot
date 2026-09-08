@@ -12,13 +12,13 @@ export type DataSourceConfig = { url: string };
 
 export type DataSourceOptions = DataSourceConfig &
   UsesContextOptions & {
-    dataServiceId?: string;
     id?: string;
+    dataServiceId?: string;
   };
 
 export class DataSource extends UsesContext implements ISerializable<DataSourceConfig>, ISaveable {
-  dataServiceId: string | null;
   id: string | null;
+  dataServiceId: string | null;
   url: Url;
 
   constructor(options: DataSourceOptions) {
@@ -52,6 +52,10 @@ export class DataSource extends UsesContext implements ISerializable<DataSourceC
       .limit(1);
 
     return dataSource ? new DataSource({ context, ...dataSource }) : null;
+  }
+
+  static load(config: DataSourceConfig, context?: GlobalContext): DataSource {
+    return new DataSource({ context, ...config });
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
@@ -95,9 +99,5 @@ export class DataSource extends UsesContext implements ISerializable<DataSourceC
 
   dump(): DataSourceConfig {
     return { url: this.url };
-  }
-
-  static load(config: DataSourceConfig, context?: GlobalContext): DataSource {
-    return new DataSource({ context, ...config });
   }
 }

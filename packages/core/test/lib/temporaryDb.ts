@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { drizzle } from 'drizzle-orm/libsql';
-import { log } from '../../src/internal/logger.js';
+import { log } from '../../src/logger.js';
 import { initializeDb, type Storage, type StorageTransaction } from '../../src/storage/Storage.js';
 
 export type TemporaryDb = {

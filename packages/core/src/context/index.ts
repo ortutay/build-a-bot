@@ -1,6 +1,6 @@
 import { type Mastra } from '@mastra/core';
-import { DocumentLibrary, DiskLibraryBackend } from '../internal/documents/index.js';
-import { defaultMastra } from '../internal/mastra/index.js';
+import { DocumentLibrary, DiskLibraryBackend } from '../documents/index.js';
+import { defaultMastra } from '../mastra/index.js';
 import { Storage } from '../storage/Storage.js';
 
 export type GlobalOptions = {

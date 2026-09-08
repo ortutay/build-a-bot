@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseResponseBody } from '../../src/internal/util/index.js';
+import { parseResponseBody } from '../../src/util/index.js';
 
 describe('parseResponseBody', () => {
   it('summarizes wire-format payloads without a schema', () => {

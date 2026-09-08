@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { GlobalContext } from '../../src/context/index.js';
-import { Bot } from '../../src/internal/bot/Bot.js';
-import { Run } from '../../src/internal/compile/Run.js';
-import { Script } from '../../src/internal/compile/Script.js';
-import { DocumentLibrary, MemoryLibraryBackend } from '../../src/internal/documents/index.js';
+import { Bot } from '../../src/bot/Bot.js';
+import { Run } from '../../src/compile/Run.js';
+import { Script } from '../../src/compile/Script.js';
+import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { resultsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';

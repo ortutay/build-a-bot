@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, open, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { MastraServerCache } from '@mastra/core/cache';
-import { DiskCache } from '../../../internal/cache/DiskCache.js';
+import { DiskCache } from '../../../cache/DiskCache.js';
 
 export type DiskServerCacheOptions = {
   keyPrefix?: string;

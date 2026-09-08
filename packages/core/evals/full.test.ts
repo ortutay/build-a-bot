@@ -1,12 +1,12 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { runEvals } from '@mastra/core/evals';
-import { availableContext, availableModules } from '../src/internal/compile/Compiler.js';
-import { writeWorkflow } from '../src/internal/mastra/workflows/index.js';
-import { cleanup, mastra } from '../src/internal/mastra/index.js';
-import { loadDataset, loadItemsFromDataset } from '../src/internal/mastra/datasets/index.js';
-import { selectAvailableTools } from '../src/internal/mastra/instruments/availableTools.js';
-import { buildScorer } from '../src/internal/mastra/scorers/index.js';
-import { log } from '../src/internal/logger.js';
+import { availableContext, availableModules } from '../src/compile/Compiler.js';
+import { writeWorkflow } from '../src/mastra/workflows/index.js';
+import { cleanup, mastra } from '../src/mastra/index.js';
+import { loadDataset, loadItemsFromDataset } from '../src/mastra/datasets/index.js';
+import { selectAvailableTools } from '../src/mastra/instruments/availableTools.js';
+import { buildScorer } from '../src/mastra/scorers/index.js';
+import { log } from '../src/logger.js';
 import {
   pokemonTarget,
   northeastTarget,

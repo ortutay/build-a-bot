@@ -27,3 +27,5 @@ Do not put new lines between the categories.
 - Prefer `init()` to `initialize()`.
 - Prefer `tx` to `transaction`.
 - Name caught errors `e`, including Promise `.catch()` parameters.
+- Place static methods immediately after the constructor, before all instance methods.
+- Place an object's `id` field before all other fields.

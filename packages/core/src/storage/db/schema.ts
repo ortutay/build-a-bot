@@ -1,5 +1,5 @@
 import { sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
-import { srid } from '../../internal/util/index.js';
+import { srid } from '../../util/index.js';
 
 export const runStatuses = ['active', 'done', 'error'] as const;
 export type RunStatus = (typeof runStatuses)[number];

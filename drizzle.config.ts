@@ -1,5 +1,5 @@
 import { defineConfig } from 'drizzle-kit';
-import { storageDatabaseFilepath } from './packages/core/src/internal/constants.js';
+import { storageDatabaseFilepath } from './packages/core/src/constants.js';
 
 export default defineConfig({
   dialect: 'sqlite',

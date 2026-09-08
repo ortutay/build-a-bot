@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
-import { type RunStatus, resultsTable, runsTable } from '../../storage/db/schema.js';
-import { type Storage } from '../../storage/Storage.js';
+import { type RunStatus, resultsTable, runsTable } from '../storage/db/schema.js';
+import { type Storage } from '../storage/Storage.js';
 
 type StorageDb = Storage['db'];
 type Transaction = Parameters<Parameters<StorageDb['transaction']>[0]>[0];
 
 export type RunOptions = {
+  id?: string;
   endTime?: string | null;
   error?: Record<string, unknown> | null;
-  id?: string;
   input: Record<string, unknown>;
   results?: unknown[] | null;
   scriptId: string;
@@ -25,9 +25,9 @@ const errorData = (e: unknown): Record<string, unknown> => {
 };
 
 export class Run {
+  id: string | null;
   endTime: string | null;
   error: Record<string, unknown> | null;
-  id: string | null;
   input: Record<string, unknown>;
   results: unknown[] | null;
   scriptId: string;

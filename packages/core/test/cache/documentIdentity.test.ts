@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DocumentLibrary,
-  type DocumentInput,
-} from '../../src/internal/documents/DocumentLibrary.js';
-import { MemoryLibraryBackend } from '../../src/internal/documents/MemoryLibraryBackend.js';
+import { DocumentLibrary, type DocumentInput } from '../../src/documents/DocumentLibrary.js';
+import { MemoryLibraryBackend } from '../../src/documents/MemoryLibraryBackend.js';
 
 const documentInput = (overrides: Partial<DocumentInput> = {}): DocumentInput => ({
   url: 'https://pokeapi.co/api/v2/pokemon/pikachu',

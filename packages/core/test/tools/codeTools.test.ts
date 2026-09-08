@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DocumentLibrary } from '../../src/internal/documents/index.js';
-import { createTools } from '../../src/internal/mastra/tools/codeTools/tools.js';
+import { DocumentLibrary } from '../../src/documents/index.js';
+import { createTools } from '../../src/mastra/tools/codeTools/tools.js';
 
 const documentLibrary = new DocumentLibrary();
 const tools = createTools({ documentLibrary });

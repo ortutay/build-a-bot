@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  fullPlanStep,
-  writeWorkflowInputSchema,
-} from '../../src/internal/mastra/workflows/steps.js';
-import { code } from '../../src/internal/prompts/templates.js';
+import { fullPlanStep, writeWorkflowInputSchema } from '../../src/mastra/workflows/steps.js';
+import { code } from '../../src/prompts/templates.js';
 
 describe('write workflow input', () => {
   it('requires the available capabilities', () => {

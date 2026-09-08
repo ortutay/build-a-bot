@@ -67,6 +67,10 @@ export class Account extends UsesContext implements ISerializable<AccountConfig>
     return local;
   }
 
+  static load(config: AccountConfig, context: GlobalContext): Account {
+    return new Account({ context, ...config });
+  }
+
   async save(tx?: StorageTransaction): Promise<void> {
     const context = await this.context();
 
@@ -105,9 +109,5 @@ export class Account extends UsesContext implements ISerializable<AccountConfig>
 
   dump(): AccountConfig {
     return { username: this.username };
-  }
-
-  static load(config: AccountConfig, context: GlobalContext): Account {
-    return new Account({ context, ...config });
   }
 }

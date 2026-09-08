@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { documentLibrary } from '../../src/internal/documents/index.js';
-import { BrowserToolCache } from '../../src/internal/mastra/tools/browserTools/BrowserToolCache.js';
+import { documentLibrary } from '../../src/documents/index.js';
+import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
 import {
   closeBrowserTools,
   createTools as createBrowserTools,
   executors,
-} from '../../src/internal/mastra/tools/browserTools/tools.js';
-import { createTools as createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
+} from '../../src/mastra/tools/browserTools/tools.js';
+import { createTools as createDocumentTools } from '../../src/mastra/tools/documents/tools.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 import { startMockEcommerceSite } from '../lib/mockEcommerceSite.js';

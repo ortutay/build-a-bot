@@ -5,12 +5,12 @@ import { createGlobalContext, type GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
-import { availableContext, availableModules } from '../internal/compile/Compiler.js';
-import { Run } from '../internal/compile/Run.js';
-import { Script } from '../internal/compile/Script.js';
-import { log } from '../internal/logger.js';
-import { selectAvailableTools } from '../internal/mastra/instruments/availableTools.js';
-import { clip } from '../internal/util/index.js';
+import { availableContext, availableModules } from '../compile/Compiler.js';
+import { Run } from '../compile/Run.js';
+import { Script } from '../compile/Script.js';
+import { log } from '../logger.js';
+import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
+import { clip } from '../util/index.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import {
   dataServicesTable,
@@ -23,8 +23,8 @@ import { DataSource, type DataSourceConfig } from './DataSource.js';
 import { Item } from './Item.js';
 
 export type DataServiceOptions = UsesContextOptions & {
-  account?: Account;
   id?: string;
+  account?: Account;
   name: string;
   sources: DataSource[];
   itemSchema: DataServiceItemSchema;
@@ -56,8 +56,8 @@ export class DataService
   extends UsesContext
   implements ISerializable<DataServiceConfig>, ISaveable
 {
-  account: Account | null;
   id: string | null;
+  account: Account | null;
   itemSchema: z.ZodType;
   name: string;
   sources: DataSource[];
@@ -99,6 +99,71 @@ export class DataService
       .limit(1);
 
     return dataService ? DataService.#fromRow(context, dataService) : null;
+  }
+
+  static load(config: DataServiceConfig, context?: GlobalContext, account?: Account): DataService {
+    return new DataService({
+      account,
+      context,
+      itemSchema: config.itemSchema,
+      name: config.name,
+      sources: config.sources.map((source) => DataSource.load(source, context)),
+    });
+  }
+
+  static async sharedContext(services: readonly DataService[]): Promise<GlobalContext> {
+    let context: GlobalContext | undefined;
+    for (const service of services) {
+      const candidate = service.boundContext();
+      if (candidate && context && candidate !== context) {
+        throw new Error('Data services must use the same context');
+      }
+
+      context ??= candidate;
+    }
+
+    context ??= await createGlobalContext();
+    for (const service of services) {
+      const candidate = service.boundContext();
+      if (candidate && candidate !== context) {
+        throw new Error('Data services must use the same context');
+      }
+      if (!candidate) {
+        service.bindContext(context);
+      }
+    }
+
+    return context;
+  }
+
+  static async #fromRow(
+    context: GlobalContext,
+    dataService: typeof dataServicesTable.$inferSelect
+  ): Promise<DataService | null> {
+    const account = await Account.findById(context, dataService.accountId);
+    if (!account) {
+      throw new Error(`Could not load account for data service: ${dataService.id}`);
+    }
+
+    const sources = await context.storage.db
+      .select()
+      .from(dataSourcesTable)
+      .where(eq(dataSourcesTable.dataServiceId, dataService.id));
+
+    return new DataService({
+      context,
+      id: dataService.id,
+      account,
+      itemSchema: dataService.itemSchema,
+      name: dataService.name,
+      sources: sources.map(
+        (source) =>
+          new DataSource({
+            context,
+            ...source,
+          })
+      ),
+    });
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
@@ -163,41 +228,6 @@ export class DataService
     };
   }
 
-  static load(config: DataServiceConfig, context?: GlobalContext, account?: Account): DataService {
-    return new DataService({
-      account,
-      context,
-      itemSchema: config.itemSchema,
-      name: config.name,
-      sources: config.sources.map((source) => DataSource.load(source, context)),
-    });
-  }
-
-  static async sharedContext(services: readonly DataService[]): Promise<GlobalContext> {
-    let context: GlobalContext | undefined;
-    for (const service of services) {
-      const candidate = service.boundContext();
-      if (candidate && context && candidate !== context) {
-        throw new Error('Data services must use the same context');
-      }
-
-      context ??= candidate;
-    }
-
-    context ??= await createGlobalContext();
-    for (const service of services) {
-      const candidate = service.boundContext();
-      if (candidate && candidate !== context) {
-        throw new Error('Data services must use the same context');
-      }
-      if (!candidate) {
-        service.bindContext(context);
-      }
-    }
-
-    return context;
-  }
-
   async start(): Promise<void> {
     const context = await this.context();
     await this.#build(context);
@@ -221,36 +251,6 @@ export class DataService
   async sync(): Promise<DataServiceResult> {
     const context = await this.context();
     return this.#sync(context);
-  }
-
-  static async #fromRow(
-    context: GlobalContext,
-    dataService: typeof dataServicesTable.$inferSelect
-  ): Promise<DataService | null> {
-    const account = await Account.findById(context, dataService.accountId);
-    if (!account) {
-      throw new Error(`Could not load account for data service: ${dataService.id}`);
-    }
-
-    const sources = await context.storage.db
-      .select()
-      .from(dataSourcesTable)
-      .where(eq(dataSourcesTable.dataServiceId, dataService.id));
-
-    return new DataService({
-      context,
-      id: dataService.id,
-      account,
-      itemSchema: dataService.itemSchema,
-      name: dataService.name,
-      sources: sources.map(
-        (source) =>
-          new DataSource({
-            context,
-            ...source,
-          })
-      ),
-    });
   }
 
   #schemaConfig(): Record<string, unknown> {

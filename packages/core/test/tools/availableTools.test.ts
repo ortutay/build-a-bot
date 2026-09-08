@@ -5,7 +5,7 @@ import {
   cacheInstrument,
   markAvailableTool,
   selectAvailableTools,
-} from '../../src/internal/mastra/instruments/index.js';
+} from '../../src/mastra/instruments/index.js';
 
 describe('available tools', () => {
   it('includes only marked tools', async () => {

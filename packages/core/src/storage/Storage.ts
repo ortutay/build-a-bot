@@ -2,8 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { storageDatabaseFilepath, storageDirectory } from '../internal/constants.js';
-import { log } from '../internal/logger.js';
+import { storageDatabaseFilepath, storageDirectory } from '../constants.js';
+import { log } from '../logger.js';
 
 export type StorageDb = ReturnType<typeof drizzle>;
 export type StorageTransaction = Parameters<Parameters<StorageDb['transaction']>[0]>[0];

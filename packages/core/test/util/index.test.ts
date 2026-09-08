@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getOrNull } from '../../src/internal/util/index.js';
+import { getOrNull } from '../../src/util/index.js';
 
 describe('getOrNull', () => {
   it('returns an object property when it exists', () => {

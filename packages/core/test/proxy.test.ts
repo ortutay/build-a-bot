@@ -6,7 +6,7 @@ const config = vi.hoisted(() => ({
   proxyUnblockZone: undefined as string | undefined,
 }));
 
-vi.mock('../src/internal/constants.js', () => ({
+vi.mock('../src/constants.js', () => ({
   proxyDatacenterDedicatedPassword: undefined,
   proxyDatacenterDedicatedServer: undefined,
   proxyDatacenterDedicatedUsername: undefined,
@@ -38,7 +38,7 @@ describe('unblock proxy', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('reports the missing setting instead of fetching an undefined endpoint', async () => {
-    const { proxyFetch } = await import('../src/internal/proxy.js');
+    const { proxyFetch } = await import('../src/proxy.js');
 
     await expect(proxyFetch('https://example.test', 'unblock')).rejects.toThrow(
       'Proxy tier "unblock" requires PROXY_UNBLOCK_API_URL to be configured.'
@@ -51,7 +51,7 @@ describe('unblock proxy', () => {
     config.proxyUnblockZone = 'zone';
     const fetchMock = vi.fn().mockResolvedValue(new Response('content'));
     vi.stubGlobal('fetch', fetchMock);
-    const { proxyFetch } = await import('../src/internal/proxy.js');
+    const { proxyFetch } = await import('../src/proxy.js');
 
     await proxyFetch('https://example.test/page', 'unblock');
 

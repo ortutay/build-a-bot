@@ -2,14 +2,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DiskLibraryBackend } from '../../src/internal/documents/DiskLibraryBackend.js';
+import { DiskLibraryBackend } from '../../src/documents/DiskLibraryBackend.js';
 import {
   DocumentLibrary,
   type DocumentId,
   type DocumentInput,
   type DocumentRequest,
-} from '../../src/internal/documents/DocumentLibrary.js';
-import { MemoryLibraryBackend } from '../../src/internal/documents/MemoryLibraryBackend.js';
+} from '../../src/documents/DocumentLibrary.js';
+import { MemoryLibraryBackend } from '../../src/documents/MemoryLibraryBackend.js';
 
 const createMemoryLibrary = () => new DocumentLibrary(new MemoryLibraryBackend());
 

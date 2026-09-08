@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KeyedSerialQueue } from '../../src/internal/util/KeyedSerialQueue.js';
+import { KeyedSerialQueue } from '../../src/util/KeyedSerialQueue.js';
 
 describe('KeyedSerialQueue', () => {
   it('runs operations for one key in submission order', async () => {

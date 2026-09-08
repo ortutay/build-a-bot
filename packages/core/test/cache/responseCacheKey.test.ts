@@ -1,7 +1,7 @@
 import { InMemoryServerCache } from '@mastra/core/cache';
 import { describe, expect, it } from 'vitest';
-import { responseCacheHashInput } from '../../src/internal/cache/responseCacheKey.js';
-import { hash } from '../../src/internal/util/index.js';
+import { responseCacheHashInput } from '../../src/cache/responseCacheKey.js';
+import { hash } from '../../src/util/index.js';
 
 type RunMetadata = {
   timestamp: string;

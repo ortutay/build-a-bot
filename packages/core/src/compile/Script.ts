@@ -1,10 +1,10 @@
 import type { Mastra } from '@mastra/core';
 import { and, eq } from 'drizzle-orm';
-import type { GlobalContext } from '../../context/index.js';
-import { UsesContext, type UsesContextOptions } from '../../context/UsesContext.js';
-import type { StorageTransaction } from '../../storage/Storage.js';
-import { scriptsTable } from '../../storage/db/schema.js';
-import { findById } from '../../storage/helpers.js';
+import type { GlobalContext } from '../context/index.js';
+import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
+import type { StorageTransaction } from '../storage/Storage.js';
+import { scriptsTable } from '../storage/db/schema.js';
+import { findById } from '../storage/helpers.js';
 import { Bot } from '../bot/Bot.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
 import { getOrNull } from '../util/index.js';
@@ -12,8 +12,8 @@ import { availableContext, availableModules, Compiler } from './Compiler.js';
 import { toContextTools } from './tool-fns.js';
 
 export type ScriptOptions = UsesContextOptions & {
-  buildInput?: Record<string, unknown> | null;
   id?: string;
+  buildInput?: Record<string, unknown> | null;
   dataServiceId?: string;
   name: string;
   code: string;

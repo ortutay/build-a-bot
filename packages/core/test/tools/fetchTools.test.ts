@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { proxyFetch } = vi.hoisted(() => ({ proxyFetch: vi.fn() }));
 
-vi.mock('../../src/internal/proxy.js', () => ({
+vi.mock('../../src/proxy.js', () => ({
   names: ['unblock', 'residential'],
   proxyFetch,
 }));
 
-import { documentLibrary } from '../../src/internal/documents/index.js';
-import { createTools as createDocumentTools } from '../../src/internal/mastra/tools/documents/tools.js';
-import { createTools as createFetchTools } from '../../src/internal/mastra/tools/fetchTools/tools.js';
+import { documentLibrary } from '../../src/documents/index.js';
+import { createTools as createDocumentTools } from '../../src/mastra/tools/documents/tools.js';
+import { createTools as createFetchTools } from '../../src/mastra/tools/fetchTools/tools.js';
 
 const uniqueUrl = (path: string): string => `https://example.test/${path}-${crypto.randomUUID()}`;
 
