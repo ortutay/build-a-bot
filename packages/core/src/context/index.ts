@@ -51,7 +51,7 @@ export const createGlobalContext = async (options: GlobalOptions = {}): Promise<
   let mastra = options.mastra;
 
   if (!mastra) {
-    const result = await defaultMastra({ documentLibrary });
+    const result = await defaultMastra({ documentLibrary, proxyRegistry });
     mastra = result.mastra;
     process.once('beforeExit', () => {
       void result.cleanup().catch((e) => {

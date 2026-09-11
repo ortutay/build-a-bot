@@ -25,6 +25,7 @@ import {
 } from '../constants.js';
 import { DocumentLibrary } from '../documents/index.js';
 import { log } from '../logger.js';
+import { NoProxy, ProxyRegistry } from '../proxy/index.js';
 import { getOrNull, hash } from '../util/index.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 import {
@@ -37,6 +38,7 @@ import { planWorkflow, writeWorkflow } from './workflows/index.js';
 
 export type MastraOptions = {
   documentLibrary?: DocumentLibrary;
+  proxyRegistry?: ProxyRegistry;
 };
 
 export const defaultMastra = async (
@@ -46,8 +48,9 @@ export const defaultMastra = async (
   cleanup: () => Promise<void>;
 }> => {
   const documentLibrary = options.documentLibrary ?? new DocumentLibrary();
+  const proxyRegistry = options.proxyRegistry ?? new ProxyRegistry([new NoProxy()]);
   const { allTools, fetchResearchTools, browserResearchTools, planningTools } =
-    await createToolsSets({ documentLibrary });
+    await createToolsSets({ documentLibrary, proxyRegistry });
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.info('No Redis client, using disk cache');

@@ -6,14 +6,14 @@ import {
   type DocumentHeaders,
   type DocumentLibrary,
 } from '../../../documents/index.js';
+import { isHttpProxy, type ProxyRegistry } from '../../../proxy/index.js';
+import { parseResponseBody } from '../../../util/index.js';
 import {
   addInstruments,
   cacheInstrument,
   markAvailableTool,
   runtimeInstrument,
 } from '../../instruments/index.js';
-import { names as proxyNames, proxyFetch } from '../../../legacyProxy.js';
-import { parseResponseBody } from '../../../util/index.js';
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
@@ -28,18 +28,26 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
 
 type FetchToolInput = {
   url: string;
-  proxy: (typeof proxyNames)[number];
+  proxy: string;
 };
 
 export const executors: Record<string, any> = {
-  fetchTool: async (documentLibrary: DocumentLibrary, { url, proxy }: FetchToolInput) => {
+  fetchTool: async (
+    documentLibrary: DocumentLibrary,
+    proxyRegistry: ProxyRegistry,
+    { url, proxy }: FetchToolInput
+  ) => {
+    const spec = proxyRegistry.require(proxy);
+    if (!isHttpProxy(spec)) {
+      throw new Error(`Proxy "${proxy}" does not support fetch().`);
+    }
     const timestamp = new Date().toISOString();
     const requestHeaders: DocumentHeaders = {};
-    const resp = await proxyFetch(url, proxy);
+    const resp = await spec.fetch(url);
     const headers = Object.fromEntries(resp.headers);
     const contentType = contentTypeFromHeaders(headers);
     const content = parseResponseBody(contentType, await resp.arrayBuffer());
-    const useUrl = proxy === 'unblock' ? url : resp.url || url;
+    const useUrl = resp.url || url;
     const documentId = documentLibrary.save({
       url: useUrl,
       origin: 'dynamic',
@@ -66,8 +74,12 @@ export const executors: Record<string, any> = {
   },
 };
 
-const createFetchTool = (documentLibrary: DocumentLibrary): any =>
-  createTool({
+const createFetchTool = ({ documentLibrary, proxyRegistry }: CreateFetchToolsOptions): any => {
+  const proxyNames = proxyRegistry
+    .list()
+    .filter(isHttpProxy)
+    .map((proxy) => proxy.id);
+  return createTool({
     id: 'fetchTool',
     description: "Fetch a URL using Node's built-in fetch() function.",
     inputSchema: z.object({
@@ -86,17 +98,20 @@ const createFetchTool = (documentLibrary: DocumentLibrary): any =>
       statusText: z.string(),
       bytes: z.number(),
     }),
-    execute: (...args) => executors.fetchTool(documentLibrary, ...args),
+    execute: (...args) => executors.fetchTool(documentLibrary, proxyRegistry, ...args),
   });
+};
 
 export type CreateFetchToolsOptions = {
   documentLibrary: DocumentLibrary;
+  proxyRegistry: ProxyRegistry;
 };
 
 export const createTools = async (
   options: CreateFetchToolsOptions
 ): Promise<Record<string, Tool>> => {
-  const internal = [createFetchTool(options.documentLibrary)];
+  if (!options.proxyRegistry.list().some(isHttpProxy)) return {};
+  const internal = [createFetchTool(options)];
   return Object.fromEntries(
     (
       await Promise.all(

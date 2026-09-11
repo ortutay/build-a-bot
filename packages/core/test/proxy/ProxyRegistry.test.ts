@@ -39,8 +39,10 @@ describe('GlobalContext proxy registry', () => {
 
   it('uses a registry with the direct proxy by default', async () => {
     const context = await createGlobalContext(dependencies);
+    const other = await createGlobalContext(dependencies);
 
     expect(context.proxyRegistry.require('none')).toBeInstanceOf(NoProxy);
+    expect(other.proxyRegistry).not.toBe(context.proxyRegistry);
   });
 
   it('preserves or replaces the registry when contexts merge', () => {
