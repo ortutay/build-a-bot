@@ -6,7 +6,7 @@ import {
 } from '../../src/mastra/tools/browserTools/index.js';
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
 import { createTools as createDocumentTools } from '../../src/mastra/tools/documents/index.js';
-import { browserPlanStep } from '../../src/mastra/workflows/steps.js';
+import { planStep } from '../../src/mastra/workflows/steps.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
 
@@ -60,10 +60,10 @@ describe('browser plan cache', () => {
 
     const runPlan = async () => {
       const startedAt = performance.now();
-      const result = await (browserPlanStep.execute as any)({
+      const result = await (planStep.execute as any)({
         inputData: {
           url,
-          goal: 'List each catalog item with its SKU and name.',
+          goal: 'List each catalog item with its SKU and name. This is a test of browser caching, so use browser instead of fetch().',
           modules: [],
           context: [],
           tools: [],

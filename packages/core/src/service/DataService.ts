@@ -10,7 +10,7 @@ import { Run } from '../compile/Run.js';
 import { Script } from '../compile/Script.js';
 import { log } from '../logger.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
-import { clip } from '../util/index.js';
+import { clip, hash } from '../util/index.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import {
   dataServicesTable,
@@ -363,73 +363,98 @@ export class DataService
       if (!source.id) {
         throw new Error(`Data source did not receive an ID: ${source.url}`);
       }
-      const url = source.url;
-      const prompt = 'Build a scraper to get data in the output schema format.';
-      const scriptName = `url:${url}`;
-      let regenerate = false;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let script = await Script.findByName(context, this.id!, scriptName);
+    }
 
-        try {
-          if (!script || regenerate) {
-            log.info(`Writing script: name=${scriptName}, url=${url}`);
-            const writeWorkflow = context.mastra.getWorkflowById('write-workflow');
-            const run = await writeWorkflow.createRun();
-            const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
-              .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
-              .map(([name]) => name);
+    const urls = this.sources.map((source) => source.url);
+    const prompt = 'Build a scraper to get data in the output schema format.';
+    const scriptName = `urls:${hash({ urls })}`;
+    let regenerate = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // TODO:
+      // - add Script.findForDataService(context, this.id) and have it return Promise<Script[] | null>
+      // - contract: there should either be 0 scripts, or the correct number of scripts
+      let script = await Script.findByName(context, this.id!, scriptName);
 
-            const result = await run.start({
-              inputData: {
-                url,
-                goal: prompt,
-                context: Object.keys(availableContext),
-                modules: Object.keys(availableModules),
-                inputSchema: z.toJSONSchema(inputSchema),
-                outputSchema: z.toJSONSchema(outputSchema),
-                tools,
-              },
-            });
+      try {
+        // TODO: check scripts?.length >= 0
+        if (!script || regenerate) {
+          log.info(`Writing scripts for urls=${urls.join(', ')}`);
 
-            if (result.status !== 'success') {
-              throw new Error(`Workflow did not complete successfully: ${result.status}`);
-            }
+          const workflow = context.mastra.getWorkflowById('write-workflow');
+          // const workflow = context.mastra.getWorkflowById('plan-workflow');
 
-            const { code } = result.result as { code: string };
-            script = new Script({
-              context,
-              id: script?.id ?? undefined,
-              name: scriptName,
-              dataServiceId: this.id!,
-              code,
-              buildInput: { goal: prompt, url },
+          const run = await workflow.createRun();
+          const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
+            .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
+            .map(([name]) => name);
+
+          const result = await run.start({
+            inputData: {
+              urls,
+              goal: prompt,
+              context: Object.keys(availableContext),
               modules: Object.keys(availableModules),
+              inputSchema: z.toJSONSchema(inputSchema),
+              outputSchema: z.toJSONSchema(outputSchema),
               tools,
-              vmContext: Object.keys(availableContext),
-            });
-            await script.save();
-            regenerate = false;
-            log.info(`Wrote script: id=${script.id}, name=${script.name}`);
-          } else {
-            log.info(`Found script: id=${script.id}, name=${script.name}`);
+            },
+          });
+
+          if (result.status !== 'success') {
+            throw new Error(`Workflow did not complete successfully: ${result.status}`);
           }
 
-          const bot = await script.compile();
-          log.info(`Compiled script: id=${script.id}, name=${script.name}`);
-          log.debug(`Made a bot: ${String(bot)}`);
-          break;
-        } catch (e) {
-          if (attempt === maxAttempts) {
-            throw e;
-          }
+          // TODO:
+          // - iterate over each group, and generate a scipt on a per-grouping basis
+          // - log out the name of each generated grouping
+          // - scriptName should append the groupingName
 
-          regenerate = true;
-          log.warn(
-            `Build attempt ${attempt} of ${maxAttempts} failed for script=${scriptName}; retrying`
-          );
+          const { code, urls: groupingUrls } = result.result as { code: string; urls: string[] };
+          script = new Script({
+            context,
+            id: script?.id ?? undefined,
+            name: scriptName,
+            dataServiceId: this.id!,
+            code,
+            buildInput: { goal: prompt, urls: groupingUrls },
+            modules: Object.keys(availableModules),
+            tools,
+            vmContext: Object.keys(availableContext),
+          });
+
+          // TODO: don't save here. instead, push scripts onto a list
+          await script.save();
+          regenerate = false;
+
+          // TODO: per above TODO, move the logging into the loop
+          log.info(`Wrote script: id=${script.id}, name=${script.name}`);
+        } else {
+          // TODO: update logging to give id/name of each script
+          log.info(`Found script: id=${script.id}, name=${script.name}`);
         }
+
+        // TODO: Compile them all. error in any means regenerate
+        const bot = await script.compile();
+        // TODO: update logs
+        log.info(`Compiled script: id=${script.id}, name=${script.name}`);
+        log.debug(`Made a bot: ${String(bot)}`);
+        break;
+      } catch (e) {
+        if (attempt === maxAttempts) {
+          throw e;
+        }
+
+        regenerate = true;
+        log.warn(
+          `Build attempt ${attempt} of ${maxAttempts} failed for urls=${urls.join(', ')}; retrying`
+        );
       }
     }
+
+    // TODO:
+    // in single transaction:
+    // - remove previous scripts for this DataService
+    // - save them all at once
   }
 
   async #heal(_context: GlobalContext): Promise<void> {}
@@ -445,8 +470,9 @@ export class DataService
       }
 
       const url = source.url;
-      const scriptName = `url:${url}`;
-      const script = await Script.findByName(context, this.id!, scriptName);
+      const script =
+        (await Script.findByBuildUrl(context, this.id!, url)) ??
+        (await Script.findByName(context, this.id!, `url:${url}`));
       if (!script) {
         throw new ScriptNotFoundError(this.name, url);
       }

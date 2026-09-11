@@ -92,6 +92,24 @@ export class Script extends UsesContext {
     return script ? new Script({ ...script, context }) : null;
   }
 
+  static async findByBuildUrl(
+    context: GlobalContext,
+    dataServiceId: string,
+    url: string
+  ): Promise<Script | null> {
+    await context.init();
+    const scripts = await context.storage.db
+      .select()
+      .from(scriptsTable)
+      .where(eq(scriptsTable.dataServiceId, dataServiceId));
+    const script = scripts.find((val) => {
+      const urls = val.buildInput?.urls;
+      return Array.isArray(urls) && urls.includes(url);
+    });
+
+    return script ? new Script({ ...script, context }) : null;
+  }
+
   async compile(mastra?: Mastra): Promise<Bot> {
     const vmContext = selectDependencies(availableContext, this.vmContext, 'context');
     const modules = selectDependencies(availableModules, this.modules, 'module');

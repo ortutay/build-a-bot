@@ -80,15 +80,15 @@ export const removeCacheOnlyFields = (value: unknown): void => {
 
   const record = value as Record<string, unknown>;
   delete record.instruments;
+  // Document response headers and request details describe a particular transport
+  // attempt, not the content the model saw. They commonly vary when a document
+  // is refreshed through another proxy or browser session.
+  delete record.headers;
+  delete record.request;
 
   const background = getOrNull<Record<string, unknown>>(record, '_background');
   if (background) {
     delete background.maxRetries;
-  }
-
-  const request = getOrNull<Record<string, unknown>>(record, 'request');
-  if (request) {
-    delete request.timestamp;
   }
 
   Object.values(record).forEach(removeCacheOnlyFields);

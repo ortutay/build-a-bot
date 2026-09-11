@@ -33,8 +33,8 @@ const promptForRun = (metadata: RunMetadata) => [
             headers: { date: metadata.responseDate },
             request: {
               timestamp: metadata.timestamp,
-              headers: {},
-              proxy: null,
+              headers: { 'x-request-id': metadata.responseDate },
+              proxy: metadata.responseDate,
               mode: 'fetch',
             },
             instruments: { metrics: { runtimeMs: metadata.runtimeMs } },
@@ -119,7 +119,7 @@ describe('response cache key', () => {
     expect(changedContentKey).not.toBe(firstKey);
   });
 
-  it.fails('hits across runs when only response headers change', () => {
+  it('hits across runs when only document transport metadata changes', () => {
     const firstKey = cacheKeyForRun({
       timestamp: '2026-08-24T20:15:40.274Z',
       runtimeMs: 128,

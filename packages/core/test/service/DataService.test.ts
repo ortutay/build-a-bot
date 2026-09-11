@@ -11,6 +11,7 @@ import { DataSource } from '../../src/service/DataSource.js';
 import { DataService, ScriptNotFoundError } from '../../src/service/DataService.js';
 import { Item } from '../../src/service/Item.js';
 import { GlobalContext } from '../../src/context/index.js';
+import { hash } from '../../src/util/index.js';
 import {
   dataSourcesTable,
   itemsTable,
@@ -117,7 +118,10 @@ describe('DataService', () => {
         createRun: async () => ({
           start: async () => {
             workflowRuns++;
-            return { result: { code: scriptCode }, status: 'success' };
+            return {
+              result: { code: scriptCode, urls: ['https://example.test/data'] },
+              status: 'success',
+            };
           },
         }),
       }),
@@ -136,14 +140,15 @@ describe('DataService', () => {
     await service.build();
     const context = await service.context();
 
-    const script = await Script.findByName(context, service.id!, 'url:https://example.test/data');
+    const scriptName = `urls:${hash({ urls: ['https://example.test/data'] })}`;
+    const script = await Script.findByName(context, service.id!, scriptName);
     expect(workflowRuns).toBe(1);
     expect(script).toMatchObject({
       buildInput: {
         goal: 'Build a scraper to get data in the output schema format.',
-        url: 'https://example.test/data',
+        urls: ['https://example.test/data'],
       },
-      name: 'url:https://example.test/data',
+      name: scriptName,
       dataServiceId: expect.any(String),
     });
     await expect(
@@ -161,7 +166,10 @@ describe('DataService', () => {
         createRun: async () => ({
           start: async () => {
             workflowRuns++;
-            return { result: { code: scriptCode }, status: 'success' };
+            return {
+              result: { code: scriptCode, urls: ['https://example.test/data'] },
+              status: 'success',
+            };
           },
         }),
       }),
@@ -184,8 +192,12 @@ describe('DataService', () => {
     const invalidScript = new Script({
       context: await service.context(),
       dataServiceId: service.id!,
-      name: `url:${source.url}`,
+      name: `urls:${hash({ urls: [source.url] })}`,
       code: invalidBuildScriptCode,
+      buildInput: {
+        goal: 'Build a scraper to get data in the output schema format.',
+        urls: [source.url],
+      },
       modules: [],
       tools: [],
       vmContext: [],

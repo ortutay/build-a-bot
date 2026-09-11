@@ -19,6 +19,7 @@
     "dev:studio": "npm run dev --workspace=@build-a-bot/studio",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "scratch:main": "tsx packages/client/src/main.ts",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
     "prepare": "husky"

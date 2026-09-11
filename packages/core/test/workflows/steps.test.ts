@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fullPlanStep, writeWorkflowInputSchema } from '../../src/mastra/workflows/steps.js';
+import { planStep } from '../../src/mastra/workflows/steps.js';
 import { code } from '../../src/prompts/templates.js';
 
-describe('write workflow input', () => {
+describe('plan step input', () => {
   it('requires the available capabilities', () => {
     expect(
-      writeWorkflowInputSchema.safeParse({
-        url: 'https://example.test',
+      planStep.inputSchema.safeParse({
+        urls: ['https://example.test'],
         goal: 'Extract the page data.',
       }).success
     ).toBe(false);
     expect(
-      writeWorkflowInputSchema.safeParse({
-        url: 'https://example.test',
+      planStep.inputSchema.safeParse({
+        urls: ['https://example.test'],
         goal: 'Extract the page data.',
         context: [],
         modules: [],
@@ -24,18 +24,26 @@ describe('write workflow input', () => {
   it('generates missing schemas in the plan step', async () => {
     const generate = vi.fn().mockResolvedValue({
       object: {
-        report: 'Use the catalog endpoint.',
-        inputSchema: JSON.stringify({
-          type: 'object',
-          properties: { query: { type: 'string' } },
-        }),
-        outputSchema: JSON.stringify({ type: 'array', items: { type: 'string' } }),
+        generalReport: 'Use direct HTTP requests when available.',
+        groupings: [
+          {
+            grouping: 'Catalog pages',
+            urls: ['https://example.test'],
+            goal: 'Extract the page data.',
+            report: 'Use the catalog endpoint.',
+            inputSchema: JSON.stringify({
+              type: 'object',
+              properties: { query: { type: 'string' } },
+            }),
+            outputSchema: JSON.stringify({ type: 'array', items: { type: 'string' } }),
+          },
+        ],
       },
     });
 
-    const result = await (fullPlanStep.execute as any)({
+    const result = await (planStep.execute as any)({
       inputData: {
-        url: 'https://example.test',
+        urls: ['https://example.test'],
         goal: 'Extract the page data.',
         context: [],
         modules: [],
@@ -45,9 +53,14 @@ describe('write workflow input', () => {
     });
 
     expect(result).toMatchObject({
-      inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
-      outputSchema: { type: 'array', items: { type: 'string' } },
-      report: 'Use the catalog endpoint.',
+      generalReport: 'Use direct HTTP requests when available.',
+      groupings: [
+        {
+          inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
+          outputSchema: { type: 'array', items: { type: 'string' } },
+          report: 'Use the catalog endpoint.',
+        },
+      ],
     });
     expect(generate).toHaveBeenCalledWith(
       expect.any(String),
@@ -60,15 +73,23 @@ describe('write workflow input', () => {
     const outputSchema = { type: 'object', properties: { name: { type: 'string' } } };
     const generate = vi.fn().mockResolvedValue({
       object: {
-        report: 'Use the detail endpoint.',
-        inputSchema: JSON.stringify(inputSchema),
-        outputSchema: JSON.stringify(outputSchema),
+        generalReport: 'Use the detail endpoint.',
+        groupings: [
+          {
+            grouping: 'Detail pages',
+            urls: ['https://example.test'],
+            goal: 'Extract the detail page.',
+            report: 'Use the detail endpoint.',
+            inputSchema: JSON.stringify(inputSchema),
+            outputSchema: JSON.stringify(outputSchema),
+          },
+        ],
       },
     });
 
-    const result = await (fullPlanStep.execute as any)({
+    const result = await (planStep.execute as any)({
       inputData: {
-        url: 'https://example.test',
+        urls: ['https://example.test'],
         goal: 'Extract the detail page.',
         inputSchema,
         outputSchema,
@@ -79,22 +100,30 @@ describe('write workflow input', () => {
       mastra: { getAgentById: () => ({ generate }) },
     });
 
-    expect(result).toMatchObject({ inputSchema, outputSchema });
+    expect(result).toMatchObject({ groupings: [{ inputSchema, outputSchema }] });
   });
 
   it('rejects a generated schema that is not JSON', async () => {
     const generate = vi.fn().mockResolvedValue({
       object: {
-        report: 'Use the catalog endpoint.',
-        inputSchema: 'not JSON',
-        outputSchema: JSON.stringify({ type: 'array' }),
+        generalReport: 'Use the catalog endpoint.',
+        groupings: [
+          {
+            grouping: 'Catalog pages',
+            urls: ['https://example.test'],
+            goal: 'Extract the page data.',
+            report: 'Use the catalog endpoint.',
+            inputSchema: 'not JSON',
+            outputSchema: JSON.stringify({ type: 'array' }),
+          },
+        ],
       },
     });
 
     await expect(
-      (fullPlanStep.execute as any)({
+      (planStep.execute as any)({
         inputData: {
-          url: 'https://example.test',
+          urls: ['https://example.test'],
           goal: 'Extract the page data.',
           context: [],
           modules: [],
