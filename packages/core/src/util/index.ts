@@ -44,6 +44,18 @@ export const hash = (obj: unknown): string => {
   return crypto.createHash('sha256').update(str).digest('hex');
 };
 
+export function norm(url: string): string;
+export function norm(urls: string[]): string[];
+export function norm(input: string | string[]): string | string[] {
+  if (Array.isArray(input)) {
+    return [...new Set(input.map((url) => norm(url)))].sort();
+  }
+
+  const parsed = new URL(input);
+  parsed.hash = '';
+  return parsed.toString();
+}
+
 export const clip = (value: unknown, max = 500): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value) || '';
   return text.length <= max ? text : `${text.slice(0, max - 3)}...`;

@@ -8,7 +8,7 @@ export type ItemOptions = {
   createdAt?: string;
   updatedAt?: string;
   data: unknown;
-  dataSourceId: string;
+  sourceUrl: string;
   sourceScriptId: string;
 };
 
@@ -18,7 +18,7 @@ export class Item {
   createdAt: string | null;
   updatedAt: string | null;
   data: unknown;
-  dataSourceId: string;
+  sourceUrl: string;
   sourceScriptId: string;
 
   constructor(options: ItemOptions) {
@@ -27,7 +27,7 @@ export class Item {
     this.createdAt = options.createdAt ?? null;
     this.updatedAt = options.updatedAt ?? null;
     this.data = options.data;
-    this.dataSourceId = options.dataSourceId;
+    this.sourceUrl = options.sourceUrl;
     this.sourceScriptId = options.sourceScriptId;
   }
 
@@ -36,12 +36,12 @@ export class Item {
       .insert(itemsTable)
       .values({
         data: this.data,
-        dataSourceId: this.dataSourceId,
+        sourceUrl: this.sourceUrl,
         sourceScriptId: this.sourceScriptId,
         uniqueId: this.uniqueId,
       })
       .onConflictDoUpdate({
-        target: [itemsTable.sourceScriptId, itemsTable.dataSourceId, itemsTable.uniqueId],
+        target: [itemsTable.sourceScriptId, itemsTable.sourceUrl, itemsTable.uniqueId],
         set: { data: this.data },
       })
       .returning();

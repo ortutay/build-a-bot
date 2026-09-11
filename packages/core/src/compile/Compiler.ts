@@ -1,19 +1,17 @@
-import chalk from 'chalk';
 import * as vm from 'node:vm';
+import chalk from 'chalk';
 import * as cheerio from 'cheerio';
+import type { JSONSchema } from 'json-schema-to-ts';
 import * as nodeHtmlParser from 'node-html-parser';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
-import type { JSONSchema } from 'json-schema-to-ts';
 import { log } from '../logger.js';
 
-type ZodJSONSchema = Parameters<typeof zod.fromJSONSchema>[0];
-
 export type CompileResult = {
-  fn: (input: unknown) => Promise<{ out: any; logs: any[] }>;
-  inputSchema: JSONSchema;
+  check: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
+  fn: (input: unknown) => Promise<{ out: unknown; logs: any[] }>;
   outputSchema: JSONSchema;
-  exampleInput: unknown;
+  run: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
 };
 
@@ -50,10 +48,6 @@ export const availableContext = {
   console,
 };
 
-const parseWithSchema = async (schema: JSONSchema, value: unknown): Promise<unknown> => {
-  return zod.fromJSONSchema(schema as unknown as ZodJSONSchema).parseAsync(value);
-};
-
 // TODO:
 // 1) Constructor takes code, list of exports in that code, list of modules, list of tools
 // 2) compile() takes no arguments, keep return type
@@ -77,9 +71,8 @@ export class Compiler {
       'use strict';
       ${cleaned}
       return {
-      inputSchema: typeof inputSchema === 'undefined' ? undefined : inputSchema,
       outputSchema: typeof outputSchema === 'undefined' ? undefined : outputSchema,
-      exampleInput: typeof exampleInput === 'undefined' ? undefined : exampleInput,
+      check: typeof check === 'undefined' ? undefined : check,
       run: typeof run === 'undefined' ? undefined : run,
       uniqueId: typeof uniqueId === 'undefined' ? undefined : uniqueId,
       };
@@ -87,12 +80,18 @@ export class Compiler {
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { inputSchema, outputSchema, exampleInput, uniqueId } = await script.runInContext(
-      context,
-      {
-        timeout: 1000,
-      }
-    );
+    const { check, outputSchema, run, uniqueId } = await script.runInContext(context, {
+      timeout: 1000,
+    });
+    if (!outputSchema || typeof outputSchema !== 'object') {
+      throw new Error('Script must export an outputSchema object');
+    }
+    if (typeof check !== 'function') {
+      throw new Error('Script must export a check function');
+    }
+    if (typeof run !== 'function') {
+      throw new Error('Script must export a run function');
+    }
     if (typeof uniqueId !== 'function') {
       throw new Error('Script must export a uniqueId function');
     }
@@ -105,7 +104,10 @@ export class Compiler {
       return val;
     };
 
-    const fn = async (input: unknown): Promise<{ out: any; logs: any[] }> => {
+    const execute = async (
+      name: 'check' | 'run',
+      urls: string[]
+    ): Promise<{ out: unknown; logs: any[] }> => {
       const wrappedConsole: Record<string, any> = {};
       const logs: any[] = [];
       for (const key of Object.keys(console)) {
@@ -115,26 +117,24 @@ export class Compiler {
         };
       }
 
-      const { run } = await script.runInContext(
+      const exports = await script.runInContext(
         vm.createContext({ ...sharedContext, console: wrappedConsole }),
         {
           timeout: 1000,
         }
       );
-
-      const parsedInput = await parseWithSchema(inputSchema!, input);
-      const result = await run(parsedInput);
-      let out;
-      try {
-        out = await parseWithSchema(outputSchema!, result);
-      } catch (e) {
-        log.warn(`Got output validation error: ${e instanceof Error ? e.message : e}`);
-        out = result;
+      const fn = exports[name];
+      if (typeof fn !== 'function') {
+        throw new Error(`Script must export a ${name} function`);
       }
 
-      return { out, logs };
+      return { out: await fn(urls), logs };
     };
 
-    return { fn, inputSchema, outputSchema, exampleInput, uniqueId: uniqueIdFn };
+    const checkFn = (urls: string[]) => execute('check', urls);
+    const runFn = (urls: string[]) => execute('run', urls);
+    const fn = (input: unknown) => runFn(input as string[]);
+
+    return { check: checkFn, fn, outputSchema, run: runFn, uniqueId: uniqueIdFn };
   }
 }

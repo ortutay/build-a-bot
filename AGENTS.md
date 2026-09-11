@@ -26,6 +26,7 @@ Do not put new lines between the categories.
 - Prefer `resp` to `response`
 - Prefer `init()` to `initialize()`.
 - Prefer `tx` to `transaction`.
+- Prefer short names when possible, for example `fingerprint` over `buildFingerprint`.
 - Name caught errors `e`, including Promise `.catch()` parameters.
 - Place static methods immediately after the constructor, before all instance methods.
 - Place an object's `id` field before all other fields.

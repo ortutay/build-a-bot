@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
-import { getOrNull } from '../../util/index.js';
+import { getOrNull, norm } from '../../util/index.js';
 import { selectAvailableTools } from '../instruments/availableTools.js';
 
 const shared = { retries: 2 };
@@ -71,7 +71,8 @@ export const planStep = createStep({
     log.info('Running report step');
 
     const agent = mastra!.getAgentById('planning-agent');
-    const { urls, goal, modules, context, tools } = inputData;
+    const { goal, modules, context, tools } = inputData;
+    const urls = norm(inputData.urls);
 
     const prompt = templates.plan.render({
       userInput: templates.userInput.render({ urls: urls.join('\n'), goal }),
@@ -89,7 +90,26 @@ export const planStep = createStep({
       maxSteps: 20,
       structuredOutput: { schema: planAgentOutputSchema },
     });
-    const { generalReport, groupings } = resp.object;
+    const { generalReport } = resp.object;
+    const groupings = resp.object.groupings.map((grouping) => ({
+      ...grouping,
+      groupingName: grouping.groupingName.trim(),
+      urls: norm(grouping.urls),
+    }));
+    const groupingNames = groupings.map((grouping) => grouping.groupingName);
+    if (
+      groupingNames.some((name) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) ||
+      new Set(groupingNames).size !== groupingNames.length
+    ) {
+      throw new Error('Grouping names must be unique, non-empty kebab-case strings');
+    }
+    const groupingUrls = groupings.flatMap((grouping) => grouping.urls);
+    if (
+      groupingUrls.length !== urls.length ||
+      JSON.stringify(norm(groupingUrls)) !== JSON.stringify(urls)
+    ) {
+      throw new Error('Grouping URLs must be an exact partition of the seed URLs');
+    }
 
     log.debug(`Generated report: ${generalReport}`);
 
@@ -105,61 +125,6 @@ export const planStep = createStep({
         context,
         tools,
       })),
-    };
-  },
-});
-
-export const writePlanStep = createStep({
-  id: 'write-plan-step',
-  ...shared,
-  inputSchema: z.object({
-    'fetch-plan-step': z.object({
-      urls: z.array(z.string()),
-      goal: z.string(),
-      report: z.string(),
-      // inputSchema: jsonSchema,
-      outputSchema: jsonSchema,
-    }),
-    'browser-plan-step': z.object({
-      urls: z.array(z.string()),
-      goal: z.string(),
-      report: z.string(),
-      // inputSchema: jsonSchema,
-      outputSchema: jsonSchema,
-    }),
-  }),
-  outputSchema: z.object({
-    urls: z.array(z.string()),
-    goal: z.string(),
-    report: z.string(),
-    // inputSchema: jsonSchema,
-    outputSchema: jsonSchema,
-  }),
-  execute: async ({ inputData, mastra }) => {
-    const agent = mastra!.getAgentById('build-agent');
-    log.debug(`Write plan input: ${JSON.stringify(inputData)}`);
-
-    const plans = Object.values(inputData);
-    const { urls, goal, outputSchema } = plans[0];
-    const reports = plans.map((plan) => plan.report);
-    log.debug(`Reports to consolidate: ${JSON.stringify(reports)}`);
-
-    const prompt = templates.consolidateIntoPlan.render({
-      reports: reports.join('\n\n====================\n\n'),
-      userInput: templates.userInput.render({ urls: urls.join('\n'), goal }),
-    });
-
-    log.debug(`Consolidate reports prompt: ${prompt}`);
-    const resp = await agent.generate(prompt);
-    const report = resp.text;
-    log.debug(`Wrote consolidated report: ${report}`);
-
-    return {
-      urls,
-      goal,
-      report,
-      // inputSchema,
-      outputSchema,
     };
   },
 });
@@ -199,9 +164,6 @@ export const writeCodeStep = createStep({
         const modules = Object.fromEntries(
           grouping.modules.map((name) => [name, getAvailable(availableModules, name, 'module')])
         );
-        const renderedReport = templates.report.render({
-          report: `${inputData.generalReport}\n\n${grouping.report}`,
-        });
         const prompt = templates.code.render({
           toolsForCode: templates.toolsForCode.render({
             tools: JSON.stringify(tools, null, 2),
@@ -214,7 +176,9 @@ export const writeCodeStep = createStep({
           outputSchema: JSON.stringify(grouping.outputSchema, null, 2),
           availableModules: JSON.stringify(Object.keys(modules)),
           availableContext: JSON.stringify(Object.keys(context)),
-          report: renderedReport,
+          generalReport: inputData.generalReport,
+          groupingName: grouping.groupingName,
+          groupingReport: grouping.report,
         });
 
         log.debug(`Write code prompt for ${grouping.groupingName}: ${prompt}`);

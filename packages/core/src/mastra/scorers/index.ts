@@ -26,13 +26,15 @@ export const createBuildScorer = (mastra: Mastra) =>
         vmContext: Object.keys(availableContext),
       });
       const bot = await script.compile(mastra);
-      const exampleInput = run.input?.exampleInput ?? bot.exampleInput;
+      const urls = Array.isArray(run.input?.urls)
+        ? run.input.urls.filter((val: unknown): val is string => typeof val === 'string')
+        : [];
       const runId = srid();
-      const results = await bot.run(exampleInput, runId);
+      const results = await bot.run(urls, runId);
       const logs = bot.getLogs(runId);
       return {
         code,
-        exampleInput,
+        urls,
         results,
         logs,
       };

@@ -17,13 +17,6 @@ export const userInput = new Template(
 </user-input>`
 );
 
-export const report = new Template(
-  ['report'],
-  `<report>
-{{report}}
-</report>`
-);
-
 export const toolsForCode = new Template(
   ['tools'],
   `<tool-instructions>
@@ -48,36 +41,32 @@ Tools:
 
 export const plan = new Template(
   ['userInput', 'outputSchema'],
-  `You are writing a JavaScript web scraping bot. Explore and gather information necessary to write this script.
+  `You are planning JavaScript web-scraping scripts for one data service. Explore and gather the information needed to write those scripts.
 
-Do not write code yet. Generate a written report about how to run the script once you have enough information, along with output schema. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return the schema as a JSON-encoded string without Markdown fences.
+Do not write code yet. Produce a written implementation report for the coding agent and an output schema. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return the schema as JSON without Markdown fences.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
 - ${guidelinePlaywrightStrictMode}
 - ${guidelineTestSnippets}
-- If the task is impossible, explain why and stop.
 - If necessary, navigate around the site to find the right target page(s) for extraction.
-  - The goal is to make a reusable bot based on the user input. Therefore, if he gave an example of a specific URL to scrape, does that URL fit into a general pattern? Can it be paramaterized? Eg. https://example.com/tvs/sony-z-100 could become https://example.com/:category/:id, with category and id as inputs.
+  - The goal is to make reusable scripts based on the user input. If a specific URL fits a general pattern, describe how it can be parameterized. For example, https://example.com/tvs/sony-z-100 could become https://example.com/:category/:id.
 
 # URL groupings
 
 ## Interface
 
-The eventual script(s) will be called on a URL basis, like this:
+The data service receives runtime URLs like this:
 
   service.sync(["https://example.com/url1", "https://example-2.com/path", ...])
 
-The write phase of this workflow will write potentially multiple service scripts, if there are different page types. Each service script will handle exactly one page type. So the usage might be something like this:
+The service may own multiple scripts for different page types. At runtime, scripts use check(urls) to select URLs before they run.
 
-  service1.sync(["https://example.com/url1", "https://example-2.com/path", ...])
-  service2.sync(["https://example-3.com/something-else", ...])
-
-This is why you will need to group URLs, as described below.
+Group the supplied seed URLs so that each grouping can be implemented by one script.
 
 ## Groupings instructions
 
-You will receive at least one URL. If you receive multiple URLs, you may (or may not) need to group them.
+You will receive at least one URL. Return one or more groupings.
 
 Grouped URLs contain similar data, and can be parsed in a similar way. They often, but not always, have similar URL patterns. They often, but not always, have the same domain. They can always be parsed using the same script, for example because they share the same JSON-LD, or because they use the same server backend (like Shopify, WooCommerce, etc.), and therefore have similar site structures.
 
@@ -85,17 +74,17 @@ Sometimes, URLs will have the same pattern (https://www.example.com/key/:somethi
 
 Additionally, sometimes URLs will have a different pattern, but actually have the same structure. In this case, put them in a single grouping.
 
-If you received multiple URLs, then figure out how to group them, and return the appropriate groupings. This will be one or more groupings. You should usually include all URLs in your output. The URLs were provided by the user as examples of what URLs he will want to handle in the production service, so include all of them even if there are redundancies. If some seem like errors, mistakes, or otherwise unusable, put them in a grouping with a report indicating this.
+Every supplied URL must appear in exactly one grouping. Do not omit, duplicate, or add URLs.
 
-If you received just a single URL, then you will return exactly one grouping.
+Each groupingName is a persistent script identifier. It must be non-empty, unique, kebab-case, and stable for the same page type. Do not use ordinal or arbitrary names such as group-1.
 
-Appropriately split your report in the general section, which applies to all groupings, and the group specific reports.
+Split the report into a general section, which applies to all groupings, and group-specific reports.
 
 Include your analysis of groupings in a section called "Groupings report". Describe both URL patterns, page structures, and justify your groupings.
 
 ## Discerning URLs
 
-In the write phase, we will discern URLs. There will be a function that takes a URL, loads it, and then decides whether that service can handle that URL. The discernment will be based on both the URL structure, and also page contents. In your report, give some guidance on how to handle this. Typically, you will want to reference not just the URL, but also the page content. If it quacks like a duck, it's likely a duck.
+The generated script's check(urls) function decides whether it can handle each URL. It should use URL structure and, when useful, lightweight page inspection. In your report, provide specific routing guidance and evidence for this check.
 
 # Format considerations
 
@@ -105,19 +94,19 @@ Put this in a section titled "Format report"
 
 # Runtime considerations
 
-Compare runtimes of various tools. Include this information in your report. When possible, your goal is to minimize runtime, while also considering data accessibility and reliability.
+Compare viable approaches when that comparison can change the implementation. Balance runtime, accessibility, and reliability.
 
-Try the different providers and various tools to gather evidence for fastest runtime. Put this data in a section titled "Runtime report".
+Put material findings in a section titled "Runtime report".
 
 # Cost considerations
 
-Compare costs of various tools. Include this information in your report. When possible, your goal is to minimize cost, while also considering data accessibility and reliability.
+Compare costs only when viable approaches differ materially in cost.
 
-Try the different providers and various tools to gather evidence for fastest cost. Put this data in a section titled "Cost report".
+Put material findings in a section titled "Cost report".
 
 # Proxy considerations
 
-Try different proxy settings, starting with lowest weight solutions.
+Use the default proxy configuration unless evidence shows another available configuration is necessary.
 
 # Specifics and evidence
 
@@ -133,7 +122,7 @@ Give enough HTML snippets to write the proper selectors.
 
 If tools are available, test your assumptions using snippets. You may include small code snippets that worked in the report output as appropriate.
 
-# Ouput schema
+# Output schema
 
 Define an output schema for this function.
 
@@ -173,25 +162,22 @@ Guidelines for output schema:
 `
 );
 
-export const consolidateIntoPlan = new Template(
-  ['reports', 'userInput'],
-  `Examine the reports below on how to scrape a use site given some user input. Consolidate the reports into a single recommendations on how to write the scraper.
-
-Keep the same level of details and precision as the original reports. The next step in this workflow will write code, so it will need precision and details.
-
-{{reports}}
-
-{{userInput}}
-`
-);
-
 export const code = new Template(
-  ['toolsForCode', 'availableModules', 'availableContext', 'userInput', 'outputSchema', 'report'],
-  `You are writing a JavaScript web scraping script. You have various reports from sub-agents. Use these to write reports.
+  [
+    'toolsForCode',
+    'availableModules',
+    'availableContext',
+    'userInput',
+    'outputSchema',
+    'generalReport',
+    'groupingName',
+    'groupingReport',
+  ],
+  `You are writing a JavaScript web-scraping script. Use the reports below to write code.
 
-If necessary, use tools load pages and inspect the site further to generate the script.
+If necessary, use tools to load pages and inspect the site further before generating the script.
 
-The output schema below is authoritative. Export it exactly.
+The output schema below describes one extracted item. It is authoritative; export it exactly. The runtime owns and validates the run-result envelope, so do not add that envelope to outputSchema.
 
 <output-schema>
 {{outputSchema}}
@@ -202,11 +188,11 @@ The output schema below is authoritative. Export it exactly.
 Your code must be structured in the following way:
 
   export const outputSchema = { /* ... JSON schema ...*/ };
-  export const uniqueId = (result) => { /* ... return a canonical string ... */ };
-  export const check = async (urls) => { /* ... returns array of true or false */ }
+  export const uniqueId = (item) => { /* ... return a canonical string ... */ };
+  export const check = async (urls) => { /* ... returns one boolean per URL ... */ };
   export const run = async (urls) => {
-    return { ... }
-  }
+    return { results: [], urlsVisited: [] };
+  };
 
 # Function descriptions  
 
@@ -216,14 +202,14 @@ Export a synchronous uniqueId(result) function that returns a stable, non-empty,
 
 ## check(urls)
 
-Export an async check(urls) function. This function takes a list of URLs, and determines whether or not those URLs can be handled by this run function. Determiniation will inspect the URL patterns, and typically it will also inspect the page structure. Recall that if it quacks like a duck, it is a duck. The inspection will typically be short but specific. For example, you may look for the presence of specific DOM elements, verify metadata suggesting the backend app used to generate the page, and so on. The index of the return boolean matches the index of the input URL, so you will return exactly the number of booleans as URLs you received. True means that URL can be handled by the run function, and false means it cannot.
+Export an async check(urls) function. It receives a list of URLs and returns one boolean for each input URL, in the same order. True means that run(urls) can handle the URL; false means it cannot. Check URL patterns and, when useful, page structure using lightweight, specific inspection.
 
 ## run(urls)
 
-This runs a sync on the specified URLs, extracting data. The URLs should have been already validated by check(urls), but run that check and log and ignore the ones that are not valid. The return format has the following fields:
+This extracts data from the specified URLs. The data service has already validated and routed these URLs, so do not call check() again or silently ignore them. Return this envelope:
 
-- "results": array of objects matching output schema..
-- "urlsVisited": array of URLs visited by the script.
+- "results": an array of objects matching outputSchema.
+- "urlsVisited": an array of URLs visited while handling this call.
 
 # Tools
 
@@ -248,11 +234,17 @@ You have access to these globals in the VM context
 - Use only the modules, context, and tools from above. 
 - Do not import or require anything, they are already in the context.
 
-# Report
+# Reports
 
-Below is the research report. Follow guidances in the report, including runtime, and cost considerations. Balance cost and runtime in a way developers would like.
+The general report applies to every script. The grouping report applies only to this script and takes precedence when it is more specific.
 
-{{report}}
+<general-report>
+{{generalReport}}
+</general-report>
+
+<group-report grouping-name="{{groupingName}}">
+{{groupingReport}}
+</group-report>
 
 # Comments
 
@@ -266,8 +258,6 @@ Send debug output via console.log() as you go along. Log items as they are parse
 
 - Because you have availableModules, do not write any "import" lines.
 - Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
-- Try to make the example input something that runs on the faster side
-  - If example input includes a limit, set it to 10
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
 - ${guidelineDoNotInvent}
 - ${guidelinePlaywrightStrictMode}

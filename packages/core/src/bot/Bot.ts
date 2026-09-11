@@ -3,26 +3,23 @@ import { log } from '../logger.js';
 import { clip, srid } from '../util/index.js';
 
 export type BotOptions = {
-  fn: (input: unknown) => Promise<{ out: any; logs: any[] }>;
-  inputSchema: JSONSchema;
+  check: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   outputSchema: JSONSchema;
-  exampleInput: unknown;
+  run: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
 };
 
 export class Bot {
-  fn: (input: unknown) => Promise<{ out: any; logs: any[] }>;
-  inputSchema: JSONSchema;
+  checkFn: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   outputSchema: JSONSchema;
-  exampleInput: unknown;
+  runFn: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
   logs: Record<string, any[]>;
 
   constructor(options: BotOptions) {
-    this.fn = options.fn;
-    this.inputSchema = options.inputSchema;
+    this.checkFn = options.check;
     this.outputSchema = options.outputSchema;
-    this.exampleInput = options.exampleInput;
+    this.runFn = options.run;
     if (typeof options.uniqueId !== 'function') {
       throw new Error('Bot requires a uniqueId function');
     }
@@ -30,10 +27,19 @@ export class Bot {
     this.logs = {};
   }
 
-  async run(input: unknown, runId?: string): Promise<unknown> {
+  async check(urls: string[]): Promise<boolean[]> {
+    const { logs, out } = await this.checkFn(urls);
+    log.debug(`Bot check gave logs: ${clip(logs)}`);
+    if (!Array.isArray(out) || !out.every((val) => typeof val === 'boolean')) {
+      throw new Error('Bot check must return an array of booleans');
+    }
+
+    return out;
+  }
+
+  async run(urls: string[], runId?: string): Promise<unknown> {
     runId ||= srid();
-    // TODO: input validation against input schema?
-    const { out, logs } = await this.fn(input);
+    const { out, logs } = await this.runFn(urls);
     log.debug(`Bot run gave logs: ${clip(logs)}`);
     this.logs[runId] = logs;
     return out;

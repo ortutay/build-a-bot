@@ -101,6 +101,30 @@ const catalogSyncScriptCode = (url: string) => `
   };
 `;
 
+const groupedSyncScriptCode = (bot: string, pathPrefix: string, trace = false) => `
+  export const outputSchema = {
+    type: 'object',
+    properties: { value: { type: 'string' } },
+    required: ['value'],
+  };
+  export const uniqueId = (item) => item.value;
+  export const check = async (urls) => {
+    ${trace ? `await tools.routeTrace({ bot: '${bot}', phase: 'check', urls });` : ''}
+    return urls.map((url) => new URL(url).pathname.startsWith('${pathPrefix}'));
+  };
+  export const run = async (urls) => {
+    ${trace ? `await tools.routeTrace({ bot: '${bot}', phase: 'run', urls });` : ''}
+    return {
+      results: urls.map((url) => ({ value: '${bot}:' + new URL(url).pathname })),
+      urlsVisited: urls,
+    };
+  };
+`;
+
+const syncUrls = async (service: DataService, urls: string[]) => {
+  return service.sync(urls);
+};
+
 describe('DataService', () => {
   let temporaryDb: TemporaryDb | null = null;
 
@@ -585,6 +609,138 @@ describe('DataService', () => {
 
     expect(second.sources[0]!.id).not.toBe(first.sources[0]!.id);
     await expect(storage.db.select().from(dataSourcesTable)).resolves.toHaveLength(2);
+  });
+
+  it('builds separate scripts for page groups and routes each URL to its matching bot', async () => {
+    temporaryDb = await createTemporaryDb();
+    const urls = [
+      'https://example.test/catalog/widget',
+      'https://example.test/people/ada-lovelace',
+    ];
+    const routeTrace = vi.fn(async () => ({}));
+    const routeTraceTool = await markAvailableTool({ id: 'routeTrace', execute: routeTrace });
+    const workflowStart = vi.fn(async () => ({
+      result: [
+        {
+          groupingName: 'catalog-pages',
+          code: groupedSyncScriptCode('catalog', '/catalog/', true),
+        },
+        {
+          groupingName: 'people-pages',
+          code: groupedSyncScriptCode('people', '/people/', true),
+        },
+      ],
+      status: 'success',
+    }));
+    const mastra = {
+      getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
+      listTools: () => ({ routeTrace: routeTraceTool }),
+    } as unknown as Mastra;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra,
+      storage: temporaryDb.storage,
+    });
+    const service = new DataService({
+      context,
+      itemSchema: z.object({ value: z.string() }),
+      name: 'example-service',
+      sources: urls.map((url) => new DataSource({ url })),
+    });
+
+    await service.build();
+    await expect(syncUrls(service, urls)).resolves.toEqual({
+      results: [{ value: 'catalog:/catalog/widget' }, { value: 'people:/people/ada-lovelace' }],
+    });
+
+    expect(workflowStart).toHaveBeenCalledOnce();
+    expect(routeTrace).toHaveBeenCalledWith({ bot: 'catalog', phase: 'check', urls });
+    expect(routeTrace).toHaveBeenCalledWith({ bot: 'people', phase: 'check', urls });
+    expect(routeTrace).toHaveBeenCalledWith({
+      bot: 'catalog',
+      phase: 'run',
+      urls: [urls[0]],
+    });
+    expect(routeTrace).toHaveBeenCalledWith({
+      bot: 'people',
+      phase: 'run',
+      urls: [urls[1]],
+    });
+    await expect(temporaryDb.storage.db.select().from(runsTable)).resolves.toHaveLength(2);
+    await expect(temporaryDb.storage.db.select().from(itemsTable)).resolves.toHaveLength(2);
+  });
+
+  it('rejects a URL claimed by more than one active bot', async () => {
+    temporaryDb = await createTemporaryDb();
+    const url = 'https://example.test/catalog/widget';
+    const workflowStart = vi.fn(async () => ({
+      result: [
+        {
+          groupingName: 'first-catalog-pages',
+          code: groupedSyncScriptCode('first', '/catalog/'),
+        },
+        {
+          groupingName: 'second-catalog-pages',
+          code: groupedSyncScriptCode('second', '/catalog/'),
+        },
+      ],
+      status: 'success',
+    }));
+    const mastra = {
+      getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
+      listTools: () => ({}),
+    } as unknown as Mastra;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra,
+      storage: temporaryDb.storage,
+    });
+    const service = new DataService({
+      context,
+      itemSchema: z.object({ value: z.string() }),
+      name: 'example-service',
+      sources: [new DataSource({ url })],
+    });
+
+    await service.build();
+
+    await expect(syncUrls(service, [url])).rejects.toThrow('Multiple scripts can handle');
+    await expect(temporaryDb.storage.db.select().from(runsTable)).resolves.toEqual([]);
+  });
+
+  it('rejects URLs that no active bot can handle', async () => {
+    temporaryDb = await createTemporaryDb();
+    const sourceUrl = 'https://example.test/catalog/widget';
+    const unhandledUrl = 'https://example.test/people/ada-lovelace';
+    const workflowStart = vi.fn(async () => ({
+      result: [
+        {
+          groupingName: 'catalog-pages',
+          code: groupedSyncScriptCode('catalog', '/catalog/'),
+        },
+      ],
+      status: 'success',
+    }));
+    const mastra = {
+      getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
+      listTools: () => ({}),
+    } as unknown as Mastra;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra,
+      storage: temporaryDb.storage,
+    });
+    const service = new DataService({
+      context,
+      itemSchema: z.object({ value: z.string() }),
+      name: 'example-service',
+      sources: [new DataSource({ url: sourceUrl })],
+    });
+
+    await service.build();
+
+    await expect(syncUrls(service, [unhandledUrl])).rejects.toBeInstanceOf(ScriptNotFoundError);
+    await expect(temporaryDb.storage.db.select().from(runsTable)).resolves.toEqual([]);
   });
 
   it('reports a named error when a source has no saved script', async () => {

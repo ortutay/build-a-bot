@@ -1,5 +1,5 @@
 import type { Mastra } from '@mastra/core';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { StorageTransaction } from '../storage/Storage.js';
@@ -13,6 +13,7 @@ import { toContextTools } from './tool-fns.js';
 
 export type ScriptOptions = UsesContextOptions & {
   id?: string;
+  active?: boolean;
   buildInput?: Record<string, unknown> | null;
   dataServiceId?: string;
   name: string;
@@ -49,6 +50,7 @@ const selectDependencies = (
 
 export class Script extends UsesContext {
   id: string | null;
+  active: boolean;
   dataServiceId: string | null;
   buildInput: Record<string, unknown> | null;
   code: string;
@@ -61,6 +63,7 @@ export class Script extends UsesContext {
   constructor(options: ScriptOptions) {
     super(options);
     this.id = options.id ?? null;
+    this.active = options.active ?? true;
     this.dataServiceId = options.dataServiceId ?? null;
     this.buildInput = options.buildInput ?? null;
     this.code = options.code;
@@ -92,22 +95,18 @@ export class Script extends UsesContext {
     return script ? new Script({ ...script, context }) : null;
   }
 
-  static async findByBuildUrl(
+  static async findActiveForDataService(
     context: GlobalContext,
-    dataServiceId: string,
-    url: string
-  ): Promise<Script | null> {
+    dataServiceId: string
+  ): Promise<Script[]> {
     await context.init();
     const scripts = await context.storage.db
       .select()
       .from(scriptsTable)
-      .where(eq(scriptsTable.dataServiceId, dataServiceId));
-    const script = scripts.find((val) => {
-      const urls = val.buildInput?.urls;
-      return Array.isArray(urls) && urls.includes(url);
-    });
+      .where(and(eq(scriptsTable.dataServiceId, dataServiceId), eq(scriptsTable.active, true)))
+      .orderBy(asc(scriptsTable.name), asc(scriptsTable.createdAt), asc(scriptsTable.id));
 
-    return script ? new Script({ ...script, context }) : null;
+    return scripts.map((script) => new Script({ ...script, context }));
   }
 
   async compile(mastra?: Mastra): Promise<Bot> {
@@ -141,6 +140,7 @@ export class Script extends UsesContext {
     const context = await this.context();
     await context.storage.fillInTransaction(tx, async (tx) => {
       const vals = {
+        active: this.active,
         buildInput: this.buildInput,
         code: this.code,
         exports: this.exports,
@@ -159,16 +159,10 @@ export class Script extends UsesContext {
         if (script) {
           return;
         }
+        throw new Error(`Could not update script: ${this.id}`);
       }
 
-      const [script] = await tx
-        .insert(scriptsTable)
-        .values(vals)
-        .onConflictDoUpdate({
-          target: [scriptsTable.dataServiceId, scriptsTable.name],
-          set: vals,
-        })
-        .returning();
+      const [script] = await tx.insert(scriptsTable).values(vals).returning();
       if (!script) {
         throw new Error(`Could not save script: ${this.name}`);
       }

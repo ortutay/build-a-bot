@@ -8,7 +8,10 @@ export const redisCacheUrl = process.env.REDIS_CACHE_URL;
 export const tursoDatabaseUrl = process.env.TURSO_DATABASE_URL;
 export const mastraDatabaseFilepath = 'file:./.build-a-bot/mastra.db';
 export const storageDirectory = '.build-a-bot';
-export const storageDatabaseFilepath = `file:./${storageDirectory}/data.db`;
+export const storageDatabasePath = `${storageDirectory}/data.db`;
+export const storageDatabaseFilepath = `file:./${storageDatabasePath}`;
+// Bump this when a squashed schema requires local storage to be recreated.
+export const storageSchemaVersion = '1';
 
 export const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 export const openaiApiKey = process.env.OPENAI_API_KEY;

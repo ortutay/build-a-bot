@@ -1,4 +1,5 @@
-import { sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import { integer, sqliteTable, text, unique, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { srid } from '../../util/index.js';
 
 export const runStatuses = ['active', 'done', 'error'] as const;
@@ -44,6 +45,7 @@ export const scriptsTable = sqliteTable(
       .$defaultFn(() => srid()),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    active: integer({ mode: 'boolean' }).notNull().default(true),
     dataServiceId: text('data_service_id')
       .notNull()
       .references(() => dataServicesTable.id),
@@ -55,7 +57,11 @@ export const scriptsTable = sqliteTable(
     modules: text({ mode: 'json' }).$type<string[]>().notNull(),
     tools: text({ mode: 'json' }).$type<string[]>().notNull(),
   },
-  (table) => [unique('scripts_data_service_id_name_unique').on(table.dataServiceId, table.name)]
+  (table) => [
+    uniqueIndex('scripts_active_data_service_id_name_unique')
+      .on(table.dataServiceId, table.name)
+      .where(sql`${table.active} = 1`),
+  ]
 );
 
 export const dataSourcesTable = sqliteTable(
@@ -108,18 +114,16 @@ export const itemsTable = sqliteTable(
     sourceScriptId: text('source_script_id')
       .notNull()
       .references(() => scriptsTable.id),
-    dataSourceId: text('data_source_id')
-      .notNull()
-      .references(() => dataSourcesTable.id),
+    sourceUrl: text('source_url').notNull(),
     uniqueId: text('unique_id').notNull(),
     data: text({ mode: 'json' }).$type<unknown>().notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
-    unique('items_source_script_id_data_source_id_unique_id_unique').on(
+    unique('items_source_script_id_source_url_unique_id_unique').on(
       table.sourceScriptId,
-      table.dataSourceId,
+      table.sourceUrl,
       table.uniqueId
     ),
   ]
