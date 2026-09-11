@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DataService, DataSource } from '@build-a-bot/core';
 
 const service = new DataService({
-  name: 'pokemon-4',
+  name: 'pokemon-7',
   itemSchema: z.object({
     name: z
       .string()
@@ -24,3 +24,9 @@ const service = new DataService({
 console.log('service:', service);
 
 await service.build();
+const out1 = await service.sync([
+  'https://pokemondb.net/pokedex/bulbasaur',
+  'https://pokemondb.net/pokedex/charmander',
+  'https://pokemondb.net/pokedex/national',
+]);
+console.log('out1:', out1);

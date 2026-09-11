@@ -15,7 +15,7 @@ const groupingSchema = z.object({
   urls: z.array(z.string()).describe('URLs that this grouping applies to'),
   goal: z.string(),
   report: z.string().describe('Report specific for this grouping'),
-  outputSchema: jsonSchema,
+  itemSchema: jsonSchema,
   modules: z.array(z.string()),
   context: z.array(z.string()),
   tools: z.array(z.string()),
@@ -27,9 +27,9 @@ const planOutputSchema = z.object({
 });
 
 const planAgentGroupingSchema = groupingSchema
-  .omit({ context: true, modules: true, outputSchema: true, tools: true })
+  .omit({ context: true, itemSchema: true, modules: true, tools: true })
   .extend({
-    outputSchema: z.string().describe('A JSON-encoded output schema without Markdown fences'),
+    itemSchema: z.string().describe('A JSON-encoded item schema without Markdown fences'),
   });
 
 const planAgentOutputSchema = z.object({
@@ -60,7 +60,7 @@ export const planStep = createStep({
   inputSchema: z.object({
     urls: z.array(z.string()),
     goal: z.string(),
-    outputSchema: jsonSchema.optional(),
+    itemSchema: jsonSchema.optional(),
     modules: z.array(z.string()),
     context: z.array(z.string()),
     tools: z.array(z.string()),
@@ -75,10 +75,10 @@ export const planStep = createStep({
 
     const prompt = templates.plan.render({
       userInput: templates.userInput.render({ urls: urls.join('\n'), goal }),
-      outputSchema:
-        inputData.outputSchema === undefined
-          ? 'No output schema was supplied. Generate one from the user goal and your research.'
-          : JSON.stringify(inputData.outputSchema, null, 2),
+      itemSchema:
+        inputData.itemSchema === undefined
+          ? 'No item schema was supplied. Generate one from the user goal and your research.'
+          : JSON.stringify(inputData.itemSchema, null, 2),
     });
 
     const resp = await agent.generate(prompt, {
@@ -114,7 +114,7 @@ export const planStep = createStep({
         ...grouping,
         groupingName: grouping.groupingName,
         groupingDescription: grouping.groupingDescription,
-        outputSchema: parseGeneratedSchema(grouping.outputSchema, 'output schema'),
+        itemSchema: parseGeneratedSchema(grouping.itemSchema, 'item schema'),
         modules,
         context,
         tools,
@@ -166,11 +166,12 @@ export const writeCodeStep = createStep({
             urls: grouping.urls.join('\n'),
             goal: grouping.goal,
           }),
-          outputSchema: JSON.stringify(grouping.outputSchema, null, 2),
+          itemSchema: JSON.stringify(grouping.itemSchema, null, 2),
           availableModules: JSON.stringify(Object.keys(modules)),
           availableContext: JSON.stringify(Object.keys(context)),
           generalReport: inputData.generalReport,
           groupingName: grouping.groupingName,
+          groupingUrls: JSON.stringify(grouping.urls, null, 2),
           groupingReport: grouping.report,
         });
 

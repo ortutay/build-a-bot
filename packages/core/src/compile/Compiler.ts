@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import * as cheerio from 'cheerio';
 import type { JSONSchema } from 'json-schema-to-ts';
 import * as nodeHtmlParser from 'node-html-parser';
+import PQueue from 'p-queue';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
 import { log } from '../logger.js';
@@ -10,7 +11,7 @@ import { log } from '../logger.js';
 export type CompileResult = {
   check: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   fn: (input: unknown) => Promise<{ out: unknown; logs: any[] }>;
-  outputSchema: JSONSchema;
+  itemSchema: JSONSchema;
   run: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
 };
@@ -48,6 +49,26 @@ export const availableContext = {
   console,
 };
 
+const createPQueue = (logger: Pick<Console, 'info'>, pq: PQueue): PQueue => {
+  const add = pq.add.bind(pq);
+  return new Proxy(pq, {
+    get(target, key) {
+      if (key !== 'add') {
+        const val = Reflect.get(target, key, target);
+        return typeof val === 'function' ? val.bind(target) : val;
+      }
+
+      return (...args: Parameters<PQueue['add']>) => {
+        const [fn, options] = args;
+        return add(async (taskOptions) => {
+          logger.info(`Started bot script queue task: queued=${pq.size}, running=${pq.pending}`);
+          return await fn(taskOptions);
+        }, options);
+      };
+    },
+  });
+};
+
 // TODO:
 // 1) Constructor takes code, list of exports in that code, list of modules, list of tools
 // 2) compile() takes no arguments, keep return type
@@ -58,7 +79,8 @@ export class Compiler {
     code: string,
     { additionalContext = {} }: CompileOptions = {}
   ): Promise<CompileResult> {
-    const sharedContext = { ...additionalContext };
+    const pq = new PQueue({ concurrency: 50, intervalCap: 5, interval: 1000, strict: true });
+    const sharedContext = { ...additionalContext, pq };
     const context = vm.createContext({ ...sharedContext });
 
     const cleaned = code
@@ -71,7 +93,7 @@ export class Compiler {
       'use strict';
       ${cleaned}
       return {
-      outputSchema: typeof outputSchema === 'undefined' ? undefined : outputSchema,
+      itemSchema: typeof itemSchema === 'undefined' ? undefined : itemSchema,
       check: typeof check === 'undefined' ? undefined : check,
       run: typeof run === 'undefined' ? undefined : run,
       uniqueId: typeof uniqueId === 'undefined' ? undefined : uniqueId,
@@ -80,11 +102,11 @@ export class Compiler {
     `;
 
     const script = new vm.Script(source, { filename: 'script.js' });
-    const { check, outputSchema, run, uniqueId } = await script.runInContext(context, {
+    const { check, itemSchema, run, uniqueId } = await script.runInContext(context, {
       timeout: 1000,
     });
-    if (!outputSchema || typeof outputSchema !== 'object') {
-      throw new Error('Script must export an outputSchema object');
+    if (!itemSchema || typeof itemSchema !== 'object') {
+      throw new Error('Script must export an itemSchema object');
     }
     if (typeof check !== 'function') {
       throw new Error('Script must export a check function');
@@ -108,7 +130,7 @@ export class Compiler {
       name: 'check' | 'run',
       urls: string[]
     ): Promise<{ out: unknown; logs: any[] }> => {
-      const wrappedConsole: Record<string, any> = {};
+      const wrappedConsole = {} as Pick<Console, 'info'> & Record<string, any>;
       const logs: any[] = [];
       for (const key of Object.keys(console)) {
         wrappedConsole[key] = (...args: any[]) => {
@@ -117,8 +139,13 @@ export class Compiler {
         };
       }
 
+      // Console output is captured separately for each check or run invocation.
       const exports = await script.runInContext(
-        vm.createContext({ ...sharedContext, console: wrappedConsole }),
+        vm.createContext({
+          ...sharedContext,
+          console: wrappedConsole,
+          pq: createPQueue(wrappedConsole, pq),
+        }),
         {
           timeout: 1000,
         }
@@ -135,6 +162,6 @@ export class Compiler {
     const runFn = (urls: string[]) => execute('run', urls);
     const fn = (input: unknown) => runFn(input as string[]);
 
-    return { check: checkFn, fn, outputSchema, run: runFn, uniqueId: uniqueIdFn };
+    return { check: checkFn, fn, itemSchema, run: runFn, uniqueId: uniqueIdFn };
   }
 }

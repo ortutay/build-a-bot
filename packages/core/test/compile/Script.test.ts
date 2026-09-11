@@ -1,15 +1,15 @@
 import type { Mastra } from '@mastra/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { GlobalContext } from '../../src/context/index.js';
 import { Script, ScriptDependencyUnavailableError } from '../../src/compile/Script.js';
+import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
 import { DataService } from '../../src/service/DataService.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const scriptCode = `
-  export const outputSchema = { type: 'string' };
+  export const itemSchema = { type: 'string' };
   export const uniqueId = (item) => item;
   export const check = async (urls) => urls.map(() => true);
   export const run = async (urls) => ({
@@ -76,6 +76,7 @@ describe('Script', () => {
     expect(found?.id).toBe(script.id);
     await expect(Script.findById(context, 'missing')).resolves.toBeNull();
     const urls = ['https://example.test/hello'];
+    expect(bot.itemSchema).toEqual({ type: 'string' });
     expect(bot.uniqueId('hello')).toBe('hello');
     await expect(bot.check(urls)).resolves.toEqual([true]);
     await expect(bot.run(urls)).resolves.toEqual({
@@ -95,6 +96,53 @@ describe('Script', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
 
     await expect(script.compile(mastra)).rejects.toBeInstanceOf(ScriptDependencyUnavailableError);
+  });
+
+  it('requires scripts to export itemSchema', async () => {
+    const script = new Script({
+      name: 'old-schema-export',
+      code: `
+        export const outputSchema = {};
+        export const check = async (urls) => urls.map(() => true);
+        export const uniqueId = () => 'old-schema-export';
+        export const run = async () => ({ results: [], urlsVisited: [] });
+      `,
+      modules: [],
+      tools: [],
+      vmContext: [],
+    });
+    const mastra = { listTools: () => ({}) } as unknown as Mastra;
+
+    await expect(script.compile(mastra)).rejects.toThrow('Script must export an itemSchema object');
+  });
+
+  it('logs when a queued script task starts', async () => {
+    const script = new Script({
+      name: 'queue-logging',
+      code: `
+        export const itemSchema = {};
+        export const check = async (urls) => urls.map(() => true);
+        export const uniqueId = (item) => item;
+        export const run = async (urls) => ({
+          results: await Promise.all(urls.map((url) => pq.add(() => url))),
+          urlsVisited: urls,
+        });
+      `,
+      modules: [],
+      tools: [],
+      vmContext: [],
+    });
+    const mastra = { listTools: () => ({}) } as unknown as Mastra;
+    const bot = await script.compile(mastra);
+
+    await expect(bot.run(['one', 'two'], 'queue-logging')).resolves.toEqual({
+      results: ['one', 'two'],
+      urlsVisited: ['one', 'two'],
+    });
+    expect(bot.getLogs('queue-logging')).toContainEqual({
+      level: 'info',
+      args: [expect.stringContaining('Started bot script queue task')],
+    });
   });
 
   it('allows one active script per name while retaining inactive versions', async () => {
@@ -135,7 +183,7 @@ describe('Script', () => {
     const script = new Script({
       name: 'unselected-module',
       code: `
-        export const outputSchema = {};
+        export const itemSchema = {};
         export const check = async (urls) => urls.map(() => true);
         export const uniqueId = () => 'unselected-module';
         export const run = async () => playwright;

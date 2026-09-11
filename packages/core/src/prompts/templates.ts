@@ -40,10 +40,10 @@ Tools:
 );
 
 export const plan = new Template(
-  ['userInput', 'outputSchema'],
+  ['userInput', 'itemSchema'],
   `You are planning JavaScript web-scraping scripts for one data service. Explore and gather the information needed to write those scripts.
 
-Do not write code yet. Produce a written implementation report for the coding agent and an output schema. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return the schema as JSON without Markdown fences.
+Do not write code yet. Produce a written implementation report for the coding agent and an item schema. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return the schema as JSON without Markdown fences.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
@@ -113,7 +113,7 @@ Use the default proxy configuration unless evidence shows another available conf
 Include specifics in your report, including:
 - Sample URLs
 - Sample HTML snippets from those URLs
-- Relevant selectors for all fields in output schema.
+- Relevant selectors for all fields in item schema.
 - Any other specifics that will be helpful for the coding agent
 
 Give enough HTML snippets to write the proper selectors.
@@ -122,18 +122,18 @@ Give enough HTML snippets to write the proper selectors.
 
 If tools are available, test your assumptions using snippets. You may include small code snippets that worked in the report output as appropriate.
 
-# Output schema
+# Item schema
 
-Define an output schema for this function.
+Define an item schema for this function.
 
-If the user input includes an output schema, it is authoritative. Do not add fields, wrappers, or metadata that are not present in the supplied schema.
+If the user input includes an item schema, it is authoritative. Do not add fields, wrappers, or metadata that are not present in the supplied schema.
 
-Guidelines for output schema:
+Guidelines for item schema:
 - Follow the user prompt
-- Beyond that, give a nicely structured output with the key data
+- Beyond that, give a nicely structured item with the key data
 - Make it resilient. Unless absolutely necessary, make outputs optional.
 - Do not overcomplicate the schema or add excessive nesting.
-- If a specific output schema is provided in the user prompt section, use it exactly. Restate the user schema in your output.
+- If a specific item schema is provided in the user prompt section, use it exactly. Restate the user schema in your output.
 
 # Additional guidelines
 
@@ -153,9 +153,9 @@ Guidelines for output schema:
 
 {{userInput}}
 
-<output-schema>
-{{outputSchema}}
-</output-schema>
+<item-schema>
+{{itemSchema}}
+</item-schema>
 
 <== End User Input Section ==>
 
@@ -168,26 +168,39 @@ export const code = new Template(
     'availableModules',
     'availableContext',
     'userInput',
-    'outputSchema',
+    'itemSchema',
     'generalReport',
     'groupingName',
+    'groupingUrls',
     'groupingReport',
   ],
   `You are writing a JavaScript web-scraping script. Use the reports below to write code.
 
 If necessary, use tools to load pages and inspect the site further before generating the script.
 
-The output schema below describes one extracted item. It is authoritative; export it exactly. The runtime owns and validates the run-result envelope, so do not add that envelope to outputSchema.
+The item schema below describes one extracted item. It is authoritative; export it exactly, and follow it exactly.
 
-<output-schema>
-{{outputSchema}}
-</output-schema>
+<item-schema>
+{{itemSchema}}
+</item-schema>
+
+Each item you extract will match this item schema, and you will return an array of items in results. See the description of run(urls) below for exact return format.
+
+# Targeting the specific grouping
+
+You are targetting a specific named grouping of pages with the name "{{groupingName}}". This grouping represents pages that were determined to have similar structure, and can be parsed together. The scraper you will write should handle these types of pages.
+
+These are some example URLs for this grouping. These are merely representative examples, and may not be an exhaustive list of URLs that your scraper should handle.
+
+<grouping-urls>
+{{groupingUrls}}
+</grouping-urls>
 
 # Structure
 
 Your code must be structured in the following way:
 
-  export const outputSchema = { /* ... JSON schema ...*/ };
+  export const itemSchema = { /* ... JSON schema ...*/ };
   export const uniqueId = (item) => { /* ... return a canonical string ... */ };
   export const check = async (urls) => { /* ... returns one boolean per URL ... */ };
   export const run = async (urls) => {
@@ -208,7 +221,7 @@ Export an async check(urls) function. It receives a list of URLs and returns one
 
 This extracts data from the specified URLs. The data service has already validated and routed these URLs, so do not call check() again or silently ignore them. Return this envelope:
 
-- "results": an array of objects matching outputSchema.
+- "results": an array of objects matching itemSchema
 - "urlsVisited": an array of URLs visited while handling this call.
 
 # Tools
@@ -228,6 +241,20 @@ You have access to these modules, which are in the VM context. Do not import the
 You have access to these globals in the VM context
 
 {{availableContext}}
+
+# Concurrency object
+
+You have in your context a special object: \`pq\`. It is an instance of new PQueue() from https://github.com/sindresorhus/p-queue. It was instantiated like this:
+
+  const pq = new PQueue({ concurrency: ...value... });
+
+You should use this for limiting concurrency for fetch, browser instances, etc. The exact concurrency value has already been set, in accordance with proper rules like robots.txt. Therefore, you can simple make fetch tool calls, browser tool calls, etc. like this:
+
+  const results = await Promise.all(
+    urls.map(url => pq.add(() => tools.fetchTool({ url, proxy: '...' }))
+  );
+
+Again, you do not need to create the pq object. It is already in the context.
 
 # Dependencies
 
@@ -259,6 +286,7 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - Because you have availableModules, do not write any "import" lines.
 - Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
 - The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
+- Do not parse more than 10,000 pages or generate more than 10,000 items. Enforce this by stopping early and/or processing only a deterministic subset of the input.
 - ${guidelineDoNotInvent}
 - ${guidelinePlaywrightStrictMode}
 - ${guidelineTestSnippets}
@@ -266,16 +294,3 @@ Send debug output via console.log() as you go along. Log items as they are parse
 {{userInput}}
 `
 );
-
-// # Concurrency and rate limit considerations
-
-// Evaluate concurrency and rate limits for URL retrieval by try different concurrency configurations. First try low concurrency and low rate limit. Then, try higher values.
-
-// Rate limit progression:
-//   - First, try 1 query by itself
-//   - Then, try around 10 queries at ~5qps, max concurrency = 5
-//   - Then, try around 20 queries at ~10qps, max concurrency = 10
-
-// Beyond this, use your judgement.
-
-// Try the different providers and various tools to gather evidence for concurrency and rate limits on a per-provider basis. Put this data in a section titled "Concurrency and rate limit report".

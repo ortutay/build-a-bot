@@ -4,21 +4,21 @@ import { clip, srid } from '../util/index.js';
 
 export type BotOptions = {
   check: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
-  outputSchema: JSONSchema;
+  itemSchema: JSONSchema;
   run: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
 };
 
 export class Bot {
   checkFn: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
-  outputSchema: JSONSchema;
+  itemSchema: JSONSchema;
   runFn: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
   logs: Record<string, any[]>;
 
   constructor(options: BotOptions) {
     this.checkFn = options.check;
-    this.outputSchema = options.outputSchema;
+    this.itemSchema = options.itemSchema;
     this.runFn = options.run;
     if (typeof options.uniqueId !== 'function') {
       throw new Error('Bot requires a uniqueId function');

@@ -71,7 +71,7 @@ You should define a function called run as follows:
       const compiler = new Compiler();
       const { fn } = await compiler.compile(
         `
-        const outputSchema = {};
+        const itemSchema = {};
         const uniqueId = () => 'code-snippet';
         const check = async () => [];
         ${code}

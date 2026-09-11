@@ -374,7 +374,7 @@ export class DataService
               goal,
               context: Object.keys(availableContext),
               modules: Object.keys(availableModules),
-              outputSchema: this.#schemaConfig(),
+              itemSchema: this.#schemaConfig(),
               tools,
             },
           });

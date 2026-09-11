@@ -55,7 +55,7 @@ describe('browser plan cache', () => {
                 urls: [url],
                 goal: 'List catalog items.',
                 report: `Catalog page: ${page.content}`,
-                outputSchema: JSON.stringify({ type: 'object' }),
+                itemSchema: JSON.stringify({ type: 'object' }),
               },
             ],
           },

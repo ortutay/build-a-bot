@@ -21,20 +21,20 @@ import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 
 const scriptCode = `
-  export const outputSchema = { type: 'object' };
+  export const itemSchema = { type: 'object' };
   export const check = async (urls) => urls.map(() => true);
   export const uniqueId = (item) => JSON.stringify(item);
   export const run = async (urls) => ({ results: [], urlsVisited: urls });
 `;
 
 const invalidBuildScriptCode = `
-  export const outputSchema = { type: 'object' };
+  export const itemSchema = { type: 'object' };
   export const check = async (urls) => urls.map(() => true);
   export const run = async (urls) => ({ results: [], urlsVisited: urls });
 `;
 
 const syncScriptCode = `
-  export const outputSchema = {
+  export const itemSchema = {
     type: 'object',
     properties: { value: { type: 'string' } },
     required: ['value'],
@@ -48,21 +48,21 @@ const syncScriptCode = `
 `;
 
 const invalidSyncScriptCode = `
-  export const outputSchema = { type: 'object' };
+  export const itemSchema = { type: 'object' };
   export const check = async (urls) => urls.map(() => true);
   export const uniqueId = (item) => item.value;
   export const run = async (urls) => ({ results: [{ value: 42 }], urlsVisited: urls });
 `;
 
 const emptySyncScriptCode = `
-  export const outputSchema = { type: 'object' };
+  export const itemSchema = { type: 'object' };
   export const check = async (urls) => urls.map(() => true);
   export const uniqueId = (item) => item.value;
   export const run = async (urls) => ({ results: [], urlsVisited: urls });
 `;
 
 const catalogSyncScriptCode = (url: string) => `
-  export const outputSchema = { type: 'object' };
+  export const itemSchema = { type: 'object' };
   export const check = async (urls) => urls.map(() => true);
   export const uniqueId = (item) => item.id;
   export const run = async (urls) => {
@@ -72,7 +72,7 @@ const catalogSyncScriptCode = (url: string) => `
 `;
 
 const groupedSyncScriptCode = (bot: string, pathPrefix: string, trace = false) => `
-  export const outputSchema = {
+  export const itemSchema = {
     type: 'object',
     properties: { value: { type: 'string' } },
     required: ['value'],

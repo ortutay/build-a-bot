@@ -48,7 +48,7 @@ describe('Run', () => {
     const bot = new Bot({
       check: async (urls) => ({ logs: [], out: urls.map(() => true) }),
       run: async () => ({ logs, out: output }),
-      outputSchema: { type: 'object', properties: { value: { type: 'string' } } },
+      itemSchema: { type: 'object', properties: { value: { type: 'string' } } },
       uniqueId: (item) => (item as { value: string }).value,
     });
     const run = new Run({ scriptId: script.id!, input });
