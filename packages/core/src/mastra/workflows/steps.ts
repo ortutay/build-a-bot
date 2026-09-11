@@ -60,7 +60,6 @@ export const planStep = createStep({
   inputSchema: z.object({
     urls: z.array(z.string()),
     goal: z.string(),
-    // inputSchema: jsonSchema.optional(),
     outputSchema: jsonSchema.optional(),
     modules: z.array(z.string()),
     context: z.array(z.string()),
@@ -76,10 +75,6 @@ export const planStep = createStep({
 
     const prompt = templates.plan.render({
       userInput: templates.userInput.render({ urls: urls.join('\n'), goal }),
-      // inputSchema:
-      //     inputData.inputSchema === undefined
-      //       ? 'No input schema was supplied. Generate one from the user goal and your research.'
-      //       : JSON.stringify(inputData.inputSchema, null, 2),
       outputSchema:
         inputData.outputSchema === undefined
           ? 'No output schema was supplied. Generate one from the user goal and your research.'
@@ -119,7 +114,6 @@ export const planStep = createStep({
         ...grouping,
         groupingName: grouping.groupingName,
         groupingDescription: grouping.groupingDescription,
-        // inputSchema: parseGeneratedSchema(grouping.inputSchema, 'input schema'),
         outputSchema: parseGeneratedSchema(grouping.outputSchema, 'output schema'),
         modules,
         context,
@@ -172,7 +166,6 @@ export const writeCodeStep = createStep({
             urls: grouping.urls.join('\n'),
             goal: grouping.goal,
           }),
-          // inputSchema: JSON.stringify(grouping.inputSchema, null, 2),
           outputSchema: JSON.stringify(grouping.outputSchema, null, 2),
           availableModules: JSON.stringify(Object.keys(modules)),
           availableContext: JSON.stringify(Object.keys(context)),

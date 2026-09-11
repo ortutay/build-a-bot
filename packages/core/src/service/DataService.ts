@@ -281,7 +281,7 @@ export class DataService
     if (!dataServiceId) {
       throw new Error(`Cannot list items for an unsaved data service: ${this.name}`);
     }
-    const where = eq(scriptsTable.dataServiceId, dataServiceId);
+    const where = and(eq(scriptsTable.dataServiceId, dataServiceId), eq(scriptsTable.active, true));
     const [totalResults, items] = await Promise.all([
       context.storage.db
         .select({ total: count() })

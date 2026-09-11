@@ -76,7 +76,7 @@ Additionally, sometimes URLs will have a different pattern, but actually have th
 
 Every supplied URL must appear in exactly one grouping. Do not omit, duplicate, or add URLs.
 
-Each groupingName is a persistent script identifier. It must be non-empty, unique, kebab-case, and stable for the same page type. Do not use ordinal or arbitrary names such as group-1.
+Each groupingName is a descriptive label for a grouping in this plan. It must be non-empty, unique within the plan, kebab-case, and stable for the same page type.
 
 Split the report into a general section, which applies to all groupings, and group-specific reports.
 

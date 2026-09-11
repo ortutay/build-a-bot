@@ -246,6 +246,60 @@ describe('DataService', () => {
     await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
   });
 
+  it('lists only items from active scripts, including totals and pagination', async () => {
+    temporaryDb = await createTemporaryDb();
+    const storage = temporaryDb.storage;
+    const context = new GlobalContext({
+      documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
+      mastra: {} as Mastra,
+      storage,
+    });
+    const service = new DataService({
+      context,
+      name: 'active-items',
+      sources: [],
+      itemSchema: z.object({ value: z.string() }),
+    });
+    await service.save();
+
+    for (const active of [false, true]) {
+      const script = new Script({
+        context,
+        active,
+        dataServiceId: service.id!,
+        name: 'source',
+        code: scriptCode,
+        modules: [],
+        tools: [],
+        vmContext: [],
+      });
+      await script.save();
+      for (const uniqueId of active ? ['b', 'c'] : ['a', 'b']) {
+        await new Item({
+          data: { value: active ? 'current' : 'historical' },
+          sourceUrl: 'https://example.test/data',
+          sourceScriptId: script.id!,
+          uniqueId,
+        }).save(storage);
+      }
+    }
+
+    await expect(service.list()).resolves.toEqual({
+      count: 2,
+      total: 2,
+      results: [
+        { id: 'b', value: 'current' },
+        { id: 'c', value: 'current' },
+      ],
+    });
+    await expect(service.list({ limit: 1, page: 2 })).resolves.toEqual({
+      count: 1,
+      total: 2,
+      results: [{ id: 'c', value: 'current' }],
+    });
+    await expect(storage.db.select().from(itemsTable)).resolves.toHaveLength(4);
+  });
+
   it('lists and gets current items scoped to the service', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
