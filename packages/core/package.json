@@ -26,6 +26,7 @@
     "mastra:build": "mastra build",
     "dev": "tsc --watch",
     "test": "ENV=test FORCE_COLOR=1 vitest run --dir test",
+    "test:brightdata": "ENV=integration vitest run --config vitest.brightdata.config.ts",
     "test:watch": "ENV=test FORCE_COLOR=1 vitest --dir test",
     "typecheck": "tsc -p tsconfig.test.json",
     "create-datasets": "tsx tasks/create-datasets.ts"
