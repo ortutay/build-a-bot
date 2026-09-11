@@ -12,7 +12,7 @@ import {
   markAvailableTool,
   runtimeInstrument,
 } from '../../instruments/index.js';
-import { names as proxyNames, proxyFetch } from '../../../proxy.js';
+import { names as proxyNames, proxyFetch } from '../../../legacyProxy.js';
 import { parseResponseBody } from '../../../util/index.js';
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
@@ -73,7 +73,6 @@ const createFetchTool = (documentLibrary: DocumentLibrary): any =>
     inputSchema: z.object({
       url: z
         .string()
-        .url()
         .describe('URL to fetch. Include the scheme, for example https://example.com.'),
       proxy: z
         .enum(proxyNames)

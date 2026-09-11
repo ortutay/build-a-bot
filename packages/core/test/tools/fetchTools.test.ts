@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { proxyFetch } = vi.hoisted(() => ({ proxyFetch: vi.fn() }));
 
-vi.mock('../../src/proxy.js', () => ({
+vi.mock('../../src/legacyProxy.js', () => ({
   names: ['unblock', 'residential'],
   proxyFetch,
 }));

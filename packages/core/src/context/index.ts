@@ -1,22 +1,28 @@
 import { type Mastra } from '@mastra/core';
 import { DocumentLibrary, DiskLibraryBackend } from '../documents/index.js';
 import { defaultMastra } from '../mastra/index.js';
+import { NoProxy, ProxyRegistry } from '../proxy/index.js';
 import { Storage } from '../storage/Storage.js';
 
 export type GlobalOptions = {
-  mastra?: Mastra;
-  storage?: Storage;
   documentLibrary?: DocumentLibrary;
+  mastra?: Mastra;
+  proxyRegistry?: ProxyRegistry;
+  storage?: Storage;
 };
+
+const createDefaultProxyRegistry = (): ProxyRegistry => new ProxyRegistry([new NoProxy()]);
 
 export class GlobalContext {
   readonly documentLibrary: DocumentLibrary;
   readonly mastra: Mastra;
+  readonly proxyRegistry: ProxyRegistry;
   readonly storage: Storage;
 
-  constructor({ documentLibrary, mastra, storage }: Required<GlobalOptions>) {
+  constructor({ documentLibrary, mastra, proxyRegistry, storage }: Required<GlobalOptions>) {
     this.documentLibrary = documentLibrary;
     this.mastra = mastra;
+    this.proxyRegistry = proxyRegistry;
     this.storage = storage;
   }
 
@@ -27,9 +33,10 @@ export class GlobalContext {
 
 export const mergeContext = (context: GlobalContext, options?: GlobalOptions): GlobalContext => {
   return new GlobalContext({
-    mastra: options?.mastra ?? context.mastra,
-    storage: options?.storage ?? context.storage,
     documentLibrary: options?.documentLibrary ?? context.documentLibrary,
+    mastra: options?.mastra ?? context.mastra,
+    proxyRegistry: options?.proxyRegistry ?? context.proxyRegistry,
+    storage: options?.storage ?? context.storage,
   });
 };
 
@@ -40,6 +47,7 @@ export const createGlobalContext = async (options: GlobalOptions = {}): Promise<
     new DocumentLibrary(
       new DiskLibraryBackend('documentLibrary', { rootDir: '.build-a-bot/document-library' })
     );
+  const proxyRegistry = options.proxyRegistry ?? createDefaultProxyRegistry();
   let mastra = options.mastra;
 
   if (!mastra) {
@@ -56,6 +64,7 @@ export const createGlobalContext = async (options: GlobalOptions = {}): Promise<
     storage,
     documentLibrary,
     mastra,
+    proxyRegistry,
   });
 };
 

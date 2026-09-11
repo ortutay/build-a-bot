@@ -23,6 +23,7 @@ export const proxyDatacenterDedicatedUsername = process.env.PROXY_DATACENTER_DED
 export const proxyDatacenterSharedPassword = process.env.PROXY_DATACENTER_SHARED_PASSWORD;
 export const proxyDatacenterSharedServer = process.env.PROXY_DATACENTER_SHARED_SERVER;
 export const proxyDatacenterSharedUsername = process.env.PROXY_DATACENTER_SHARED_USERNAME;
+export const proxyResidentialCdpUrl = process.env.PROXY_RESIDENTIAL_CDP_URL;
 export const proxyResidentialPassword = process.env.PROXY_RESIDENTIAL_PASSWORD;
 export const proxyResidentialServer = process.env.PROXY_RESIDENTIAL_SERVER;
 export const proxyResidentialUsername = process.env.PROXY_RESIDENTIAL_USERNAME;
