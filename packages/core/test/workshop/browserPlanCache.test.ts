@@ -47,9 +47,17 @@ describe('browser plan cache', () => {
         const page = (await getDocument({ documentId }, {} as any)) as any;
         return {
           object: {
-            report: `Catalog page: ${page.content}`,
-            inputSchema: JSON.stringify({ type: 'object' }),
-            outputSchema: JSON.stringify({ type: 'array' }),
+            generalReport: 'Use browser tools.',
+            groupings: [
+              {
+                groupingName: 'catalog-pages',
+                groupingDescription: 'Catalog pages',
+                urls: [url],
+                goal: 'List catalog items.',
+                report: `Catalog page: ${page.content}`,
+                outputSchema: JSON.stringify({ type: 'object' }),
+              },
+            ],
           },
         };
       },
@@ -62,7 +70,7 @@ describe('browser plan cache', () => {
       const startedAt = performance.now();
       const result = await (planStep.execute as any)({
         inputData: {
-          url,
+          urls: [url],
           goal: 'List each catalog item with its SKU and name. This is a test of browser caching, so use browser instead of fetch().',
           modules: [],
           context: [],
@@ -77,7 +85,8 @@ describe('browser plan cache', () => {
     const slowRequestsAfterFirstRun = site.requestCount(wait);
     const second = await runPlan();
 
-    expect(first.result.report).toContain('Delayed catalog');
+    expect(first.result.groupings[0].report).toContain('Delayed catalog');
+    expect(second.result).toEqual(first.result);
     expect(first.elapsed).toBeGreaterThanOrEqual(wait * 0.8);
     expect(slowRequestsAfterFirstRun).toBe(1);
     expect(site.requestCount(wait)).toBe(slowRequestsAfterFirstRun);

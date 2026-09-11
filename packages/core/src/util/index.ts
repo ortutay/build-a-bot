@@ -51,9 +51,7 @@ export function norm(input: string | string[]): string | string[] {
     return [...new Set(input.map((url) => norm(url)))].sort();
   }
 
-  const parsed = new URL(input);
-  parsed.hash = '';
-  return parsed.toString();
+  return new URL(input).toString();
 }
 
 export const clip = (value: unknown, max = 500): string => {

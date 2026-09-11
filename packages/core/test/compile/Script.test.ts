@@ -9,15 +9,13 @@ import { DataService } from '../../src/service/DataService.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const scriptCode = `
-  export const inputSchema = {
-    type: 'object',
-    properties: { input: { type: 'string' } },
-    required: ['input'],
-  };
   export const outputSchema = { type: 'string' };
-  export const exampleInput = { input: 'example' };
-  export const uniqueId = ({ input }) => input;
-  export const run = async ({ input }) => tools.fetchTool({ input });
+  export const uniqueId = (item) => item;
+  export const check = async (urls) => urls.map(() => true);
+  export const run = async (urls) => ({
+    results: await Promise.all(urls.map((url) => tools.fetchTool({ url }))),
+    urlsVisited: urls,
+  });
 `;
 
 describe('Script', () => {
@@ -64,7 +62,7 @@ describe('Script', () => {
     const found = await Script.findByName(context, service.id!, script.name);
     const fetchTool = await markAvailableTool({
       id: 'fetchTool',
-      execute: async ({ input }: { input: string }) => `echo:${input}`,
+      execute: async ({ url }: { url: string }) => `echo:${url}`,
     });
     const mastra = { listTools: () => ({ fetchTool }) } as unknown as Mastra;
     const bot = await loaded!.compile(mastra);
@@ -77,8 +75,13 @@ describe('Script', () => {
     });
     expect(found?.id).toBe(script.id);
     await expect(Script.findById(context, 'missing')).resolves.toBeNull();
-    expect(bot.uniqueId({ input: 'hello' })).toBe('hello');
-    await expect(bot.run({ input: 'hello' })).resolves.toBe('echo:hello');
+    const urls = ['https://example.test/hello'];
+    expect(bot.uniqueId('hello')).toBe('hello');
+    await expect(bot.check(urls)).resolves.toEqual([true]);
+    await expect(bot.run(urls)).resolves.toEqual({
+      results: [`echo:${urls[0]}`],
+      urlsVisited: urls,
+    });
   });
 
   it('reports unavailable stored dependencies by name', async () => {
@@ -94,7 +97,7 @@ describe('Script', () => {
     await expect(script.compile(mastra)).rejects.toBeInstanceOf(ScriptDependencyUnavailableError);
   });
 
-  it('allows only one script with a name for each service', async () => {
+  it('allows one active script per name while retaining inactive versions', async () => {
     temporaryDb = await createTemporaryDb();
     const { context, service } = await createService('example-service');
     const first = new Script({
@@ -118,17 +121,22 @@ describe('Script', () => {
 
     await first.save();
 
+    await expect(duplicate.save()).rejects.toThrow();
+    first.active = false;
+    await first.save();
     await duplicate.save();
-    expect(duplicate.id).toBe(first.id);
+    expect(duplicate.id).not.toBe(first.id);
+    await expect(Script.findById(context, first.id!)).resolves.toMatchObject({ active: false });
+    const active = await Script.findActiveForDataService(context, service.id!);
+    expect(active.map((script) => script.id)).toEqual([duplicate.id]);
   });
 
   it('does not expose unselected modules', async () => {
     const script = new Script({
       name: 'unselected-module',
       code: `
-        export const inputSchema = { type: 'object' };
         export const outputSchema = {};
-        export const exampleInput = {};
+        export const check = async (urls) => urls.map(() => true);
         export const uniqueId = () => 'unselected-module';
         export const run = async () => playwright;
       `,
@@ -139,6 +147,6 @@ describe('Script', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const bot = await script.compile(mastra);
 
-    await expect(bot.run({})).rejects.toThrow('playwright');
+    await expect(bot.run(['https://example.test'])).rejects.toThrow('playwright');
   });
 });

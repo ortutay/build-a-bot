@@ -42,19 +42,22 @@ describe('Run', () => {
       vmContext: [],
     });
     await script.save();
-    const input = { query: 'example' };
+    const input = { urls: ['https://example.test/data'] };
+    const output = { results: [{ value: 'scraped' }], urlsVisited: input.urls };
+    const logs = [['scraped one item']];
     const bot = new Bot({
-      exampleInput: input,
-      fn: async () => ({ logs: [], out: [{ value: 'scraped' }] }),
-      inputSchema: { type: 'object' },
-      outputSchema: { type: 'array' },
+      check: async (urls) => ({ logs: [], out: urls.map(() => true) }),
+      run: async () => ({ logs, out: output }),
+      outputSchema: { type: 'object', properties: { value: { type: 'string' } } },
       uniqueId: (item) => (item as { value: string }).value,
     });
     const run = new Run({ scriptId: script.id!, input });
 
     await run.save(storage);
-    const output = await bot.run(input);
-    await run.complete(storage, output as unknown[]);
+    await expect(bot.check(input.urls)).resolves.toEqual([true]);
+    await expect(bot.run(input.urls, run.id!)).resolves.toEqual(output);
+    expect(bot.getLogs(run.id!)).toEqual(logs);
+    await run.complete(storage, output.results);
 
     const [storedRun] = await storage.db.select().from(runsTable);
     const [storedResult] = await storage.db.select().from(resultsTable);
