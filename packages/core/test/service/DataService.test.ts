@@ -4,13 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { Run } from '../../src/compile/Run.js';
 import { Script } from '../../src/compile/Script.js';
+import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { log } from '../../src/logger.js';
 import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
-import { DataSource } from '../../src/service/DataSource.js';
+import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService, ScriptNotFoundError } from '../../src/service/DataService.js';
+import { DataSource } from '../../src/service/DataSource.js';
 import { Item } from '../../src/service/Item.js';
-import { GlobalContext } from '../../src/context/index.js';
 import {
   dataSourcesTable,
   itemsTable,
@@ -123,7 +124,12 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
-    const serviceContext = new GlobalContext({ documentLibrary, mastra, storage });
+    const serviceContext = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      documentLibrary,
+      mastra,
+      storage,
+    });
     const service = new DataService({
       context: serviceContext,
       name: 'example-service',
@@ -174,6 +180,7 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const source = new DataSource({ url: 'https://example.test/data' });
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage,
@@ -212,6 +219,7 @@ describe('DataService', () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -266,6 +274,7 @@ describe('DataService', () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -381,7 +390,12 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
-    const context = new GlobalContext({ documentLibrary, mastra, storage });
+    const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      documentLibrary,
+      mastra,
+      storage,
+    });
     const service = new DataService({
       context,
       name: 'example-service',
@@ -441,7 +455,12 @@ describe('DataService', () => {
       });
       const mastra = { listTools: () => ({ fetchTool }) } as unknown as Mastra;
       const source = new DataSource({ url: site.baseUrl });
-      const context = new GlobalContext({ documentLibrary, mastra, storage });
+      const context = new GlobalContext({
+        proxyRegistry: new ProxyRegistry([new NoProxy()]),
+        documentLibrary,
+        mastra,
+        storage,
+      });
       const service = new DataService({
         context,
         name: 'catalog-service',
@@ -538,7 +557,12 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
-    const context = new GlobalContext({ documentLibrary, mastra, storage });
+    const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      documentLibrary,
+      mastra,
+      storage,
+    });
     const service = new DataService({
       context,
       name: 'example-service',
@@ -573,7 +597,12 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
-    const context = new GlobalContext({ documentLibrary, mastra, storage });
+    const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      documentLibrary,
+      mastra,
+      storage,
+    });
     const service = new DataService({
       context,
       name: 'example-service',
@@ -612,6 +641,7 @@ describe('DataService', () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -662,6 +692,7 @@ describe('DataService', () => {
       listTools: () => ({ routeTrace: routeTraceTool }),
     } as unknown as Mastra;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -716,6 +747,7 @@ describe('DataService', () => {
       listTools: () => ({}),
     } as unknown as Mastra;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -751,6 +783,7 @@ describe('DataService', () => {
       listTools: () => ({}),
     } as unknown as Mastra;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -773,7 +806,12 @@ describe('DataService', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
-    const context = new GlobalContext({ documentLibrary, mastra, storage });
+    const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      documentLibrary,
+      mastra,
+      storage,
+    });
     const service = new DataService({
       context,
       name: 'example-service',

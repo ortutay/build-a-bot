@@ -4,6 +4,19 @@ export { createGlobalContext, type GlobalContext, type GlobalOptions } from './c
 export { UsesContext, type UsesContextOptions } from './context/UsesContext.js';
 export { type ISaveable, type ISaveableClass } from './interface/ISaveable.js';
 export { type ISerializable } from './interface/ISerializable.js';
+export {
+  BrightDataRequestProxy,
+  CdpProxy,
+  HttpProxy,
+  isHttpProxy,
+  NoProxy,
+  Proxy,
+  ProxyRegistry,
+  type BrightDataRequestProxyOptions,
+  type HttpCapableProxy,
+  type HttpProxyOptions,
+  type ProxyType,
+} from './proxy/index.js';
 export { DataSource, type DataSourceConfig } from './service/DataSource.js';
 export {
   DataService,

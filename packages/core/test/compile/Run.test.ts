@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { GlobalContext } from '../../src/context/index.js';
 import { Bot } from '../../src/bot/Bot.js';
 import { Run } from '../../src/compile/Run.js';
 import { Script } from '../../src/compile/Script.js';
+import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
+import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { resultsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
@@ -21,6 +22,7 @@ describe('Run', () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as never,
       storage,
