@@ -35,7 +35,6 @@ export const availableContext = {
   TextEncoder,
   TextDecoder,
 
-  // Useful general utilities
   structuredClone,
   queueMicrotask,
   performance,
@@ -49,7 +48,7 @@ export const availableContext = {
   console,
 };
 
-const createPQueue = (logger: Pick<Console, 'info'>, pq: PQueue): PQueue => {
+const wrapPQueue = (pq: PQueue, logger: Pick<Console, 'info'>): PQueue => {
   const add = pq.add.bind(pq);
   return new Proxy(pq, {
     get(target, key) {
@@ -69,9 +68,6 @@ const createPQueue = (logger: Pick<Console, 'info'>, pq: PQueue): PQueue => {
   });
 };
 
-// TODO:
-// 1) Constructor takes code, list of exports in that code, list of modules, list of tools
-// 2) compile() takes no arguments, keep return type
 export class Compiler {
   constructor() {}
 
@@ -139,12 +135,11 @@ export class Compiler {
         };
       }
 
-      // Console output is captured separately for each check or run invocation.
       const exports = await script.runInContext(
         vm.createContext({
           ...sharedContext,
           console: wrappedConsole,
-          pq: createPQueue(wrappedConsole, pq),
+          pq: wrapPQueue(pq, wrappedConsole),
         }),
         {
           timeout: 1000,
