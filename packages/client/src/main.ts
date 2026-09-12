@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DataService, DataSource } from '@build-a-bot/core';
 
 const service = new DataService({
-  name: 'pokemon-7',
+  name: 'pokemon-8',
   itemSchema: z.object({
     name: z
       .string()
