@@ -1,9 +1,10 @@
 import { brightdataApiKey } from '../constants.js';
 import { getOrNull } from '../util/index.js';
 import { BrightDataRequestProxy } from './BrightDataRequestProxy.js';
+import { CdpProxy } from './CdpProxy.js';
 import { ProxyRegistry } from './ProxyRegistry.js';
 
-export type BrightdataProxyType = 'datacenterShared' | 'residential' | 'unlock';
+export type BrightdataProxyType = 'datacenterShared' | 'residential' | 'residentialCdp' | 'unlock';
 
 export type BrightdataProvisionOptions = {
   apiKey?: string;
@@ -14,6 +15,7 @@ const apiUrl = 'https://api.brightdata.com';
 const zoneSuffixes: Record<BrightdataProxyType, string> = {
   datacenterShared: 'dc_shared',
   residential: 'residential',
+  residentialCdp: 'residential_cdp',
   unlock: 'unlock',
 };
 
@@ -54,7 +56,7 @@ const request = async (
   });
   const text = await resp.text();
   if (!resp.ok) {
-    const detail = text.replaceAll(apiKey, '[redacted]').slice(0, 500);
+    const detail = text.slice(0, 500);
     throw new Error(`Bright Data ${method} ${path} failed (${resp.status}): ${detail}`);
   }
   return method === 'GET' ? JSON.parse(text) : undefined;
@@ -87,9 +89,28 @@ const planFor = (type: BrightdataProxyType) => {
       };
     case 'residential':
       return { type: 'resident', vips_type: 'shared' };
+    case 'residentialCdp':
+      return { type: 'browser_api' };
     case 'unlock':
       return { type: 'unblocker' };
   }
+};
+
+const cdpUrl = async (apiKey: string, name: string): Promise<string> => {
+  const [account, zone] = await Promise.all([
+    request(apiKey, '/status'),
+    request(apiKey, `/zone?zone=${encodeURIComponent(name)}`),
+  ]);
+  const customer = getOrNull<string>(account, 'customer');
+  const passwords = getOrNull<string[]>(zone, 'password');
+  const password = passwords?.[0];
+  if (!customer || !password) {
+    throw new Error(`Bright Data returned missing CDP credentials for zone "${name}".`);
+  }
+  const url = new URL('wss://brd.superproxy.io:9222');
+  url.username = `brd-customer-${customer}-zone-${name}`;
+  url.password = password;
+  return url.href;
 };
 
 export const createBrightdataProxies = async (
@@ -125,9 +146,13 @@ export const createBrightdataProxies = async (
           }
         }
       }
-      registry.add(
-        new BrightDataRequestProxy(id, { apiKey, requestUrl: `${apiUrl}/request`, zone: name })
-      );
+      if (type === 'residentialCdp') {
+        registry.add(new CdpProxy(id, await cdpUrl(apiKey, name)));
+      } else {
+        registry.add(
+          new BrightDataRequestProxy(id, { apiKey, requestUrl: `${apiUrl}/request`, zone: name })
+        );
+      }
       completed.push(name);
     } catch (e) {
       throw new Error(
@@ -162,10 +187,11 @@ export const removeBrightdataProxies = async (
       );
     }
   }
-  if (errors.length)
+  if (errors.length) {
     throw new AggregateError(
       errors,
       `Bright Data cleanup failed. Removed zones: ${removed.join(', ') || 'none'}.`
     );
+  }
   return removed;
 };

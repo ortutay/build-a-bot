@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { brightdataApiKey } from '../../src/constants.js';
 import { BrightDataRequestProxy } from '../../src/proxy/BrightDataRequestProxy.js';
+import { CdpProxy } from '../../src/proxy/CdpProxy.js';
 import { createBrightdataProxies, removeBrightdataProxies } from '../../src/proxy/provision.js';
 import { expectGeoIp, geoIpUrl } from './geo.js';
 
@@ -68,4 +69,24 @@ describe.runIf(Boolean(brightdataApiKey?.trim()))('Bright Data provisioning (rea
 
     expect(await listZones()).toEqual(expected);
   }, 900_000);
+
+  it('provisions residentialCdp explicitly and reuses its browser zone', async () => {
+    const registry = await createBrightdataProxies(prefix, ['residentialCdp']);
+    const id = `${prefix}-residentialCdp`;
+    expect(registry.list().map((proxy) => proxy.id)).toEqual([id]);
+    const proxy = registry.require(id);
+    // Do not print the credential-bearing proxy or URL on assertion failures.
+    expect(proxy instanceof CdpProxy).toBe(true);
+    const repeated = await createBrightdataProxies(prefix, ['residentialCdp']);
+    expect((repeated.require(id) as CdpProxy).cdpUrl === (proxy as CdpProxy).cdpUrl).toBe(true);
+    const browser = await (proxy as CdpProxy).launchBrowser();
+    try {
+      const page = await browser.newPage();
+      const resp = await page.goto(geoIpUrl, { timeout: 120_000 });
+      expect(resp?.ok()).toBe(true);
+      await expect(resp?.json()).resolves.toMatchObject({ ip: expect.any(String) });
+    } finally {
+      await browser.close();
+    }
+  }, 180_000);
 });

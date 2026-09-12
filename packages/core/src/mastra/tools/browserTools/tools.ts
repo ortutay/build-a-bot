@@ -1,5 +1,5 @@
 import { createTool, type Tool } from '@mastra/core/tools';
-import { chromium, type Browser, type Page, type Response, type Request } from 'playwright';
+import { type Request, type Response } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../../cache/DiskCache.js';
 import {
@@ -10,24 +10,18 @@ import {
   type DocumentId,
   type DocumentInput,
   type DocumentLibrary,
-  type DocumentRequest,
   type DocumentSummary,
 } from '../../../documents/index.js';
 import { log } from '../../../logger.js';
-import { getOrNull, hash, parseResponseBody, srid } from '../../../util/index.js';
-
+import { isCdpProxy, NoProxy, type ProxyRegistry } from '../../../proxy/index.js';
+import { getOrNull, hash, parseResponseBody } from '../../../util/index.js';
 import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
+import { BrowserSession } from './BrowserSession.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
-import { browserCacheInstrument } from './instruments.js';
 import { likelyAdOrTracker } from './block.js';
+import { browserCacheInstrument } from './instruments.js';
 
-let browser: Browser | undefined;
-type Cursor = {
-  page: Page;
-  lastResponse?: Response;
-  lastRequest?: DocumentRequest;
-};
-const cursors: Record<string, Cursor | string> = {};
+const sessions = new Set<BrowserSession>();
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
@@ -54,45 +48,15 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null =>
   return supportedContentType;
 };
 
-const createCursor = async (cursorId: string | null): Promise<{ cursorId: string }> => {
-  if (!cursorId) {
-    cursorId = srid();
-  }
-  cursors[cursorId] = 'allocated';
-  return { cursorId };
-};
-
-const resetCursorToAllocated = async (cursorId: string) => {
-  const cursor = cursors[cursorId];
-  if (cursor != 'allocated') {
-    await (cursor as Cursor).page.close();
-  }
-  cursors[cursorId] = 'allocated';
-};
-
-const getCursor = async (cursorId: string): Promise<Cursor> => {
-  let record = cursors[cursorId];
-  let cursor: Cursor;
-
-  if (record == 'allocated') {
-    if (!browser) {
-      browser = await chromium.launch({ headless: true });
-    }
-    cursor = { page: await browser.newPage() };
-    cursors[cursorId] = cursor;
-  } else if (record && typeof record != 'string') {
-    cursor = record;
-  } else {
-    throw new Error(`Unknown cursor ID: ${cursorId}`);
-  }
-
-  return cursor;
-};
-
-const replay = async (documentLibrary: DocumentLibrary, cursorId: string, steps: any[]) => {
+const replay = async (
+  documentLibrary: DocumentLibrary,
+  session: BrowserSession,
+  cursorId: string,
+  steps: any[]
+) => {
   log.info(`Browser cache replay: prefixLength=${steps.length}`);
   try {
-    await createCursor(cursorId);
+    await session.resetCursor(cursorId);
     for (const step of steps) {
       const toolId = step.toolId;
       const name = toolId.replace(prefix(''), '');
@@ -100,29 +64,38 @@ const replay = async (documentLibrary: DocumentLibrary, cursorId: string, steps:
       if (!fn) {
         throw new Error(`Could not find browser tool executor: ${name}, ${toolId}`);
       }
-      await fn(documentLibrary, { ...step.input, cursorId });
+      await fn(documentLibrary, session, { ...step.input, cursorId });
     }
   } catch (e) {
-    await resetCursorToAllocated(cursorId);
+    await session.resetCursor(cursorId);
     throw e;
   }
 };
 
 export const executors: Record<string, any> = {
-  newPageTool: async (_documentLibrary: DocumentLibrary, _input: unknown, context: unknown) => {
+  newPageTool: async (
+    _documentLibrary: DocumentLibrary,
+    session: BrowserSession,
+    { proxy = 'none' }: { proxy?: string },
+    context: unknown
+  ) => {
+    sessions.add(session);
     const toolCallId = getOrNull<string>(context, 'toolCallId');
-    return createCursor(toolCallId ? hash(toolCallId).slice(0, 8) : null);
+    return session.createCursor(toolCallId ? hash(toolCallId).slice(0, 8) : null, proxy);
   },
   gotoTool: async (
     documentLibrary: DocumentLibrary,
+    session: BrowserSession,
     { cursorId, url }: { cursorId: string; url: string }
   ) => {
-    const cursor = await getCursor(cursorId);
+    const cursor = await session.getCursor(cursorId);
     const timestamp = new Date().toISOString();
 
     const documents = new Map<Request, { documentId: DocumentId; input: DocumentInput }>();
     const requestHandler = (request: Request): void => {
-      if (!['fetch', 'xhr'].includes(request.resourceType())) return;
+      if (!['fetch', 'xhr'].includes(request.resourceType())) {
+        return;
+      }
       if (likelyAdOrTracker(request)) {
         log.debug(`Ignoring likely ad or tracker: ${new URL(request.url()).host}`);
         return;
@@ -137,7 +110,7 @@ export const executors: Record<string, any> = {
         request: {
           timestamp: new Date().toISOString(),
           headers: request.headers(),
-          proxy: null,
+          proxy: cursor.proxy,
           mode: 'browser',
         },
         content: '',
@@ -147,7 +120,9 @@ export const executors: Record<string, any> = {
     };
     const respHandler = async (resp: Response): Promise<void> => {
       const document = documents.get(resp.request());
-      if (!document) return;
+      if (!document) {
+        return;
+      }
 
       const headers = await resp.allHeaders();
       const contentType = contentTypeFromHeaders(headers);
@@ -179,7 +154,7 @@ export const executors: Record<string, any> = {
     cursor.lastRequest = {
       timestamp,
       headers: await resp.request().allHeaders(),
-      proxy: null,
+      proxy: cursor.proxy,
       mode: 'browser',
     };
     return {
@@ -187,8 +162,12 @@ export const executors: Record<string, any> = {
       ok: resp.ok(),
     };
   },
-  contentTool: async (documentLibrary: DocumentLibrary, { cursorId }: { cursorId: string }) => {
-    const cursor = await getCursor(cursorId);
+  contentTool: async (
+    documentLibrary: DocumentLibrary,
+    session: BrowserSession,
+    { cursorId }: { cursorId: string }
+  ) => {
+    const cursor = await session.getCursor(cursorId);
     const content = await cursor.page.content();
     const headers: DocumentHeaders = cursor.lastResponse
       ? await cursor.lastResponse.allHeaders()
@@ -203,7 +182,7 @@ export const executors: Record<string, any> = {
       request: cursor.lastRequest ?? {
         timestamp: new Date().toISOString(),
         headers: {},
-        proxy: null,
+        proxy: cursor.proxy,
         mode: 'browser',
       },
       content,
@@ -212,6 +191,7 @@ export const executors: Record<string, any> = {
   },
   waitForSelectorTool: async (
     _documentLibrary: DocumentLibrary,
+    session: BrowserSession,
     {
       cursorId,
       selector,
@@ -225,7 +205,7 @@ export const executors: Record<string, any> = {
     }
   ) => {
     const element = await (
-      await getCursor(cursorId)
+      await session.getCursor(cursorId)
     ).page.waitForSelector(selector, {
       state,
       timeout,
@@ -234,6 +214,7 @@ export const executors: Record<string, any> = {
   },
   clickTool: async (
     _documentLibrary: DocumentLibrary,
+    session: BrowserSession,
     {
       cursorId,
       selector,
@@ -246,24 +227,32 @@ export const executors: Record<string, any> = {
       timeout?: number;
     }
   ) => {
-    const locator = (await getCursor(cursorId)).page.locator(selector);
+    const locator = (await session.getCursor(cursorId)).page.locator(selector);
     await (index === undefined ? locator : locator.nth(index)).click({ timeout });
     return { ok: true };
   },
 };
 
-const createNewPageTool = (documentLibrary: DocumentLibrary): any =>
-  createTool({
+const createNewPageTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any => {
+  const proxyNames = session.proxyRegistry
+    .list()
+    .filter((proxy) => isCdpProxy(proxy) || proxy instanceof NoProxy)
+    .map((proxy) => proxy.id);
+  const proxySchema = z.enum(proxyNames);
+  return createTool({
     id: prefix('newPageTool'),
     description: 'Launch a new browser page.',
-    inputSchema: z.object({}),
+    inputSchema: z.object({
+      proxy: proxyNames.includes('none') ? proxySchema.default('none') : proxySchema,
+    }),
     outputSchema: z.object({
       cursorId: z.string(),
     }),
-    execute: (...args) => executors.newPageTool(documentLibrary, ...args),
+    execute: (...args) => executors.newPageTool(documentLibrary, session, ...args),
   });
+};
 
-const createGotoTool = (documentLibrary: DocumentLibrary): any =>
+const createGotoTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any =>
   createTool({
     id: prefix('gotoTool'),
     description: 'Go to a URL.',
@@ -275,10 +264,10 @@ const createGotoTool = (documentLibrary: DocumentLibrary): any =>
       ok: z.boolean(),
       status: z.number(),
     }),
-    execute: (...args) => executors.gotoTool(documentLibrary, ...args),
+    execute: (...args) => executors.gotoTool(documentLibrary, session, ...args),
   });
 
-const createContentTool = (documentLibrary: DocumentLibrary): any =>
+const createContentTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any =>
   createTool({
     id: prefix('contentTool'),
     description: 'Save page content and return its document ID.',
@@ -289,10 +278,13 @@ const createContentTool = (documentLibrary: DocumentLibrary): any =>
       documentId: z.string(),
       summary: documentSummarySchema.nullable(),
     }),
-    execute: (...args) => executors.contentTool(documentLibrary, ...args),
+    execute: (...args) => executors.contentTool(documentLibrary, session, ...args),
   });
 
-const createWaitForSelectorTool = (documentLibrary: DocumentLibrary): any =>
+const createWaitForSelectorTool = (
+  documentLibrary: DocumentLibrary,
+  session: BrowserSession
+): any =>
   createTool({
     id: prefix('waitForSelectorTool'),
     description: 'Wait for an element matching a selector to reach a given state.',
@@ -305,10 +297,10 @@ const createWaitForSelectorTool = (documentLibrary: DocumentLibrary): any =>
     outputSchema: z.object({
       found: z.boolean(),
     }),
-    execute: (...args) => executors.waitForSelectorTool(documentLibrary, ...args),
+    execute: (...args) => executors.waitForSelectorTool(documentLibrary, session, ...args),
   });
 
-const createClickTool = (documentLibrary: DocumentLibrary): any =>
+const createClickTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any =>
   createTool({
     id: prefix('clickTool'),
     description:
@@ -327,29 +319,37 @@ const createClickTool = (documentLibrary: DocumentLibrary): any =>
     outputSchema: z.object({
       ok: z.boolean(),
     }),
-    execute: (...args) => executors.clickTool(documentLibrary, ...args),
+    execute: (...args) => executors.clickTool(documentLibrary, session, ...args),
   });
 
 export type CreateBrowserToolsOptions = {
   cache?: BrowserToolCache;
   documentLibrary: DocumentLibrary;
+  proxyRegistry: ProxyRegistry;
 };
 
 export const createTools = async (
   options: CreateBrowserToolsOptions
 ): Promise<Record<string, Tool>> => {
+  if (
+    !options.proxyRegistry.list().some((proxy) => isCdpProxy(proxy) || proxy instanceof NoProxy)
+  ) {
+    return {};
+  }
+  const session = new BrowserSession(options.proxyRegistry);
   const cache = options.cache ?? new BrowserToolCache(new DiskCache('BrowserToolCache'));
   const documentLibrary = options.documentLibrary;
   const instrument = browserCacheInstrument(
-    (cursorId: string, steps: any[]) => replay(documentLibrary, cursorId, steps),
-    cache
+    (cursorId: string, steps: any[]) => replay(documentLibrary, session, cursorId, steps),
+    cache,
+    session
   );
   const internal = [
-    createNewPageTool(documentLibrary),
-    createGotoTool(documentLibrary),
-    createContentTool(documentLibrary),
-    createWaitForSelectorTool(documentLibrary),
-    createClickTool(documentLibrary),
+    createNewPageTool(documentLibrary, session),
+    createGotoTool(documentLibrary, session),
+    createContentTool(documentLibrary, session),
+    createWaitForSelectorTool(documentLibrary, session),
+    createClickTool(documentLibrary, session),
   ];
   return Object.fromEntries(
     (
@@ -363,15 +363,11 @@ export const createTools = async (
 };
 
 export const closeBrowserTools = async (): Promise<void> => {
-  try {
-    if (browser) {
-      await browser.close();
-    }
-  } finally {
-    browser = undefined;
-    for (const cursorId of Object.keys(cursors)) {
-      delete cursors[cursorId];
-    }
-    // TODO: Add targeted page cleanup, including its browser-cache sequence.
+  const closing = [...sessions];
+  sessions.clear();
+  const results = await Promise.allSettled(closing.map((session) => session.close()));
+  const errors = results.filter((result) => result.status === 'rejected');
+  if (errors.length) {
+    throw new AggregateError(errors.map((result) => result.reason));
   }
 };

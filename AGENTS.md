@@ -21,6 +21,7 @@ Do not put new lines between the categories.
 
 # Style
 
+- Always use curly braces for `if` statements; avoid inline `if (...) ...;`.
 - Prefer post-increment (`i++`) for incrementing loop counters.
 - Prefer `val` to `value`
 - Prefer `resp` to `response`

@@ -1,9 +1,14 @@
 import { type Tool } from '@mastra/core/tools';
 import { KeyedSerialQueue } from '../../../util/KeyedSerialQueue.js';
 import { getOrNull } from '../../../util/index.js';
+import { type BrowserSession } from './BrowserSession.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 
-export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => {
+export const browserCacheInstrument = (
+  replay: any,
+  cache: BrowserToolCache,
+  session: BrowserSession
+) => {
   const cursorQueue = new KeyedSerialQueue<string>();
   const cursorStatus: Record<string, string> = {};
 
@@ -19,14 +24,16 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
         const cursorId = getOrNull<string>(input, 'cursorId');
 
         const run = async () => {
+          const cacheInput = { ...(input as Record<string, any>) };
           if (cursorId) {
+            cacheInput.proxy = session.proxyId(cursorId);
             cursorStatus[cursorId] ||= 'cached';
           }
 
           let hit = false;
           let cached;
           if (cursorId && cursorStatus[cursorId] == 'cached') {
-            const r = await cache.checkToolCall(cursorId, tool.id, input as Record<string, any>);
+            const r = await cache.checkToolCall(cursorId, tool.id, cacheInput);
 
             if (r.hit) {
               hit = true;
@@ -49,7 +56,7 @@ export const browserCacheInstrument = (replay: any, cache: BrowserToolCache) => 
           const output = hit ? cached : await execute(input, context);
           // Only cache successful executions and completed cache hits.
           if (cursorId) {
-            await cache.recordToolCall(cursorId, tool.id, input as Record<string, any>, output);
+            await cache.recordToolCall(cursorId, tool.id, cacheInput, output);
           }
 
           return output;

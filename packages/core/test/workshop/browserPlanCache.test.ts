@@ -7,6 +7,7 @@ import {
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
 import { createTools as createDocumentTools } from '../../src/mastra/tools/documents/index.js';
 import { planStep } from '../../src/mastra/workflows/steps.js';
+import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
 
@@ -28,6 +29,7 @@ describe('browser plan cache', () => {
     const tools = await createBrowserTools({
       cache: new BrowserToolCache(new MemoryCache()),
       documentLibrary,
+      proxyRegistry: new ProxyRegistry([new NoProxy()]),
     });
     const documentTools = await createDocumentTools({ documentLibrary });
 
