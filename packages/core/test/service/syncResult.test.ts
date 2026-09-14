@@ -10,6 +10,7 @@ import { markAvailableTool } from '../../src/mastra/instruments/availableTools.j
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
+import { Item } from '../../src/service/Item.js';
 import { itemsTable, resultsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
@@ -288,5 +289,86 @@ describe('sync change reporting', () => {
     await script.save();
     const changes = await service.sync([a, b]);
     expect(changes.outcome).toEqual({ success: [{ url: b }], unhandled: [{ url: a }], errors: [] });
+  });
+  it('compares across script versions while isolating other services and source URLs', async () => {
+    const { service, data, script, addScript, fixture } = await setup();
+    data.set(a, [
+      { key: 'keep', text: 'Before' },
+      { key: 'gone', text: 'Remove' },
+    ]);
+    data.set(b, [{ key: 'other-url', text: 'Untouched' }]);
+    const first = await service.sync([a, b]);
+    const context = await service.context();
+    const otherService = new DataService({
+      context,
+      name: 'other-service',
+      sources: [new DataSource({ url: a })],
+      itemSchema: z.object({ key: z.string(), text: z.string() }),
+    });
+    await otherService.save();
+    const otherScript = new Script({
+      context,
+      dataServiceId: otherService.id!,
+      name: 'other-script',
+      code: code(),
+      tools: ['fixture', 'trace'],
+      modules: [],
+      vmContext: ['URL'],
+    });
+    await otherScript.save();
+    await otherService.sync([a]);
+    const otherBefore = await otherService.list();
+    script.active = false;
+    await script.save();
+    const replacement = await addScript(code());
+    expect((await service.list()).total).toBe(3);
+    expect(await service.detail('keep')).toEqual({ key: 'keep', text: 'Before' });
+    const repeated = await service.sync([a]);
+    expect(repeated.updated).toEqual([]);
+    expect(repeated.created).toEqual([]);
+    const beforeFailure = await db.storage.db.select().from(itemsTable);
+    fixture.mockRejectedValueOnce(new Error('Replacement unavailable'));
+    expect((await service.sync([a])).outcome.errors).toHaveLength(1);
+    expect(await db.storage.db.select().from(itemsTable)).toEqual(beforeFailure);
+    data.set(a, [
+      { key: 'keep', text: 'After' },
+      { key: 'new', text: 'Created' },
+    ]);
+    const changes = await service.sync([a]);
+    expect(changes.updated).toHaveLength(1);
+    expect(changes.updated[0].before.sourceScriptId).toBe(script.id);
+    expect(changes.updated[0].after.sourceScriptId).toBe(replacement.id);
+    expect(changes.updated[0].after.id).toBe(
+      first.created.find((item) => item.uniqueId === 'keep')!.id
+    );
+    expect(changes.created.map((item) => item.uniqueId)).toEqual(['new']);
+    expect(changes.removed.map((item) => item.uniqueId)).toEqual(['gone']);
+    expect(await service.detail('other-url')).toEqual({ key: 'other-url', text: 'Untouched' });
+    expect(await otherService.list()).toEqual(otherBefore);
+    expect((await service.list()).total).toBe(3);
+  });
+
+  it('reconciles duplicate source items left by older script versions', async () => {
+    const { service, data, script, addScript } = await setup();
+    data.set(a, [{ key: 'same', text: 'Before' }]);
+    await service.sync([a]);
+    script.active = false;
+    await script.save();
+    const replacement = await addScript(code());
+    await new Item({
+      data: { key: 'same', text: 'Before' },
+      uniqueId: 'same',
+      sourceUrl: a,
+      sourceScriptId: replacement.id!,
+    }).save(db.storage);
+    expect((await service.list()).total).toBe(2);
+    data.set(a, [{ key: 'same', text: 'After' }]);
+    const changes = await service.sync([a]);
+    expect(changes.updated).toHaveLength(1);
+    expect(changes.created).toEqual([]);
+    expect(changes.removed).toEqual([]);
+    expect((await service.list()).total).toBe(1);
+    data.set(a, []);
+    expect((await service.sync([a])).removed).toHaveLength(1);
   });
 });

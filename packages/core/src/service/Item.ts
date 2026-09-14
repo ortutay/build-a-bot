@@ -32,6 +32,24 @@ export class Item {
   }
 
   async save(storage: Storage, db: Storage['db'] | StorageTransaction = storage.db): Promise<void> {
+    if (this.id) {
+      const [item] = await db
+        .update(itemsTable)
+        .set({
+          data: this.data,
+          sourceScriptId: this.sourceScriptId,
+          sourceUrl: this.sourceUrl,
+          uniqueId: this.uniqueId,
+        })
+        .where(eq(itemsTable.id, this.id))
+        .returning();
+      if (!item) {
+        throw new Error(`Could not update item: ${this.id}`);
+      }
+      this.createdAt = item.createdAt;
+      this.updatedAt = item.updatedAt;
+      return;
+    }
     const [item] = await db
       .insert(itemsTable)
       .values({

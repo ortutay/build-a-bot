@@ -144,7 +144,7 @@ describe('DataService', () => {
         goal: 'Build a scraper to get data in the output schema format.',
         urls: ['https://example.test/data'],
       },
-      name: expect.stringMatching(/^script:[a-f0-9]{10}:[a-f0-9]{10}$/),
+      name: expect.stringMatching(/^script:[a-f0-9]{64}:[a-f0-9]{10}$/),
       dataServiceId: expect.any(String),
     });
     await expect(
@@ -209,7 +209,7 @@ describe('DataService', () => {
     await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
   });
 
-  it('keeps active scripts and stored items when replacement seed validation fails', async () => {
+  it('keeps active scripts and stored items when replacement routing fails', async () => {
     temporaryDb = await createTemporaryDb();
     const start = vi.fn().mockResolvedValue({
       status: 'success',
@@ -239,9 +239,14 @@ describe('DataService', () => {
     const before = await temporaryDb.storage.db.select().from(itemsTable);
     start.mockResolvedValue({
       status: 'success',
-      result: [{ code: invalidSyncScriptCode, groupingName: 'data' }],
+      result: [
+        {
+          code: syncScriptCode.replace('async (url) => true', 'async (url) => false'),
+          groupingName: 'data',
+        },
+      ],
     });
-    await expect(service.build()).rejects.toThrow('Seed validation failed');
+    await expect(service.build()).rejects.toThrow('matched 0 scripts');
     expect(
       (await Script.findActiveForDataService(context, service.id!)).map((script) => script.id)
     ).toEqual([active.id]);
@@ -250,7 +255,7 @@ describe('DataService', () => {
     expect(await temporaryDb.storage.db.select().from(resultsTable)).toHaveLength(1);
   });
 
-  it('lists only items from active scripts, including totals and pagination', async () => {
+  it('lists items from active and inactive scripts, including totals and pagination', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
@@ -279,7 +284,7 @@ describe('DataService', () => {
         vmContext: [],
       });
       await script.save();
-      for (const uniqueId of active ? ['b', 'c'] : ['a', 'b']) {
+      for (const uniqueId of active ? ['b', 'c'] : ['a', 'd']) {
         await new Item({
           data: { value: active ? 'current' : 'historical' },
           sourceUrl: 'https://example.test/data',
@@ -290,17 +295,19 @@ describe('DataService', () => {
     }
 
     await expect(service.list()).resolves.toEqual({
-      count: 2,
-      total: 2,
+      count: 4,
+      total: 4,
       results: [
+        { id: 'a', value: 'historical' },
         { id: 'b', value: 'current' },
         { id: 'c', value: 'current' },
+        { id: 'd', value: 'historical' },
       ],
     });
     await expect(service.list({ limit: 1, page: 2 })).resolves.toEqual({
       count: 1,
-      total: 2,
-      results: [{ id: 'c', value: 'current' }],
+      total: 4,
+      results: [{ id: 'b', value: 'current' }],
     });
     await expect(storage.db.select().from(itemsTable)).resolves.toHaveLength(4);
   });

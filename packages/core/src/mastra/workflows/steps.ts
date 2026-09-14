@@ -1,6 +1,7 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { Compiler, availableContext, availableModules } from '../../compile/Compiler.js';
+import { failureScript } from '../../compile/failureScript.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
 import { getOrNull, norm } from '../../util/index.js';
@@ -200,9 +201,10 @@ export const writeCodeStep = createStep({
           groupingReport: grouping.report,
         });
 
-        log.debug(`Write code prompt for ${grouping.groupingName}: ${prompt}`);
         let failure = 'No JavaScript generated';
         for (let attempt = 0; attempt < 3; attempt++) {
+          log.info(`Write code prompt attempt #${attempt + 1} for ${grouping.groupingName}`);
+          log.info(`Write code prompt is: ${prompt}`);
           try {
             const resp = await agent.generate(
               attempt
@@ -216,20 +218,28 @@ export const writeCodeStep = createStep({
             await new Compiler().compile(resp.text, {
               additionalContext: { ...context, ...modules, tools: {} },
             });
+            log.info(`Generated code on attempt #${attempt + 1} for ${grouping.groupingName}`);
             log.debug(`Generated code for ${grouping.groupingName}: ${resp.text}`);
             return { groupingName: grouping.groupingName, code: resp.text };
           } catch (e) {
             failure = e instanceof Error ? e.message : String(e);
           }
         }
-        throw new Error(`Script generation failed for ${grouping.groupingName}: ${failure}`);
+        return {
+          groupingName: grouping.groupingName,
+          code: failureScript(grouping.urls, `Script generation failed: ${failure}`),
+        };
       })
     );
-    return outputs.map((val) => {
-      if (val.status === 'rejected') {
-        throw val.reason;
+    return outputs.map((val, i) => {
+      if (val.status === 'fulfilled') {
+        return val.value;
       }
-      return val.value;
+      const grouping = inputData.groupings[i]!;
+      return {
+        groupingName: grouping.groupingName,
+        code: failureScript(grouping.urls, String(val.reason)),
+      };
     });
   },
 });

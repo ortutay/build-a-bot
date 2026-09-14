@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { Account } from '../account/Account.js';
 import { cb } from '../cache/busters.js';
@@ -10,7 +10,7 @@ import type { ISaveable } from '../interface/ISaveable.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 import { Run } from '../compile/Run.js';
 import { Script } from '../compile/Script.js';
-import { validateScripts } from '../compile/validateScripts.js';
+import { SeedValidationError, validateScripts } from '../compile/validateScripts.js';
 import { log } from '../logger.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
 import { getOrNull, hash, norm } from '../util/index.js';
@@ -302,7 +302,7 @@ export class DataService
     if (!dataServiceId) {
       throw new Error(`Cannot list items for an unsaved data service: ${this.name}`);
     }
-    const where = and(eq(scriptsTable.dataServiceId, dataServiceId), eq(scriptsTable.active, true));
+    const where = eq(scriptsTable.dataServiceId, dataServiceId);
     const [totalResults, items] = await Promise.all([
       context.storage.db
         .select({ total: count() })
@@ -367,11 +367,16 @@ export class DataService
       goal,
       itemSchema: this.#schemaConfig(),
       urls,
-    }).slice(0, 10);
+    });
     const prefix = `script:${fingerprint}:`;
     const buildInput = { goal, urls };
     let regenerate = false;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let repair = '';
+    let repairUrls = urls;
+    let retained: Script[] = [];
+    let candidates: Script[] = [];
+    const failures = new Map<string, number>();
+    for (let attempt = 1; attempt <= maxAttempts * (urls.length + 1); attempt++) {
       let scripts = await Script.findActiveForDataService(context, this.id!);
 
       try {
@@ -391,8 +396,8 @@ export class DataService
 
           const result = await run.start({
             inputData: {
-              urls,
-              goal,
+              urls: repairUrls,
+              goal: repair ? `${goal}\nRepair the previous candidate. ${repair}` : goal,
               context: Object.keys(availableContext),
               modules: Object.keys(availableModules),
               itemSchema: this.#schemaConfig(),
@@ -408,20 +413,30 @@ export class DataService
           if (generatedScripts.length === 0) {
             throw new Error('Workflow generated no scripts');
           }
-          scripts = generatedScripts.map(
-            ({ code }) =>
-              new Script({
-                context,
-                name: `${prefix}${hash({ code }).slice(0, 10)}`,
-                dataServiceId: this.id!,
-                code,
-                buildInput,
-                modules: Object.keys(availableModules),
-                tools,
-                vmContext: Object.keys(availableContext),
-              })
-          );
-          await validateScripts(scripts, urls, this.itemSchema);
+          scripts = [
+            ...retained,
+            ...generatedScripts.map(
+              ({ code }) =>
+                new Script({
+                  context,
+                  name: `${prefix}${hash({ code }).slice(0, 10)}`,
+                  dataServiceId: this.id!,
+                  code,
+                  buildInput,
+                  modules: Object.keys(availableModules),
+                  tools,
+                  vmContext: Object.keys(availableContext),
+                })
+            ),
+          ];
+          candidates = scripts;
+          await validateScripts(scripts, urls, this.itemSchema, (e) => {
+            if (!failures.has(e.url)) {
+              return false;
+            }
+            log.warn(`Activating best-effort candidate; sync will report failures: ${e.message}`);
+            return true;
+          });
           let activated = false;
           await context.storage.fillInTransaction(undefined, async (tx) => {
             const activeScripts = await tx
@@ -469,13 +484,24 @@ export class DataService
         }
         break;
       } catch (e) {
-        if (attempt === maxAttempts) {
+        const key = e instanceof SeedValidationError ? e.url : 'build';
+        const failed = (failures.get(key) ?? 0) + 1;
+        failures.set(key, failed);
+        if (failed >= maxAttempts) {
           throw e;
         }
-
+        retained =
+          e instanceof SeedValidationError
+            ? candidates.filter((script) => script !== e.script)
+            : [];
+        repairUrls = e instanceof SeedValidationError ? e.urls : urls;
         regenerate = true;
+        repair = `Attempt ${attempt} failed: ${String(e)}. Use only exposed tool names. Validate the supplied URLs and acquire runtime content using the same fetch/browser mode as your evidence.`;
+        if (e instanceof SeedValidationError) {
+          repair += `\nKeep the supported URL patterns. Diagnose and correct this failed candidate:\n${e.script.code}`;
+        }
         log.warn(
-          `Build attempt ${attempt} of ${maxAttempts} failed for urls=${urls.join(', ')}; retrying`
+          `Build attempt ${attempt} failed; repairing urls=${repairUrls.join(', ')}; retaining ${retained.length} candidate scripts`
         );
       }
     }
@@ -543,10 +569,20 @@ export class DataService
         }
         const items = await z.array(this.itemSchema).parseAsync(output.value);
         const rows = await context.storage.db
-          .select()
+          .select({ item: itemsTable })
           .from(itemsTable)
-          .where(and(eq(itemsTable.sourceScriptId, script.id!), eq(itemsTable.sourceUrl, url)));
-        const previous = new Map(rows.map((row) => [row.uniqueId, new Item(row)]));
+          .innerJoin(scriptsTable, eq(itemsTable.sourceScriptId, scriptsTable.id))
+          .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(itemsTable.sourceUrl, url)))
+          .orderBy(desc(itemsTable.updatedAt), desc(itemsTable.id));
+        const previous = new Map<string, Item>();
+        const duplicates: Item[] = [];
+        for (const { item } of rows) {
+          if (previous.has(item.uniqueId)) {
+            duplicates.push(new Item(item));
+          } else {
+            previous.set(item.uniqueId, new Item(item));
+          }
+        }
         const uniqueIds = new Set<string>();
         const uniqueResults = items.flatMap((data) => {
           const uniqueId = bot.uniqueId(data);
@@ -565,12 +601,17 @@ export class DataService
         };
 
         await context.storage.fillInTransaction(undefined, async (tx) => {
+          // Older script versions may have stored the same source item more than once.
+          for (const item of duplicates) {
+            await tx.delete(itemsTable).where(eq(itemsTable.id, item.id!));
+          }
           for (const { data, uniqueId } of uniqueResults) {
             const before = previous.get(uniqueId);
             if (before && isDeepStrictEqual(before.data, data)) {
               continue;
             }
             const after = new Item({
+              id: before?.id ?? undefined,
               data,
               sourceUrl: url,
               sourceScriptId: script.id!,

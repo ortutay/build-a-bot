@@ -51,7 +51,7 @@ console.log('proxyRegistry:', proxyRegistry);
 const context = await createGlobalContext({ proxyRegistry });
 const service = new DataService({
   context,
-  name: 'beta-allabolag',
+  name: 'beta-allabolag-2',
   itemSchema: companySchema,
   // identity: { fields: [{ path: 'org_number', normalize: 'digits' }] },
   sources: [new DataSource({ url: companyUrl })],

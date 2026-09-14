@@ -1,4 +1,6 @@
 import { expect, it, vi } from 'vitest';
+import { Bot } from '../../src/bot/Bot.js';
+import { Compiler } from '../../src/compile/Compiler.js';
 import { planStep, writeCodeStep } from '../../src/mastra/workflows/steps.js';
 
 const code = `export const itemSchema = { type: 'object' };
@@ -12,7 +14,7 @@ const grouping = {
   urls: ['https://example.test/jobs'],
   report: 'Use the verified endpoint.',
   itemSchema: { type: 'object' },
-  tools: [],
+  tools: [] as string[],
   modules: [],
   context: [],
 };
@@ -56,12 +58,43 @@ it('retries blank and invalid code only for the failed group', async () => {
   expect(generate.mock.calls[3][0]).toContain('Previous attempt failed');
 });
 
-it('stops after three failed attempts without producing a placeholder script', async () => {
-  const generate = vi.fn().mockRejectedValue(new Error('Provider failed'));
-  await expect(execute(generate)).rejects.toThrow(
-    'Script generation failed for jobs: Provider failed'
-  );
-  expect(generate).toHaveBeenCalledTimes(3);
+it('keeps the successful group and emits a throwing placeholder after three failures', async () => {
+  const generate = vi.fn(async (prompt: string) => {
+    if (prompt.includes('https://other.test/jobs')) {
+      throw new Error('Provider failed');
+    }
+    return { text: code };
+  });
+  const results = await execute(generate, [
+    grouping,
+    {
+      ...grouping,
+      groupingName: 'other',
+      urls: ['https://other.test/jobs'],
+    },
+  ]);
+  expect(results[0]).toEqual({ groupingName: 'jobs', code });
+  expect(generate).toHaveBeenCalledTimes(4);
+  const bot = new Bot(await new Compiler().compile(results[1].code));
+  expect(await bot.check('https://other.test/jobs')).toBe(true);
+  expect(await bot.check('https://example.test/jobs')).toBe(false);
+  await expect(bot.run('https://other.test/jobs')).rejects.toThrow('Provider failed');
+});
+
+it('isolates a group that requests an unavailable capability', async () => {
+  const generate = vi.fn().mockResolvedValue({ text: code });
+  const results = await execute(generate, [
+    grouping,
+    {
+      ...grouping,
+      groupingName: 'broken',
+      tools: ['missingTool'],
+    },
+  ]);
+  expect(results[0].code).toBe(code);
+  const bot = new Bot(await new Compiler().compile(results[1].code));
+  await expect(bot.run(grouping.urls[0])).rejects.toThrow('Requested tool is not available');
+  expect(generate).toHaveBeenCalledOnce();
 });
 
 const planObject = {
