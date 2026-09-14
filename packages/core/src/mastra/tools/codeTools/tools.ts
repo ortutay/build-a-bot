@@ -73,7 +73,7 @@ You should define a function called run as follows:
         `
         const itemSchema = {};
         const uniqueId = () => 'code-snippet';
-        const check = async () => [];
+        const check = async (url) => true;
         ${code}
       `,
         {

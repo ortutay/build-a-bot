@@ -30,7 +30,7 @@ export {
   type DataServiceConfig,
   type DataServiceItemSchema,
   type DataServiceListOptions,
-  type DataServiceResult,
+  type DataServiceSyncResult,
 } from './service/DataService.js';
 export { Item } from './service/Item.js';
 export { ItemStorage } from './storage/item/ItemStorage.js';

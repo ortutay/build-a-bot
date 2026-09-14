@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { itemsTable } from '../storage/db/schema.js';
-import { type Storage } from '../storage/Storage.js';
+import { type Storage, type StorageTransaction } from '../storage/Storage.js';
 
 export type ItemOptions = {
   id?: string;
@@ -31,8 +31,8 @@ export class Item {
     this.sourceScriptId = options.sourceScriptId;
   }
 
-  async save(storage: Storage): Promise<void> {
-    const [item] = await storage.db
+  async save(storage: Storage, db: Storage['db'] | StorageTransaction = storage.db): Promise<void> {
+    const [item] = await db
       .insert(itemsTable)
       .values({
         data: this.data,

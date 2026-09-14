@@ -1,6 +1,6 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { availableContext, availableModules } from '../../compile/Compiler.js';
+import { Compiler, availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
 import * as templates from '../../prompts/templates.js';
 import { getOrNull, norm } from '../../util/index.js';
@@ -29,7 +29,12 @@ const planOutputSchema = z.object({
 const planAgentGroupingSchema = groupingSchema
   .omit({ context: true, itemSchema: true, modules: true, tools: true })
   .extend({
-    itemSchema: z.string().describe('A JSON-encoded item schema without Markdown fences'),
+    itemSchema: z
+      .string()
+      .nullable()
+      .describe(
+        'Null when the caller supplies an item schema; otherwise a JSON-encoded item schema without Markdown fences'
+      ),
   });
 
 const planAgentOutputSchema = z.object({
@@ -46,9 +51,9 @@ const getAvailable = <T>(vals: Record<string, T>, name: string, type: string): T
   return val;
 };
 
-const parseGeneratedSchema = (val: string, name: string): Record<string, unknown> => {
+const parseGeneratedSchema = (val: string | null, name: string): Record<string, unknown> => {
   try {
-    return jsonSchema.parse(JSON.parse(val));
+    return jsonSchema.parse(JSON.parse(val ?? 'null'));
   } catch (e) {
     throw new Error(`Generated ${name} must be a JSON object`, { cause: e });
   }
@@ -81,12 +86,30 @@ export const planStep = createStep({
           : JSON.stringify(inputData.itemSchema, null, 2),
     });
 
-    const resp = await agent.generate(prompt, {
+    let resp = await agent.generate(prompt, {
       maxSteps: 20,
       structuredOutput: { schema: planAgentOutputSchema },
     });
-    const { generalReport } = resp.object;
-    const groupings = resp.object.groupings.map((grouping) => ({
+    if (!resp.object && !resp.error && !resp.tripwire && resp.steps.length >= 20) {
+      log.info('Planning research budget exhausted; finalizing from collected evidence.');
+      resp = await agent.generate(
+        [
+          ...resp.messages,
+          {
+            role: 'user',
+            content:
+              'The research budget is exhausted. Return the required structured plan now, using only collected evidence. Do not call tools or invent missing findings. Describe unverified or inaccessible data honestly and preserve the supplied schema and URL partition.',
+          },
+        ],
+        { maxSteps: 1, toolChoice: 'none', structuredOutput: { schema: planAgentOutputSchema } }
+      );
+    }
+    if (!resp.object) {
+      throw new Error('Planner did not return a structured report', { cause: resp.error });
+    }
+    const planned = planAgentOutputSchema.parse(resp.object);
+    const { generalReport } = planned;
+    const groupings = planned.groupings.map((grouping) => ({
       ...grouping,
       groupingName: grouping.groupingName.trim(),
       urls: norm(grouping.urls),
@@ -114,7 +137,8 @@ export const planStep = createStep({
         ...grouping,
         groupingName: grouping.groupingName,
         groupingDescription: grouping.groupingDescription,
-        itemSchema: parseGeneratedSchema(grouping.itemSchema, 'item schema'),
+        itemSchema:
+          inputData.itemSchema ?? parseGeneratedSchema(grouping.itemSchema, 'item schema'),
         modules,
         context,
         tools,
@@ -125,7 +149,8 @@ export const planStep = createStep({
 
 export const writeCodeStep = createStep({
   id: 'write-code-step',
-  ...shared,
+  // Generation retries are bounded per group below.
+  retries: 0,
   inputSchema: planOutputSchema,
   outputSchema: z.array(
     z.object({
@@ -138,7 +163,7 @@ export const writeCodeStep = createStep({
 
     const agent = mastra!.getAgentById('build-agent');
     const availableTools = selectAvailableTools(mastra!.listTools() ?? {});
-    return Promise.all(
+    const outputs = await Promise.allSettled(
       inputData.groupings.map(async (grouping) => {
         log.debug(`Write code report for ${grouping.groupingName}: ${grouping.report}`);
 
@@ -176,11 +201,35 @@ export const writeCodeStep = createStep({
         });
 
         log.debug(`Write code prompt for ${grouping.groupingName}: ${prompt}`);
-        const resp = await agent.generate(prompt);
-        log.debug(`Generated code for ${grouping.groupingName}: ${resp.text}`);
-
-        return { groupingName: grouping.groupingName, code: resp.text };
+        let failure = 'No JavaScript generated';
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const resp = await agent.generate(
+              attempt
+                ? `${prompt}\nPrevious attempt failed: ${failure}. Correct that failure.`
+                : prompt,
+              { maxSteps: 1, toolChoice: 'none' }
+            );
+            if (!resp.text.trim()) {
+              throw new Error('Code generation returned no JavaScript');
+            }
+            await new Compiler().compile(resp.text, {
+              additionalContext: { ...context, ...modules, tools: {} },
+            });
+            log.debug(`Generated code for ${grouping.groupingName}: ${resp.text}`);
+            return { groupingName: grouping.groupingName, code: resp.text };
+          } catch (e) {
+            failure = e instanceof Error ? e.message : String(e);
+          }
+        }
+        throw new Error(`Script generation failed for ${grouping.groupingName}: ${failure}`);
       })
     );
+    return outputs.map((val) => {
+      if (val.status === 'rejected') {
+        throw val.reason;
+      }
+      return val.value;
+    });
   },
 });

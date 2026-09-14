@@ -43,7 +43,7 @@ export const plan = new Template(
   ['userInput', 'itemSchema'],
   `You are planning JavaScript web-scraping scripts for one data service. Explore and gather the information needed to write those scripts.
 
-Do not write code yet. Produce a written implementation report for the coding agent and an item schema. If a schema was supplied, repeat it exactly. If it was not supplied, generate it from the user goal and your research. Return the schema as JSON without Markdown fences.
+Do not write code yet. Produce a written implementation report for the coding agent and an item schema. If a schema was supplied, return itemSchema: null in every grouping; core injects the exact supplied schema. Do not repeat its JSON in reports. If no schema was supplied, generate it from the user goal and your research and return it as a JSON string without Markdown fences.
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
@@ -60,7 +60,7 @@ The data service receives runtime URLs like this:
 
   service.sync(["https://example.com/url1", "https://example-2.com/path", ...])
 
-The service may own multiple scripts for different page types. At runtime, scripts use check(urls) to select URLs before they run.
+The service may own multiple scripts for different page types. At runtime, scripts use check(url) to return a boolean for each source URL before they run.
 
 Group the supplied seed URLs so that each grouping can be implemented by one script.
 
@@ -84,7 +84,7 @@ Include your analysis of groupings in a section called "Groupings report". Descr
 
 ## Discerning URLs
 
-The generated script's check(urls) function decides whether it can handle each URL. It should use URL structure and, when useful, lightweight page inspection. In your report, provide specific routing guidance and evidence for this check.
+The generated script's check(url) function returns a boolean indicating whether it can handle that URL. It should use URL structure and, when useful, lightweight page inspection. In your report, provide specific routing guidance and evidence for this check.
 
 # Format considerations
 
@@ -133,7 +133,7 @@ Guidelines for item schema:
 - Beyond that, give a nicely structured item with the key data
 - Make it resilient. Unless absolutely necessary, make outputs optional.
 - Do not overcomplicate the schema or add excessive nesting.
-- If a specific item schema is provided in the user prompt section, use it exactly. Restate the user schema in your output.
+- If a specific item schema is provided, design extraction for it exactly, but return itemSchema: null; core preserves the original object.
 
 # Additional guidelines
 
@@ -176,7 +176,7 @@ export const code = new Template(
   ],
   `You are writing a JavaScript web-scraping script. Use the reports below to write code.
 
-If necessary, use tools to load pages and inspect the site further before generating the script.
+Research is complete. Return JavaScript now without calling tools during this response. Tool functions described below are for the emitted script to call at runtime; they are not instructions to continue browsing while writing code.
 
 The item schema below describes one extracted item. It is authoritative; export it exactly, and follow it exactly.
 
@@ -184,7 +184,7 @@ The item schema below describes one extracted item. It is authoritative; export 
 {{itemSchema}}
 </item-schema>
 
-Each item you extract will match this item schema, and you will return an array of items in results. See the description of run(urls) below for exact return format.
+Each extracted item must match this item schema. run(url) returns an array of these items directly, without a results wrapper.
 
 # Targeting the specific grouping
 
@@ -202,10 +202,10 @@ Your code must be structured in the following way:
 
   export const itemSchema = { /* ... JSON schema ...*/ };
   export const uniqueId = (item) => { /* ... return a canonical string ... */ };
-  export const check = async (urls) => { /* ... returns one boolean per URL ... */ };
-  export const run = async (urls) => {
-    return { results: [], urlsVisited: [] };
-  };
+  export const check = async (url) => { /* ... returns boolean ... */ };
+  export const run = async (url) => { /* ... returns an array of items ... */ };
+
+Both functions receive one URL string. They may be called concurrently for different URLs. Generate executable JavaScript, without TypeScript annotations. Let exceptions propagate to the caller; DataService handles errors independently for each URL.
 
 # Function descriptions  
 
@@ -213,16 +213,18 @@ Your code must be structured in the following way:
 
 Export a synchronous uniqueId(result) function that returns a stable, non-empty, 12-character digest for every result. Select and normalize the strongest durable identifier components for the kind of item: an email address for a person, a product ID or canonical product URL for commerce, and similarly stable IDs for other domains. For example, trim and lowercase email addresses or normalize absolute URLs. Hash those normalized components with a deterministic synchronous hash implemented in the generated code, then return its 12-character digest. Do not use mutable labels, timestamps, random values, array positions, or unavailable crypto APIs. If no domain identifier exists, prefer a normalized URL or email address.
 
-## check(urls)
+## check(url)
 
-Export an async check(urls) function. It receives a list of URLs and returns one boolean for each input URL, in the same order. True means that run(urls) can handle the URL; false means it cannot. Check URL patterns and, when useful, page structure using lightweight, specific inspection.
+Export an async check(url) function returning a boolean: true if run(url) can handle this URL, false otherwise. Use URL patterns and, when useful, lightweight page inspection. Throw on inspection failures; do not return error objects.
 
-## run(urls)
+## run(url)
 
-This extracts data from the specified URLs. The data service has already validated and routed these URLs, so do not call check() again or silently ignore them. Return this envelope:
+Export an async run(url) function returning an array of items matching itemSchema. The URL has already been routed; do not call check() again.
 
-- "results": an array of objects matching itemSchema
-- "urlsVisited": an array of URLs visited while handling this call.
+- Return items directly: [item1, item2]. For a detail page with one item, return [item]. Do not wrap them in result/results objects or URL envelopes.
+- Return [] only when extraction succeeds with zero items. Do not return null or undefined, and never treat blocked, timed-out or incomplete extraction as an empty source.
+- Let extraction failures throw. Buffer items until extraction completes so failures do not return partial data.
+- Calls for independent URLs may run concurrently. Use pq to limit acquisition, keep browser cursors and temporary state local to the call, and clean up resources in finally blocks.
 
 # Tools
 

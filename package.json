@@ -20,6 +20,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "scratch:main": "tsx packages/client/src/main.ts",
+    "client:allabolag": "node --env-file-if-exists=packages/core/.env --import tsx packages/client/src/allabolag.ts",
+    "client:jobs": "node --env-file-if-exists=packages/core/.env --import tsx packages/client/src/jobs.ts",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
     "prepare": "husky"

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { Account } from '../account/Account.js';
@@ -9,9 +10,10 @@ import type { ISaveable } from '../interface/ISaveable.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 import { Run } from '../compile/Run.js';
 import { Script } from '../compile/Script.js';
+import { validateScripts } from '../compile/validateScripts.js';
 import { log } from '../logger.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
-import { hash, norm } from '../util/index.js';
+import { getOrNull, hash, norm } from '../util/index.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import {
   dataServicesTable,
@@ -31,7 +33,16 @@ export type DataServiceOptions = UsesContextOptions & {
   itemSchema: DataServiceItemSchema;
 };
 
-export type DataServiceResult = { results: unknown[] };
+export type DataServiceSyncResult = {
+  created: Item[];
+  updated: { before: Item; after: Item }[];
+  removed: Item[];
+  outcome: {
+    success: { url: string }[];
+    unhandled: { url: string }[];
+    errors: { url: string; error: string }[];
+  };
+};
 export type DataServiceListOptions = { limit?: number; page?: number };
 export type DataServiceConfig = {
   itemSchema: Record<string, unknown>;
@@ -230,9 +241,9 @@ export class DataService
   async start(): Promise<void> {
     const context = await this.context();
     await this.#build(context);
-    const results = await this.#sync(context, norm(this.sources.map((source) => source.url)));
+    const changes = await this.sync(this.sources.map((source) => source.url));
     log.info(
-      `Data service sync complete: service=${this.name}, resultCount=${results.results.length}`
+      `Data service sync complete: service=${this.name}, created=${changes.created.length}, updated=${changes.updated.length}, removed=${changes.removed.length}`
     );
   }
 
@@ -241,9 +252,26 @@ export class DataService
     return this.#build(context);
   }
 
-  async sync(urls: string[]): Promise<DataServiceResult> {
-    const context = await this.context();
-    return this.#sync(context, norm(urls));
+  async sync(urls: string[]): Promise<DataServiceSyncResult> {
+    const valid = new Set<string>();
+    const changes: DataServiceSyncResult = {
+      created: [],
+      updated: [],
+      removed: [],
+      outcome: { success: [], unhandled: [], errors: [] },
+    };
+    for (const url of new Set(urls)) {
+      try {
+        valid.add(norm(url));
+      } catch (e) {
+        log.warn(`Could not normalize sync URL ${url}: ${String(e)}`);
+        changes.outcome.unhandled.push({ url });
+      }
+    }
+    if (valid.size) {
+      await this.#sync(await this.context(), [...valid].sort(), changes);
+    }
+    return changes;
   }
 
   #schemaConfig(): Record<string, unknown> {
@@ -259,13 +287,6 @@ export class DataService
     if (!this.account) {
       this.account = await Account.local(context, tx);
     }
-  }
-
-  #outputSchema() {
-    return z.object({
-      results: z.array(this.itemSchema),
-      urlsVisited: z.array(z.string()),
-    });
   }
 
   async list({ limit = defaultListLimit, page = 1 }: DataServiceListOptions = {}) {
@@ -400,7 +421,7 @@ export class DataService
                 vmContext: Object.keys(availableContext),
               })
           );
-          await Promise.all(scripts.map((script) => script.compile()));
+          await validateScripts(scripts, urls, this.itemSchema);
           let activated = false;
           await context.storage.fillInTransaction(undefined, async (tx) => {
             const activeScripts = await tx
@@ -460,84 +481,138 @@ export class DataService
     }
   }
 
-  async #sync(context: GlobalContext, urls: string[]): Promise<DataServiceResult> {
+  async #sync(
+    context: GlobalContext,
+    urls: string[],
+    changes: DataServiceSyncResult
+  ): Promise<void> {
     await this.save();
-    const results: unknown[] = [];
     const scripts = await Script.findActiveForDataService(context, this.id!);
-    if (scripts.length === 0) {
-      throw new ScriptNotFoundError(this.name, urls.join(', '));
-    }
-    const bots = await Promise.all(
-      scripts.map(async (script) => ({ bot: await script.compile(), script }))
+    const checked = await Promise.all(
+      scripts.map(async (script) => {
+        try {
+          const bot = await script.compile();
+          const check = await Promise.all(
+            urls.map(async (url) => {
+              try {
+                return await bot.check(url);
+              } catch (e) {
+                log.warn(`Script ${script.id} check failed for ${url}: ${String(e)}`);
+                return false;
+              }
+            })
+          );
+          return { bot, script, check };
+        } catch (e) {
+          log.warn(`Could not compile script ${script.id} (${script.name}): ${String(e)}`);
+          return null;
+        }
+      })
     );
-    const checks = await Promise.all(bots.map(({ bot }) => bot.check(urls)));
-    for (const check of checks) {
-      if (check.length !== urls.length) {
-        throw new Error('Bot check must return one boolean for every input URL');
+    const routes = urls.flatMap((url, i) => {
+      const matches = checked.filter((val) => val !== null && val.check[i]);
+      if (matches.length !== 1) {
+        if (matches.length > 1) {
+          log.warn(`Multiple scripts can handle url=${url}; leaving it unhandled`);
+        }
+        changes.outcome.unhandled.push({ url });
+        return [];
+      }
+      const { bot, script } = matches[0]!;
+      return [{ url, bot, script, run: new Run({ input: { url }, scriptId: script.id! }) }];
+    });
+
+    // Keep database writes sequential; extraction for independent URLs runs concurrently.
+    const ready = [] as typeof routes;
+    for (const route of routes) {
+      try {
+        await route.run.save(context.storage);
+        ready.push(route);
+      } catch (e) {
+        changes.outcome.errors.push({ url: route.url, error: String(e) });
       }
     }
-
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i]!;
-      const matchingBots = bots.filter((_, botIndex) => checks[botIndex]![i]);
-      if (matchingBots.length === 0) {
-        throw new ScriptNotFoundError(this.name, url);
-      }
-      if (matchingBots.length > 1) {
-        throw new Error(`Multiple scripts can handle url=${url} for service=${this.name}`);
-      }
-
-      const { bot, script } = matchingBots[0]!;
-
-      log.info(`Running script: id=${script.id}, name=${script.name}`);
-      const uniqueIds = new Set<string>();
-      const run = new Run({ input: { urls: [url] }, scriptId: script.id! });
-      await run.save(context.storage);
-
+    const outputs = await Promise.allSettled(
+      ready.map(({ bot, url, run }) => bot.run(url, run.id!))
+    );
+    for (const [i, { url, bot, script, run }] of ready.entries()) {
       try {
-        const output = await this.#outputSchema().parseAsync(await bot.run([url], run.id!));
-        const uniqueResults = output.results.flatMap((data) => {
+        const output = outputs[i]!;
+        if (output.status === 'rejected') {
+          throw output.reason;
+        }
+        const items = await z.array(this.itemSchema).parseAsync(output.value);
+        const rows = await context.storage.db
+          .select()
+          .from(itemsTable)
+          .where(and(eq(itemsTable.sourceScriptId, script.id!), eq(itemsTable.sourceUrl, url)));
+        const previous = new Map(rows.map((row) => [row.uniqueId, new Item(row)]));
+        const uniqueIds = new Set<string>();
+        const uniqueResults = items.flatMap((data) => {
           const uniqueId = bot.uniqueId(data);
           if (uniqueIds.has(uniqueId)) {
             return [];
           }
-
           uniqueIds.add(uniqueId);
-          return [{ data, uniqueId }];
+          // Compare the persisted JSON representation, including values created in the script VM.
+          return [{ data: JSON.parse(JSON.stringify(data)) as unknown, uniqueId }];
         });
-        await run.complete(
-          context.storage,
-          uniqueResults.map((result) => result.data)
-        );
-        log.info(`Saving ${uniqueResults.length} items: script=${script.name}, sourceUrl=${url}`);
-        await Promise.all(
-          uniqueResults.map(({ data, uniqueId }) =>
-            new Item({
+
+        const pending: Pick<DataServiceSyncResult, 'created' | 'updated' | 'removed'> = {
+          created: [],
+          updated: [],
+          removed: [...previous.values()].filter((item) => !uniqueIds.has(item.uniqueId)),
+        };
+
+        await context.storage.fillInTransaction(undefined, async (tx) => {
+          for (const { data, uniqueId } of uniqueResults) {
+            const before = previous.get(uniqueId);
+            if (before && isDeepStrictEqual(before.data, data)) {
+              continue;
+            }
+            const after = new Item({
               data,
               sourceUrl: url,
               sourceScriptId: script.id!,
               uniqueId,
-            }).save(context.storage)
-          )
-        );
+            });
+            await after.save(context.storage, tx);
+            if (before) {
+              pending.updated.push({ before, after });
+            } else {
+              pending.created.push(after);
+            }
+          }
 
-        results.push(...uniqueResults.map((result) => result.data));
+          for (const item of pending.removed) {
+            // Keep the returned pre-removal item intact, including its stored ID.
+            await tx.delete(itemsTable).where(eq(itemsTable.id, item.id!));
+          }
+
+          await run.complete(
+            context.storage,
+            uniqueResults.map((val) => val.data),
+            tx
+          );
+        });
+        changes.created.push(...pending.created);
+        changes.updated.push(...pending.updated);
+        changes.removed.push(...pending.removed);
+        changes.outcome.success.push({ url });
       } catch (e) {
-        await run.fail(context.storage, e);
-        throw e;
+        const message = getOrNull<unknown>(e, 'message');
+        changes.outcome.errors.push({
+          url,
+          error: typeof message === 'string' ? message : String(e),
+        });
+        if (run.id) {
+          try {
+            await run.fail(context.storage, e);
+          } catch (e) {
+            log.warn(`Could not persist failed sync run for ${url}: ${String(e)}`);
+          }
+        }
       }
-
-      const items = await context.storage.db
-        .select()
-        .from(itemsTable)
-        .where(and(eq(itemsTable.sourceScriptId, script.id!), eq(itemsTable.sourceUrl, url)));
-      const staleItems = items.filter((item) => !uniqueIds.has(item.uniqueId));
-      log.info(
-        `Removing ${staleItems.length} stale items: script=${script.name}, sourceUrl=${url}`
-      );
-      await Promise.all(staleItems.map((item) => new Item(item).remove(context.storage)));
     }
-
-    return { results };
   }
 }

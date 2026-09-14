@@ -9,10 +9,10 @@ import * as zod from 'zod';
 import { log } from '../logger.js';
 
 export type CompileResult = {
-  check: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
+  check: (url: string) => Promise<{ out: unknown; logs: any[] }>;
   fn: (input: unknown) => Promise<{ out: unknown; logs: any[] }>;
   itemSchema: JSONSchema;
-  run: (urls: string[]) => Promise<{ out: unknown; logs: any[] }>;
+  run: (url: string) => Promise<{ out: unknown; logs: any[] }>;
   uniqueId: (item: unknown) => string;
 };
 
@@ -124,7 +124,7 @@ export class Compiler {
 
     const execute = async (
       name: 'check' | 'run',
-      urls: string[]
+      input: unknown
     ): Promise<{ out: unknown; logs: any[] }> => {
       const wrappedConsole = {} as Pick<Console, 'info'> & Record<string, any>;
       const logs: any[] = [];
@@ -150,12 +150,12 @@ export class Compiler {
         throw new Error(`Script must export a ${name} function`);
       }
 
-      return { out: await fn(urls), logs };
+      return { out: await fn(input), logs };
     };
 
-    const checkFn = (urls: string[]) => execute('check', urls);
-    const runFn = (urls: string[]) => execute('run', urls);
-    const fn = (input: unknown) => runFn(input as string[]);
+    const checkFn = (url: string) => execute('check', url);
+    const runFn = (url: string) => execute('run', url);
+    const fn = (input: unknown) => execute('run', input);
 
     return { check: checkFn, fn, itemSchema, run: runFn, uniqueId: uniqueIdFn };
   }

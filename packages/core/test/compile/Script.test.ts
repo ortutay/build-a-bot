@@ -12,11 +12,8 @@ import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 const scriptCode = `
   export const itemSchema = { type: 'string' };
   export const uniqueId = (item) => item;
-  export const check = async (urls) => urls.map(() => true);
-  export const run = async (urls) => ({
-    results: await Promise.all(urls.map((url) => tools.fetchTool({ url }))),
-    urlsVisited: urls,
-  });
+  export const check = async (url) => true;
+  export const run = async (url) => [await tools.fetchTool({ url })];
 `;
 
 describe('Script', () => {
@@ -77,14 +74,11 @@ describe('Script', () => {
     });
     expect(found?.id).toBe(script.id);
     await expect(Script.findById(context, 'missing')).resolves.toBeNull();
-    const urls = ['https://example.test/hello'];
+    const url = 'https://example.test/hello';
     expect(bot.itemSchema).toEqual({ type: 'string' });
     expect(bot.uniqueId('hello')).toBe('hello');
-    await expect(bot.check(urls)).resolves.toEqual([true]);
-    await expect(bot.run(urls)).resolves.toEqual({
-      results: [`echo:${urls[0]}`],
-      urlsVisited: urls,
-    });
+    await expect(bot.check(url)).resolves.toBe(true);
+    await expect(bot.run(url)).resolves.toEqual([`echo:${url}`]);
   });
 
   it('reports unavailable stored dependencies by name', async () => {
@@ -105,9 +99,9 @@ describe('Script', () => {
       name: 'old-schema-export',
       code: `
         export const outputSchema = {};
-        export const check = async (urls) => urls.map(() => true);
+        export const check = async (url) => true;
         export const uniqueId = () => 'old-schema-export';
-        export const run = async () => ({ results: [], urlsVisited: [] });
+        export const run = async (url) => [];
       `,
       modules: [],
       tools: [],
@@ -123,12 +117,9 @@ describe('Script', () => {
       name: 'queue-logging',
       code: `
         export const itemSchema = {};
-        export const check = async (urls) => urls.map(() => true);
+        export const check = async (url) => true;
         export const uniqueId = (item) => item;
-        export const run = async (urls) => ({
-          results: await Promise.all(urls.map((url) => pq.add(() => url))),
-          urlsVisited: urls,
-        });
+        export const run = async (url) => [await pq.add(() => url)];
       `,
       modules: [],
       tools: [],
@@ -137,10 +128,7 @@ describe('Script', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const bot = await script.compile(mastra);
 
-    await expect(bot.run(['one', 'two'], 'queue-logging')).resolves.toEqual({
-      results: ['one', 'two'],
-      urlsVisited: ['one', 'two'],
-    });
+    await expect(bot.run('one', 'queue-logging')).resolves.toEqual(['one']);
     expect(bot.getLogs('queue-logging')).toContainEqual({
       level: 'info',
       args: [expect.stringContaining('Started bot script queue task')],
@@ -186,7 +174,7 @@ describe('Script', () => {
       name: 'unselected-module',
       code: `
         export const itemSchema = {};
-        export const check = async (urls) => urls.map(() => true);
+        export const check = async (url) => true;
         export const uniqueId = () => 'unselected-module';
         export const run = async () => playwright;
       `,
@@ -197,6 +185,6 @@ describe('Script', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const bot = await script.compile(mastra);
 
-    await expect(bot.run(['https://example.test'])).rejects.toThrow('playwright');
+    await expect(bot.run('https://example.test')).rejects.toThrow('playwright');
   });
 });

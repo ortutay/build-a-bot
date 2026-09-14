@@ -29,14 +29,20 @@ export const createBuildScorer = (mastra: Mastra) =>
       const urls = Array.isArray(run.input?.urls)
         ? run.input.urls.filter((val: unknown): val is string => typeof val === 'string')
         : [];
-      const runId = srid();
-      const results = await bot.run(urls, runId);
-      const logs = bot.getLogs(runId);
+      const executions = await Promise.all(
+        urls.map(async (url: string) => {
+          const runId = srid();
+          try {
+            return { url, items: await bot.run(url, runId), logs: bot.getLogs(runId) };
+          } catch (e) {
+            return { url, error: String(e), logs: bot.getLogs(runId) };
+          }
+        })
+      );
       return {
         code,
         urls,
-        results,
-        logs,
+        executions,
       };
     })
     .generateScore({
@@ -51,7 +57,7 @@ export const createBuildScorer = (mastra: Mastra) =>
         results,
       }) => `Evaluate whether the generated scraper succeeded in giving correct results.
 
-Bot blocks, compilation/runtime failures, invalid output, or failure to get the right data should receive a low score.
+Each execution records one URL and the items returned by run(url), or an error caught by the evaluator. An empty items array means successful empty extraction. Evaluate failures and incorrect or incomplete data as low scores.
 
 Evaluate the results mostly from the perspective of the user, who wants correct, reliable data. However, also consider the code, and possible failure cases that don't show up in this specific run.
 

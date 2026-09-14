@@ -75,7 +75,7 @@ export class Run {
     this.id = run.id;
   }
 
-  async complete(storage: Storage, results: unknown[]): Promise<void> {
+  async complete(storage: Storage, results: unknown[], tx?: Transaction): Promise<void> {
     const id = this.id;
     if (!id) {
       throw new Error('Cannot complete an unsaved run');
@@ -85,7 +85,7 @@ export class Run {
     this.endTime = endTime;
     this.results = results;
     this.status = 'done';
-    await storage.db.transaction(async (tx) => {
+    const commit = async (tx: Transaction) => {
       if (results.length > 0) {
         await tx.insert(resultsTable).values(
           results.map((data) => ({
@@ -97,7 +97,12 @@ export class Run {
       }
 
       await this.save(storage, tx);
-    });
+    };
+    if (tx) {
+      await commit(tx);
+    } else {
+      await storage.db.transaction(commit);
+    }
   }
 
   async fail(storage: Storage, e: unknown): Promise<void> {
