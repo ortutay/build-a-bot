@@ -1,5 +1,6 @@
 import { brightdataApiKey } from '../constants.js';
 import { getOrNull } from '../util/index.js';
+import { log } from '../logger.js';
 import { BrightDataRequestProxy } from './BrightDataRequestProxy.js';
 import { CdpProxy } from './CdpProxy.js';
 import { ProxyRegistry } from './ProxyRegistry.js';
@@ -128,10 +129,12 @@ export const createBrightdataProxies = async (
   const completed: string[] = [];
   for (const type of new Set(types)) {
     const id = `${prefix}-${type}`;
+    log.info(`Provision Brightdata proxy: ${id}`);
     try {
       const name = zoneName(prefix, type);
       if (!zones.some((zone) => zone.name === name)) {
         try {
+          log.info(`No zone found, creating: ${name}`);
           const plan = planFor(type);
           await request(apiKey, '/zone', 'POST', { zone: { name, type: plan.type }, plan });
         } catch (e) {
@@ -153,6 +156,7 @@ export const createBrightdataProxies = async (
           new BrightDataRequestProxy(id, { apiKey, requestUrl: `${apiUrl}/request`, zone: name })
         );
       }
+      log.info(`Got zone: ${name}`);
       completed.push(name);
     } catch (e) {
       throw new Error(
