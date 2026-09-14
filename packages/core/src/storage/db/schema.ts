@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text, unique, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import type { IdentityConfig } from '../../service/identity.js';
 import { srid } from '../../util/index.js';
 
 export const runStatuses = ['active', 'done', 'error'] as const;
@@ -32,6 +33,7 @@ export const dataServicesTable = sqliteTable(
       .notNull()
       .references(() => accountsTable.id),
     name: text().notNull(),
+    identity: text('identity', { mode: 'json' }).$type<IdentityConfig>(),
     itemSchema: text('item_schema', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
   },
   (table) => [unique('data_services_account_id_name_unique').on(table.accountId, table.name)]

@@ -7,14 +7,12 @@ import type { StorageTransaction } from '../storage/Storage.js';
 import { accountsTable } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
 
-export type AccountConfig = { username: string };
+export type AccountOptions = UsesContextOptions & {
+  id?: string;
+  username: string;
+};
 
-export type AccountOptions = AccountConfig &
-  UsesContextOptions & {
-    id?: string;
-  };
-
-export class Account extends UsesContext implements ISerializable<AccountConfig>, ISaveable {
+export class Account extends UsesContext implements ISerializable<{ username: string }>, ISaveable {
   id: string | null;
   username: string;
 
@@ -67,10 +65,6 @@ export class Account extends UsesContext implements ISerializable<AccountConfig>
     return local;
   }
 
-  static load(config: AccountConfig, context: GlobalContext): Account {
-    return new Account({ context, ...config });
-  }
-
   async save(tx?: StorageTransaction): Promise<void> {
     const context = await this.context();
 
@@ -107,7 +101,7 @@ export class Account extends UsesContext implements ISerializable<AccountConfig>
     });
   }
 
-  dump(): AccountConfig {
+  dump(): { username: string } {
     return { username: this.username };
   }
 }

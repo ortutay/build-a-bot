@@ -142,3 +142,17 @@ it('never bypasses routing failures through the acceptance callback', async () =
   );
   expect(acceptFailure).not.toHaveBeenCalled();
 });
+
+it('validates configured identity instead of the generated uniqueId function', async () => {
+  const { script } = candidate({
+    uniqueId: () => {
+      throw new Error('Unused');
+    },
+  });
+  await expect(
+    validateScripts([script], urls, schema, undefined, { fields: [{ path: 'id' }] })
+  ).resolves.toBeInstanceOf(Map);
+  await expect(
+    validateScripts([script], urls, schema, undefined, { fields: [{ path: 'missing' }] })
+  ).rejects.toThrow('Missing identity field');
+});

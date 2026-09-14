@@ -1,8 +1,9 @@
 import { type Tool } from '@mastra/core/tools';
 import { DiskCache } from '../../cache/DiskCache.js';
 import { cb } from '../../cache/busters.js';
+import { toolCacheSchema } from '../../cache/toolCacheKey.js';
 import { hash } from '../../util/index.js';
-import { addMetric, asJSONSchema } from './shared.js';
+import { addMetric } from './shared.js';
 import { log } from '../../logger.js';
 
 type CachedToolResult = { type: 'output'; output: unknown };
@@ -24,10 +25,10 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
         tool: {
           id: tool.id,
           description: tool.description,
-          inputSchema: tool.inputSchema && asJSONSchema(tool.inputSchema, 'input'),
-          outputSchema: tool.outputSchema && asJSONSchema(tool.outputSchema, 'output'),
-          suspendSchema: tool.suspendSchema && asJSONSchema(tool.suspendSchema, 'input'),
-          resumeSchema: tool.resumeSchema && asJSONSchema(tool.resumeSchema, 'input'),
+          inputSchema: toolCacheSchema(tool.inputSchema, 'input'),
+          outputSchema: toolCacheSchema(tool.outputSchema, 'output'),
+          suspendSchema: toolCacheSchema(tool.suspendSchema, 'input'),
+          resumeSchema: toolCacheSchema(tool.resumeSchema, 'input'),
         },
         input,
         context: {

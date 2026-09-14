@@ -8,15 +8,13 @@ import { dataSourcesTable } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
 import { type Url, parseUrl } from '../types.js';
 
-export type DataSourceConfig = { url: string };
+export type DataSourceOptions = UsesContextOptions & {
+  id?: string;
+  dataServiceId?: string;
+  url: string;
+};
 
-export type DataSourceOptions = DataSourceConfig &
-  UsesContextOptions & {
-    id?: string;
-    dataServiceId?: string;
-  };
-
-export class DataSource extends UsesContext implements ISerializable<DataSourceConfig>, ISaveable {
+export class DataSource extends UsesContext implements ISerializable<{ url: string }>, ISaveable {
   id: string | null;
   dataServiceId: string | null;
   url: Url;
@@ -52,10 +50,6 @@ export class DataSource extends UsesContext implements ISerializable<DataSourceC
       .limit(1);
 
     return dataSource ? new DataSource({ context, ...dataSource }) : null;
-  }
-
-  static load(config: DataSourceConfig, context?: GlobalContext): DataSource {
-    return new DataSource({ context, ...config });
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
@@ -97,7 +91,7 @@ export class DataSource extends UsesContext implements ISerializable<DataSourceC
     });
   }
 
-  dump(): DataSourceConfig {
+  dump(): { url: string } {
     return { url: this.url };
   }
 }

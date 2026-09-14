@@ -14,7 +14,7 @@ export const getOrNull = <Value>(input: unknown, key: string): Value | null => {
 export const srid = (() => {
   let deterministicSeed = 0x12345678;
 
-  return (len = 6, prefix = ''): string => {
+  return (len = 14, prefix = ''): string => {
     const alpha = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
     let id = '';
     for (let i = 0; i < len; i++) {
@@ -24,7 +24,7 @@ export const srid = (() => {
         deterministicSeed ^= deterministicSeed << 5;
         id += alpha[Math.floor(((deterministicSeed >>> 0) / 0x100000000) * alpha.length)];
       } else {
-        id += alpha[Math.floor(Math.random() * alpha.length)];
+        id += alpha[crypto.randomInt(alpha.length)];
       }
     }
 

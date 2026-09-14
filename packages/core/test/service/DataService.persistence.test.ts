@@ -105,8 +105,6 @@ describe('DataService persistence', () => {
     ).resolves.toMatchObject({ rows: [{ url: sourceUrl }] });
 
     const config = dataService.dump();
-    const loaded = DataService.load(config, context);
-    expect(loaded.dump()).toEqual(config);
 
     const id = dataService.id!;
     const foundById = await DataService.findById(context, id);
@@ -129,12 +127,6 @@ describe('DataService persistence', () => {
     expect(await countRows(temporaryDb, 'accounts')).toBe(1);
     expect(await countRows(temporaryDb, 'data_services')).toBe(0);
     expect(await countRows(temporaryDb, 'data_sources')).toBe(0);
-
-    await loaded.save();
-
-    expect(loaded.id).toEqual(expect.any(String));
-    const restored = await DataService.findById(context, loaded.id!);
-    expect(restored?.dump()).toEqual(config);
   });
 
   it('updates the existing service when another instance has the same name', async () => {

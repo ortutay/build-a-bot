@@ -81,7 +81,7 @@ export const executors: Record<string, any> = {
   ) => {
     sessions.add(session);
     const toolCallId = getOrNull<string>(context, 'toolCallId');
-    return session.createCursor(toolCallId ? hash(toolCallId).slice(0, 8) : null, proxy);
+    return session.createCursor(toolCallId ? hash(toolCallId).slice(0, 14) : null, proxy);
   },
   gotoTool: async (
     documentLibrary: DocumentLibrary,

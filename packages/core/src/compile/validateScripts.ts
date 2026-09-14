@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { entityId, type IdentityConfig } from '../service/identity.js';
 import type { Script } from './Script.js';
 
 export class SeedValidationError extends Error {
@@ -17,7 +18,8 @@ export const validateScripts = async (
   scripts: Script[],
   urls: string[],
   itemSchema: z.ZodType,
-  acceptFailure: (e: SeedValidationError) => boolean = () => false
+  acceptFailure: (e: SeedValidationError) => boolean = () => false,
+  identity?: IdentityConfig
 ): Promise<Map<string, Script>> => {
   const bots = await Promise.all(scripts.map((script) => script.compile()));
   const checks = await Promise.all(
@@ -37,9 +39,10 @@ export const validateScripts = async (
     routes.map(async ({ url, bot, script }) => {
       try {
         const items = await z.array(itemSchema).parseAsync(await bot.run(url));
+        const uniqueId = identity ? (item: unknown) => entityId(item, identity) : bot.uniqueId;
         for (const item of items) {
-          const id = bot.uniqueId(item);
-          if (typeof id !== 'string' || !id || id !== bot.uniqueId(item)) {
+          const id = uniqueId(item);
+          if (typeof id !== 'string' || !id || id !== uniqueId(item)) {
             throw new Error('uniqueId() must return a stable nonempty string');
           }
         }

@@ -11,7 +11,13 @@ import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
 import { Item } from '../../src/service/Item.js';
-import { itemsTable, resultsTable, runsTable } from '../../src/storage/db/schema.js';
+import { type IdentityConfig, entityId } from '../../src/service/identity.js';
+import {
+  dataServicesTable,
+  itemsTable,
+  resultsTable,
+  runsTable,
+} from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const a = 'https://example.test/a';
@@ -43,7 +49,7 @@ describe('sync change reporting', () => {
     await db?.dispose();
   });
 
-  const setup = async () => {
+  const setup = async (identity?: IdentityConfig) => {
     db = await createTemporaryDb();
     const data = new Map<string, unknown[]>([
       [a, []],
@@ -62,6 +68,7 @@ describe('sync change reporting', () => {
     const service = new DataService({
       context,
       name: 'sync-results',
+      identity,
       sources: [a, b].map((url) => new DataSource({ url })),
       itemSchema: z.object({ key: z.string(), text: z.string() }),
     });
@@ -370,5 +377,90 @@ describe('sync change reporting', () => {
     expect((await service.list()).total).toBe(1);
     data.set(a, []);
     expect((await service.sync([a])).removed).toHaveLength(1);
+  });
+  it.each([undefined, { fields: [{ path: 'key' }] }])(
+    'warns on conflicting duplicates and retains the first item',
+    async (identity) => {
+      const { service, data } = await setup(identity);
+      const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
+      data.set(a, [
+        { key: 'one', text: 'First' },
+        { key: 'one', text: 'First' },
+      ]);
+      await service.sync([a]);
+      expect(warn).not.toHaveBeenCalled();
+      data.set(a, [
+        { key: 'one', text: 'First' },
+        { key: 'one', text: 'Conflict' },
+      ]);
+      const changes = await service.sync([a]);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Conflicting records share identity')
+      );
+      expect(changes.outcome.errors).toEqual([]);
+      expect(changes.updated).toEqual([]);
+      expect((await service.list()).results[0]).toMatchObject({ text: 'First' });
+    }
+  );
+
+  it('uses configured identity across script changes and persists it when reloaded', async () => {
+    const identity: IdentityConfig = { fields: [{ path: 'key', normalize: 'digits' }] };
+    const { service, data, script, addScript } = await setup(identity);
+    data.set(a, [{ key: '556074-3089', text: 'Before' }]);
+    const first = await service.sync([a]);
+    expect(first.created[0].uniqueId).toBe(entityId({ key: '5560743089' }, identity));
+    script.active = false;
+    await script.save();
+    await addScript(
+      code().replace(
+        'item => item.key',
+        "item => { throw new Error('Unused generated identity'); }"
+      )
+    );
+    const loaded = (await DataService.findById(await service.context(), service.id!))!;
+    expect(loaded.identity).toEqual(identity);
+    const [stored] = await db.storage.db.select().from(dataServicesTable);
+    expect(stored.identity).toEqual(identity);
+    expect(stored.itemSchema).toEqual(service.dump().itemSchema);
+    data.set(a, [{ key: '5560743089', text: 'After' }]);
+    const changes = await loaded.sync([a]);
+    expect(changes.updated).toHaveLength(1);
+    expect(changes.updated[0].after.id).toBe(first.created[0].id);
+    expect(changes.updated[0].after.uniqueId).toBe(first.created[0].uniqueId);
+    expect(changes.created).toEqual([]);
+    expect(changes.removed).toEqual([]);
+    data.set(a, [{ key: '', text: 'Missing identity' }]);
+    expect((await loaded.sync([a])).outcome.errors).toHaveLength(1);
+    expect((await loaded.list()).results[0]).toMatchObject({ text: 'After' });
+  });
+
+  it('adopts configured identity without changing existing item IDs', async () => {
+    const { service, data } = await setup();
+    data.set(a, [{ key: '556074-3089', text: 'Before' }]);
+    const first = await service.sync([a]);
+    const configured = new DataService({
+      ...service.dump(),
+      id: service.id!,
+      context: await service.context(),
+      sources: service.sources,
+      identity: { fields: [{ path: 'key', normalize: 'digits' }] },
+    });
+    data.set(a, [{ key: '5560743089', text: 'After' }]);
+    const changes = await configured.sync([a]);
+    expect(changes.created).toEqual([]);
+    expect(changes.removed).toEqual([]);
+    expect(changes.updated[0].after.id).toBe(first.created[0].id);
+    expect(changes.updated[0].after.uniqueId).toBe(first.created[0].uniqueId);
+  });
+
+  it('clears persisted identity when disabled', async () => {
+    const { service } = await setup({ fields: [{ path: 'key' }] });
+    service.identity = null;
+    await service.save();
+    const loaded = (await DataService.findById(await service.context(), service.id!))!;
+    expect(loaded.identity).toBeNull();
+    const [stored] = await db.storage.db.select().from(dataServicesTable);
+    expect(stored.identity).toBeNull();
   });
 });

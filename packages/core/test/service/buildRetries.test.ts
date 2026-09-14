@@ -8,6 +8,7 @@ import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
+import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
 import { itemsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
@@ -115,4 +116,58 @@ it('activates a persistent generation failure alongside working scripts and pres
   expect((await service.list()).total).toBe(first.created.length);
   await service.build();
   expect(start).toHaveBeenCalledTimes(3);
+});
+
+it('rebuilds when tool names change but not when tool order or schemas change', async () => {
+  const { service, context, start } = await setup([a]);
+  const first = await markAvailableTool({
+    id: 'first',
+    inputSchema: z.object({}),
+    execute: async () => ({}),
+  });
+  const second = await markAvailableTool({ id: 'second', execute: async () => ({}) });
+  const listTools = vi.spyOn(context.mastra, 'listTools');
+  listTools.mockReturnValue({ first, second } as never);
+  start.mockResolvedValue(result(code([a])));
+  await service.build();
+  listTools.mockReturnValue({ second, first } as never);
+  await service.build();
+  expect(start).toHaveBeenCalledOnce();
+  listTools.mockReturnValue({
+    first: { ...first, inputSchema: z.object({ changed: z.string() }) },
+    second,
+  } as never);
+  await service.build();
+  expect(start).toHaveBeenCalledOnce();
+  listTools.mockReturnValue({ first } as never);
+  await service.build();
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(start.mock.calls[1][0].inputData.tools).toEqual(['first']);
+});
+
+it('keeps identity separate from the schema sent to generation', async () => {
+  const { context, start } = await setup([a]);
+  const itemSchema = { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] };
+  const service = new DataService({
+    context,
+    name: 'identity-build',
+    sources: [new DataSource({ url: a })],
+    itemSchema,
+    identity: { fields: [{ path: 'id' }] },
+  });
+  start.mockResolvedValue(
+    result(
+      code([a]).replace(
+        'item => item.id',
+        "item => { throw new Error('Not the configured identity'); }"
+      )
+    )
+  );
+  await service.build();
+  expect(start.mock.calls[0][0].inputData.itemSchema).toEqual(itemSchema);
+  expect(service.dump().identity).toEqual(service.identity);
+  expect(service.dump().itemSchema).toEqual(itemSchema);
+  service.identity = { fields: [{ path: 'id', normalize: 'lowercase' }] };
+  await service.build();
+  expect(start).toHaveBeenCalledTimes(2);
 });

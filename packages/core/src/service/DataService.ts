@@ -5,7 +5,6 @@ import { Account } from '../account/Account.js';
 import { cb } from '../cache/busters.js';
 import { createGlobalContext, type GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
-import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 import { Run } from '../compile/Run.js';
@@ -22,8 +21,9 @@ import {
   scriptsTable,
 } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
-import { DataSource, type DataSourceConfig } from './DataSource.js';
+import { DataSource } from './DataSource.js';
 import { Item } from './Item.js';
+import { entityId, identitySchema, type IdentityConfig } from './identity.js';
 
 export type DataServiceOptions = UsesContextOptions & {
   id?: string;
@@ -31,6 +31,7 @@ export type DataServiceOptions = UsesContextOptions & {
   name: string;
   sources: DataSource[];
   itemSchema: DataServiceItemSchema;
+  identity?: IdentityConfig;
 };
 
 export type DataServiceSyncResult = {
@@ -44,12 +45,6 @@ export type DataServiceSyncResult = {
   };
 };
 export type DataServiceListOptions = { limit?: number; page?: number };
-export type DataServiceConfig = {
-  itemSchema: Record<string, unknown>;
-  name: string;
-  sources: DataSourceConfig[];
-};
-
 export type DataServiceItemSchema = z.ZodType | Record<string, unknown>;
 
 export const defaultListLimit = 100;
@@ -62,13 +57,11 @@ export class ScriptNotFoundError extends Error {
   }
 }
 
-export class DataService
-  extends UsesContext
-  implements ISerializable<DataServiceConfig>, ISaveable
-{
+export class DataService extends UsesContext implements ISaveable {
   id: string | null;
   account: Account | null;
   itemSchema: z.ZodType;
+  identity: IdentityConfig | null;
   name: string;
   sources: DataSource[];
 
@@ -85,9 +78,10 @@ export class DataService
       this.#itemSchemaConfig = z.toJSONSchema(options.itemSchema) as Record<string, unknown>;
       this.itemSchema = options.itemSchema;
     } else {
-      this.#itemSchemaConfig = options.itemSchema;
+      this.#itemSchemaConfig = structuredClone(options.itemSchema);
       this.itemSchema = z.fromJSONSchema(options.itemSchema);
     }
+    this.identity = options.identity ? identitySchema.parse(options.identity) : null;
   }
 
   static async findById(context: GlobalContext, id: string): Promise<DataService | null> {
@@ -109,16 +103,6 @@ export class DataService
       .limit(1);
 
     return dataService ? DataService.#fromRow(context, dataService) : null;
-  }
-
-  static load(config: DataServiceConfig, context?: GlobalContext, account?: Account): DataService {
-    return new DataService({
-      account,
-      context,
-      itemSchema: config.itemSchema,
-      name: config.name,
-      sources: config.sources.map((source) => DataSource.load(source, context)),
-    });
   }
 
   static async sharedContext(services: readonly DataService[]): Promise<GlobalContext> {
@@ -164,6 +148,7 @@ export class DataService
       context,
       id: dataService.id,
       account,
+      identity: dataService.identity ?? undefined,
       itemSchema: dataService.itemSchema,
       name: dataService.name,
       sources: sources.map(
@@ -190,12 +175,13 @@ export class DataService
         .insert(dataServicesTable)
         .values({
           accountId,
+          identity: this.identity,
           itemSchema: this.#schemaConfig(),
           name: this.name,
         })
         .onConflictDoUpdate({
           target: [dataServicesTable.accountId, dataServicesTable.name],
-          set: { itemSchema: this.#schemaConfig() },
+          set: { identity: this.identity, itemSchema: this.#schemaConfig() },
         })
         .returning();
       if (!dataService) {
@@ -230,10 +216,11 @@ export class DataService
     });
   }
 
-  dump(): DataServiceConfig {
+  dump() {
     return {
-      itemSchema: this.#schemaConfig(),
       name: this.name,
+      itemSchema: this.#schemaConfig(),
+      ...(this.identity ? { identity: this.identity } : {}),
       sources: this.sources.map((source) => source.dump()),
     };
   }
@@ -362,10 +349,16 @@ export class DataService
 
     const urls = norm(this.sources.map((source) => source.url));
     const goal = 'Build a scraper to get data in the output schema format.';
+    const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
+      .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
+      .map(([name]) => name)
+      .sort();
     const fingerprint = hash({
       cacheBuster: cb.dataServiceBuild,
+      identity: this.identity,
       goal,
       itemSchema: this.#schemaConfig(),
+      tools,
       urls,
     });
     const prefix = `script:${fingerprint}:`;
@@ -390,9 +383,6 @@ export class DataService
 
           const workflow = context.mastra.getWorkflowById('write-workflow');
           const run = await workflow.createRun();
-          const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
-            .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
-            .map(([name]) => name);
 
           const result = await run.start({
             inputData: {
@@ -430,13 +420,19 @@ export class DataService
             ),
           ];
           candidates = scripts;
-          await validateScripts(scripts, urls, this.itemSchema, (e) => {
-            if (!failures.has(e.url)) {
-              return false;
-            }
-            log.warn(`Activating best-effort candidate; sync will report failures: ${e.message}`);
-            return true;
-          });
+          await validateScripts(
+            scripts,
+            urls,
+            this.itemSchema,
+            (e) => {
+              if (!failures.has(e.url)) {
+                return false;
+              }
+              log.warn(`Activating best-effort candidate; sync will report failures: ${e.message}`);
+              return true;
+            },
+            this.identity ?? undefined
+          );
           let activated = false;
           await context.storage.fillInTransaction(undefined, async (tx) => {
             const activeScripts = await tx
@@ -577,27 +573,34 @@ export class DataService
         const previous = new Map<string, Item>();
         const duplicates: Item[] = [];
         for (const { item } of rows) {
-          if (previous.has(item.uniqueId)) {
+          const key = this.identity ? entityId(item.data, this.identity) : item.uniqueId;
+          if (previous.has(key)) {
             duplicates.push(new Item(item));
           } else {
-            previous.set(item.uniqueId, new Item(item));
+            previous.set(key, new Item(item));
           }
         }
-        const uniqueIds = new Set<string>();
+        const dataById = new Map<string, unknown>();
         const uniqueResults = items.flatMap((data) => {
-          const uniqueId = bot.uniqueId(data);
-          if (uniqueIds.has(uniqueId)) {
+          const uniqueId = this.identity ? entityId(data, this.identity) : bot.uniqueId(data);
+          // Compare persisted JSON, including values created in the script VM.
+          const normalized = JSON.parse(JSON.stringify(data)) as unknown;
+          if (dataById.has(uniqueId)) {
+            if (!isDeepStrictEqual(dataById.get(uniqueId), normalized)) {
+              log.warn(
+                `Conflicting records share identity ${uniqueId} for source=${url}, service=${this.name}; keeping the first item`
+              );
+            }
             return [];
           }
-          uniqueIds.add(uniqueId);
-          // Compare the persisted JSON representation, including values created in the script VM.
-          return [{ data: JSON.parse(JSON.stringify(data)) as unknown, uniqueId }];
+          dataById.set(uniqueId, normalized);
+          return [{ data: normalized, uniqueId }];
         });
 
         const pending: Pick<DataServiceSyncResult, 'created' | 'updated' | 'removed'> = {
           created: [],
           updated: [],
-          removed: [...previous.values()].filter((item) => !uniqueIds.has(item.uniqueId)),
+          removed: [...previous].filter(([key]) => !dataById.has(key)).map(([, item]) => item),
         };
 
         await context.storage.fillInTransaction(undefined, async (tx) => {
@@ -615,7 +618,7 @@ export class DataService
               data,
               sourceUrl: url,
               sourceScriptId: script.id!,
-              uniqueId,
+              uniqueId: before?.uniqueId ?? uniqueId,
             });
             await after.save(context.storage, tx);
             if (before) {
