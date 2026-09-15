@@ -22,6 +22,46 @@ describe('DataService persistence', () => {
     temporaryDb = null;
   });
 
+  it('reconciles removed sources transactionally without affecting other services', async () => {
+    temporaryDb = await createTemporaryDb();
+    const context = {
+      init: () => temporaryDb!.storage.init(),
+      storage: temporaryDb.storage,
+    } as GlobalContext;
+    const a = 'https://example.test/a';
+    const b = 'https://example.test/b';
+    const service = new DataService({
+      context,
+      name: 'reconcile',
+      itemSchema: z.object({}),
+      sources: [a, b].map((url) => new DataSource({ url })),
+    });
+    const sibling = new DataService({
+      context,
+      name: 'sibling',
+      itemSchema: z.object({}),
+      sources: [new DataSource({ url: a })],
+    });
+    await service.save();
+    await sibling.save();
+    const sources = async (id: string) =>
+      (await DataService.findById(context, id))!.sources.map((source) => source.url).sort();
+    service.sources = [service.sources[1]!];
+    await expect(
+      context.storage.fillInTransaction(undefined, async (tx) => {
+        await service.save(tx);
+        throw new Error('rollback');
+      })
+    ).rejects.toThrow('rollback');
+    expect(await sources(service.id!)).toEqual([a, b]);
+    await service.save();
+    expect(await sources(service.id!)).toEqual([b]);
+    service.sources = [];
+    await service.save();
+    expect(await sources(service.id!)).toEqual([]);
+    expect(await sources(sibling.id!)).toEqual([a]);
+  });
+
   it('accepts a JSON Schema item schema', () => {
     const itemSchema = {
       properties: { name: { type: 'string' } },

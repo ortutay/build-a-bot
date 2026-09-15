@@ -54,6 +54,12 @@ export const browserCacheInstrument = (
           }
 
           const output = hit ? cached : await execute(input, context);
+          const createdCursorId = !cursorId && getOrNull<string>(output, 'cursorId');
+          if (createdCursorId) {
+            // A new page can reuse a tool-call ID, but starts a fresh interaction sequence.
+            delete cache.sequences[createdCursorId];
+            delete cursorStatus[createdCursorId];
+          }
           // Only cache successful executions and completed cache hits.
           if (cursorId) {
             await cache.recordToolCall(cursorId, tool.id, cacheInput, output);

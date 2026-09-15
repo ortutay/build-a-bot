@@ -11,6 +11,7 @@ export {
   Proxy,
   type CdpCapableProxy,
   type HttpCapableProxy,
+  type ProxyRequest,
   type ProxyType,
 } from './Proxy.js';
 export { ProxyRegistry } from './ProxyRegistry.js';

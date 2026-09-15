@@ -17,6 +17,7 @@ import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processo
 import { DiskServerCache } from './extensions/cache/DiskServerCache.js';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
+import { toolCacheSchema } from '../cache/toolCacheKey.js';
 import {
   mastraDatabaseFilepath,
   redisCacheUrl,
@@ -79,7 +80,11 @@ export const defaultMastra = async (
             cacheBuster: cb.mastraResponse,
             prompt,
             tools: Object.entries(allTools).map(([key, tool]) =>
-              [key, JSON.stringify(tool.inputSchema), JSON.stringify(tool.outputSchema)].join('')
+              [
+                key,
+                JSON.stringify(toolCacheSchema(tool.inputSchema, 'input')),
+                JSON.stringify(toolCacheSchema(tool.outputSchema, 'output')),
+              ].join('')
             ),
           });
           const h = hash(hh);

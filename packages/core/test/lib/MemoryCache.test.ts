@@ -13,7 +13,7 @@ describe('MemoryCache', () => {
     await expect(cache.get('product/1')).resolves.toEqual({ name: 'Red Sneakers' });
 
     await cache.del('product/1');
-    await expect(cache.get('product/1')).resolves.toBeNull();
+    await expect(cache.get('product/1')).resolves.toBeUndefined();
   });
 
   it('uses JSON serialization rather than retaining object references', async () => {
@@ -42,13 +42,13 @@ describe('MemoryCache', () => {
     await cache.set('product', 'Red Sneakers');
 
     vi.spyOn(Date, 'now').mockReturnValue(1_000 + 24 * 3600 * 1000 + 1);
-    await expect(cache.get('product')).resolves.toBeNull();
+    await expect(cache.get('product')).resolves.toBeUndefined();
   });
 
   it('supports read-only mode', async () => {
     const cache = new MemoryCache<string>({ readOnly: true });
     await cache.set('product', 'Red Sneakers');
-    await expect(cache.get('product')).resolves.toBeNull();
+    await expect(cache.get('product')).resolves.toBeUndefined();
   });
 
   it('supports write-only mode', async () => {

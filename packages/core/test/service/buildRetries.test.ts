@@ -118,7 +118,7 @@ it('activates a persistent generation failure alongside working scripts and pres
   expect(start).toHaveBeenCalledTimes(3);
 });
 
-it('rebuilds when tool names change but not when tool order or schemas change', async () => {
+it('rebuilds for tool names and schemas but ignores tool order and injected background fields', async () => {
   const { service, context, start } = await setup([a]);
   const first = await markAvailableTool({
     id: 'first',
@@ -134,15 +134,26 @@ it('rebuilds when tool names change but not when tool order or schemas change', 
   await service.build();
   expect(start).toHaveBeenCalledOnce();
   listTools.mockReturnValue({
-    first: { ...first, inputSchema: z.object({ changed: z.string() }) },
+    first: { ...first, inputSchema: z.object({ _background: z.boolean().optional() }) },
     second,
   } as never);
   await service.build();
   expect(start).toHaveBeenCalledOnce();
-  listTools.mockReturnValue({ first } as never);
+  const changed = { ...first, inputSchema: z.object({ changed: z.string() }) };
+  listTools.mockReturnValue({
+    first: changed,
+    second,
+  } as never);
   await service.build();
   expect(start).toHaveBeenCalledTimes(2);
-  expect(start.mock.calls[1][0].inputData.tools).toEqual(['first']);
+  const outputChanged = { ...changed, outputSchema: z.object({ ok: z.boolean() }) };
+  listTools.mockReturnValue({ first: outputChanged, second } as never);
+  await service.build();
+  expect(start).toHaveBeenCalledTimes(3);
+  listTools.mockReturnValue({ first: outputChanged } as never);
+  await service.build();
+  expect(start).toHaveBeenCalledTimes(4);
+  expect(start.mock.calls[3][0].inputData.tools).toEqual(['first']);
 });
 
 it('keeps identity separate from the schema sent to generation', async () => {

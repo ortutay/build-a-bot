@@ -1,4 +1,5 @@
 import { log } from '../logger.js';
+import { toolError } from '../mastra/toolError.js';
 
 export type ContextTool = (input: unknown) => Promise<unknown>;
 
@@ -30,9 +31,14 @@ export const toContextTools = (tools: Record<string, unknown>): ContextTools =>
         );
       }
 
-      const fn = (input: unknown) => {
+      const fn = async (input: unknown) => {
         log.info(`Calling ${name} on ${JSON.stringify(input)}`);
-        return tool.execute(input);
+        const output = await tool.execute(input);
+        const error = toolError(output);
+        if (error) {
+          throw error;
+        }
+        return output;
       };
 
       return [name, fn];

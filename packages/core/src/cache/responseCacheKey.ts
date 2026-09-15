@@ -1,6 +1,7 @@
 import { pick } from 'radash';
 import { getOrNull, hash } from '../util/index.js';
 import { log } from '../logger.js';
+import { toolCacheInput } from './toolCacheKey.js';
 
 type ResponseCacheHashInputArgs = {
   cacheBuster: string;
@@ -45,6 +46,9 @@ export const serializePromptForCache = (prompt: unknown): unknown[] => {
                   'text',
                 ])
               );
+              if ('toolName' in clean && 'input' in clean) {
+                clean.input = toolCacheInput(clean.input);
+              }
               removeCacheOnlyFields(clean);
               return clean;
             })
@@ -85,11 +89,6 @@ export const removeCacheOnlyFields = (value: unknown): void => {
   // is refreshed through another proxy or browser session.
   delete record.headers;
   delete record.request;
-
-  const background = getOrNull<Record<string, unknown>>(record, '_background');
-  if (background) {
-    delete background.maxRetries;
-  }
 
   Object.values(record).forEach(removeCacheOnlyFields);
 };

@@ -21,6 +21,7 @@ export {
   type CdpCapableProxy,
   type HttpCapableProxy,
   type HttpProxyOptions,
+  type ProxyRequest,
   type ProxyType,
 } from './proxy/index.js';
 export { DataSource } from './service/DataSource.js';

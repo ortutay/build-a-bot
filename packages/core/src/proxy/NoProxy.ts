@@ -1,4 +1,4 @@
-import { Proxy } from './Proxy.js';
+import { Proxy, type ProxyRequest } from './Proxy.js';
 
 export class NoProxy extends Proxy {
   readonly type = 'http' as const;
@@ -7,7 +7,11 @@ export class NoProxy extends Proxy {
     super('none');
   }
 
-  async fetch(url: string, headers: HeadersInit = {}): Promise<Response> {
-    return fetch(url, { headers });
+  async fetch(
+    url: string,
+    headers: HeadersInit = {},
+    options: ProxyRequest = {}
+  ): Promise<Response> {
+    return fetch(url, { ...options, headers });
   }
 }

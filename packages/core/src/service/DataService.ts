@@ -1,8 +1,9 @@
 import { isDeepStrictEqual } from 'node:util';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { Account } from '../account/Account.js';
 import { cb } from '../cache/busters.js';
+import { toolCacheSchema } from '../cache/toolCacheKey.js';
 import { createGlobalContext, type GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { ISaveable } from '../interface/ISaveable.js';
@@ -195,6 +196,15 @@ export class DataService extends UsesContext implements ISaveable {
         source.dataServiceId = dataService.id;
         await source.save(tx);
       }
+      const urls = this.sources.map((source) => source.url);
+      await tx
+        .delete(dataSourcesTable)
+        .where(
+          and(
+            eq(dataSourcesTable.dataServiceId, dataService.id),
+            urls.length ? notInArray(dataSourcesTable.url, urls) : undefined
+          )
+        );
     });
   }
 
@@ -349,16 +359,20 @@ export class DataService extends UsesContext implements ISaveable {
 
     const urls = norm(this.sources.map((source) => source.url));
     const goal = 'Build a scraper to get data in the output schema format.';
-    const tools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
+    const availableTools = Object.entries(selectAvailableTools(context.mastra.listTools() ?? {}))
       .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
-      .map(([name]) => name)
-      .sort();
+      .sort(([a], [b]) => a.localeCompare(b));
+    const tools = availableTools.map(([name]) => name);
     const fingerprint = hash({
       cacheBuster: cb.dataServiceBuild,
       identity: this.identity,
       goal,
       itemSchema: this.#schemaConfig(),
-      tools,
+      tools: availableTools.map(([name, tool]) => ({
+        name,
+        inputSchema: toolCacheSchema(tool.inputSchema, 'input'),
+        outputSchema: toolCacheSchema(tool.outputSchema, 'output'),
+      })),
       urls,
     });
     const prefix = `script:${fingerprint}:`;

@@ -40,7 +40,7 @@ export class MemoryCache<Value = unknown> {
     this.entries.set(key, ser);
   }
 
-  async get(key: string): Promise<Value | null | undefined> {
+  async get(key: string): Promise<Value | undefined> {
     if (this.writeOnly) {
       return;
     }
@@ -49,13 +49,13 @@ export class MemoryCache<Value = unknown> {
 
     const ser = this.entries.get(key);
     if (ser === undefined) {
-      return null;
+      return undefined;
     }
 
     const data = JSON.parse(ser) as CacheEntry<Value>;
     if (Date.now() > data.expiresAt || data.val === undefined) {
       await this.del(key);
-      return null;
+      return undefined;
     }
 
     return data.val;

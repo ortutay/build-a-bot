@@ -1,5 +1,5 @@
 import { STATUS_CODES } from 'node:http';
-import { Proxy } from './Proxy.js';
+import { Proxy, type ProxyRequest } from './Proxy.js';
 
 export type BrightDataRequestProxyOptions = {
   apiKey?: string;
@@ -31,11 +31,14 @@ export class BrightDataRequestProxy extends Proxy {
     this.zone = options.zone;
   }
 
-  async fetch(url: string, headers: HeadersInit = {}): Promise<Response> {
+  async fetch(
+    url: string,
+    headers: HeadersInit = {},
+    options: ProxyRequest = {}
+  ): Promise<Response> {
     const resp = await fetch(requireOption(this.id, 'a request URL', this.requestUrl), {
       method: 'POST',
       headers: {
-        ...headers,
         'Content-Type': 'application/json',
         Authorization: `Bearer ${requireOption(this.id, 'an API key', this.apiKey)}`,
       },
@@ -43,8 +46,15 @@ export class BrightDataRequestProxy extends Proxy {
         zone: requireOption(this.id, 'a zone', this.zone),
         url,
         format: 'raw',
+        ...(options.method ? { method: options.method } : {}),
+        ...(options.body !== undefined ? { body: options.body } : {}),
+        ...(Object.keys(Object.fromEntries(new Headers(headers))).length
+          ? { headers: Object.fromEntries(new Headers(headers)) }
+          : {}),
       }),
-      signal: AbortSignal.timeout(this.timeoutMs),
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(this.timeoutMs)])
+        : AbortSignal.timeout(this.timeoutMs),
     });
     // The REST endpoint may return 200 even when the target request failed.
     let status = resp.status;

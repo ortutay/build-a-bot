@@ -90,6 +90,27 @@ describe('sync change reporting', () => {
     return { service, data, fixture, addScript, script, trace };
   };
 
+  it('reports returned tool errors per URL and preserves previous source items', async () => {
+    const { service, data, fixture } = await setup();
+    data.set(a, [{ key: 'a', text: 'Before' }]);
+    await service.sync([a]);
+    fixture.mockImplementation(async ({ url }) =>
+      url === a
+        ? ({ isError: true, message: 'Tool validation failed' } as never)
+        : [{ key: 'b', text: 'Working' }]
+    );
+    const changes = await service.sync([a, b]);
+    expect(changes.outcome.errors).toEqual([{ url: a, error: 'fixture: Tool validation failed' }]);
+    expect(changes.outcome.success).toEqual([{ url: b }]);
+    expect(changes.removed).toEqual([]);
+    expect((await service.list()).results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'a', text: 'Before' }),
+        expect.objectContaining({ key: 'b', text: 'Working' }),
+      ])
+    );
+  });
+
   it('reports creates, updates and removals using script IDs and full data, with stable repeats', async () => {
     const { service, data } = await setup();
     data.set(a, [

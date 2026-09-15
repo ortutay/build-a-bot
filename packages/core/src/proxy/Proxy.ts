@@ -12,9 +12,11 @@ export abstract class Proxy {
   }
 }
 
+export type ProxyRequest = { method?: string; body?: string; signal?: AbortSignal | null };
+
 export type HttpCapableProxy = Proxy & {
   readonly type: 'http';
-  fetch(url: string, headers?: HeadersInit): Promise<Response>;
+  fetch(url: string, headers?: HeadersInit, options?: ProxyRequest): Promise<Response>;
 };
 
 export const isHttpProxy = (proxy: Proxy): proxy is HttpCapableProxy => proxy.type == 'http';

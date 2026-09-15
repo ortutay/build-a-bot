@@ -1,8 +1,9 @@
 import { type Tool } from '@mastra/core/tools';
 import { DiskCache } from '../../cache/DiskCache.js';
 import { cb } from '../../cache/busters.js';
-import { toolCacheSchema } from '../../cache/toolCacheKey.js';
+import { toolCacheInput, toolCacheSchema } from '../../cache/toolCacheKey.js';
 import { hash } from '../../util/index.js';
+import { isToolFailure } from '../toolError.js';
 import { addMetric } from './shared.js';
 import { log } from '../../logger.js';
 
@@ -30,7 +31,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
           suspendSchema: toolCacheSchema(tool.suspendSchema, 'input'),
           resumeSchema: toolCacheSchema(tool.resumeSchema, 'input'),
         },
-        input,
+        input: toolCacheInput(input),
         context: {
           agentId: context?.agent?.agentId,
           resourceId: context?.agent?.resourceId,
@@ -40,7 +41,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
       });
 
       const cached = await cache.get(key);
-      if (cached !== null && cached !== undefined) {
+      if (cached !== null && cached !== undefined && !isToolFailure(cached.output)) {
         log.info(`Cache hit for ${key}, tool=${tool.id}, type=${cached.type}`);
         return addCacheMetric(cached.output, 'hit', tool, context);
       }
@@ -52,8 +53,10 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
       } catch (e) {
         throw e;
       }
-      log.info(`Setting cache for ${key}, tool=${tool.id}`);
-      await cache.set(key, { type: 'output', output });
+      if (!isToolFailure(output)) {
+        log.info(`Setting cache for ${key}, tool=${tool.id}`);
+        await cache.set(key, { type: 'output', output });
+      }
       return addCacheMetric(output, 'miss', tool, context);
     },
   };

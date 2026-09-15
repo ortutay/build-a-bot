@@ -1,5 +1,5 @@
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
-import { Proxy } from './Proxy.js';
+import { Proxy, type ProxyRequest } from './Proxy.js';
 
 export type HttpProxyOptions = {
   password?: string;
@@ -21,9 +21,13 @@ export class HttpProxy extends Proxy {
     this.username = options.username;
   }
 
-  async fetch(url: string, headers: HeadersInit = {}): Promise<Response> {
+  async fetch(
+    url: string,
+    headers: HeadersInit = {},
+    options: ProxyRequest = {}
+  ): Promise<Response> {
     if (!this.server) {
-      return fetch(url, { headers });
+      return fetch(url, { ...options, headers });
     }
     if (!this.username || !this.password) {
       throw new Error(`Proxy tier "${this.id}" requires a username and password.`);
@@ -32,14 +36,20 @@ export class HttpProxy extends Proxy {
     const dispatcher = new ProxyAgent(
       `http://${encodeURIComponent(this.username)}:${encodeURIComponent(this.password)}@${this.server}`
     );
-    const resp = await undiciFetch(url, {
-      headers: Object.fromEntries(new Headers(headers)),
-      dispatcher,
-    });
-    return new Response(await resp.arrayBuffer(), {
-      status: resp.status,
-      statusText: resp.statusText,
-      headers: Object.fromEntries(resp.headers),
-    });
+    try {
+      const resp = await undiciFetch(url, {
+        ...options,
+        headers: Object.fromEntries(new Headers(headers)),
+        dispatcher,
+      });
+      const body = await resp.arrayBuffer();
+      return new Response([204, 205, 304].includes(resp.status) ? null : body, {
+        status: resp.status,
+        statusText: resp.statusText,
+        headers: Object.fromEntries(resp.headers),
+      });
+    } finally {
+      await dispatcher.close();
+    }
   }
 }

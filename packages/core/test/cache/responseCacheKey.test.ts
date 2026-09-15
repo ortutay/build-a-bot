@@ -57,6 +57,22 @@ const cacheKeyForPrompt = (prompt: unknown): string =>
 const cacheKeyForRun = (metadata: RunMetadata): string => cacheKeyForPrompt(promptForRun(metadata));
 
 describe('response cache key', () => {
+  it('ignores the entire background option on tool inputs but preserves nested data', () => {
+    const prompt = (input: unknown) => [
+      {
+        role: 'assistant',
+        content: [{ type: 'tool-call', toolName: 'fetch', input }],
+      },
+    ];
+    const input = { url: 'https://example.test', data: { _background: 'content' } };
+    expect(cacheKeyForPrompt(prompt({ ...input, _background: { enabled: true } }))).toBe(
+      cacheKeyForPrompt(prompt(input))
+    );
+    expect(cacheKeyForPrompt(prompt({ ...input, data: { _background: 'changed' } }))).not.toBe(
+      cacheKeyForPrompt(prompt(input))
+    );
+  });
+
   it('hits across runs when only execution metadata changes', async () => {
     const firstKey = cacheKeyForRun({
       timestamp: '2026-08-24T20:15:40.274Z',

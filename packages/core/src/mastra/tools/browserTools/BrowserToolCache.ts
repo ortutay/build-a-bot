@@ -1,8 +1,10 @@
 import { omit } from 'radash';
 import { type DiskCache } from '../../../cache/DiskCache.js';
 import { cb } from '../../../cache/busters.js';
+import { toolCacheInput } from '../../../cache/toolCacheKey.js';
 import { log } from '../../../logger.js';
 import { hash } from '../../../util/index.js';
+import { isToolFailure } from '../../toolError.js';
 
 type CacheBackend = Pick<DiskCache, 'get' | 'set'>;
 
@@ -24,18 +26,17 @@ export class BrowserToolCache {
     const sequence = this.sequences[cursorId] || [];
 
     // TODO: pull out helper for this part, use it in recordToolCall
-    input = omit(input, ['cursorId']);
     const inputs = sequence.map((it) => ({
       toolId: it.toolId,
       input: it.input,
     }));
-    inputs.push({ toolId, input });
+    inputs.push({ toolId, input: toolCacheInput(omit(input, ['cursorId'])) });
     const key = hash({ cacheBuster: cb.browserToolCache, inputs });
 
     const cached = await this.cache.get(key);
     const keyDigest = key.slice(0, 12);
 
-    if (cached !== null && cached !== undefined) {
+    if (cached !== undefined) {
       log.info(
         `Browser cache hit: tool=${toolId}, key=${keyDigest}, prefixLength=${sequence.length}`
       );
@@ -59,9 +60,14 @@ export class BrowserToolCache {
     const sequence = this.sequences[cursorId];
     sequence.push({
       toolId,
-      input: omit(input, ['cursorId']),
+      input: toolCacheInput(omit(input, ['cursorId'])),
       output,
     });
+
+    // Keep the interaction history, but never cache results from a failed prefix.
+    if (sequence.some((step) => isToolFailure(step.output))) {
+      return;
+    }
 
     const inputs = sequence.map((it) => ({
       toolId: it.toolId,
