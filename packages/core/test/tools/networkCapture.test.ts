@@ -5,6 +5,7 @@ import { expect, it, vi } from 'vitest';
 import { DocumentLibrary } from '../../src/documents/DocumentLibrary.js';
 import { log } from '../../src/logger.js';
 import { NetworkCapture } from '../../src/mastra/tools/browserTools/NetworkCapture.js';
+import { likelyAdOrTracker } from '../../src/mastra/tools/browserTools/block.js';
 
 it('captures delayed same-URL POSTs as separate immutable scoped documents', async () => {
   const server = createServer((req, resp) => {
@@ -67,6 +68,7 @@ it('captures delayed same-URL POSTs as separate immutable scoped documents', asy
 
 it('skips redirect bodies, catches unavailable bodies, and isolates reused cursor IDs', async () => {
   const page = new EventEmitter();
+  Object.assign(page, { isClosed: () => false });
   const library = new DocumentLibrary();
   const capture = new NetworkCapture(page as unknown as Page, library, 'reused', 'none');
   const first = capture.begin();
@@ -101,5 +103,54 @@ it('skips redirect bodies, catches unavailable bodies, and isolates reused curso
     warn.mockRestore();
     capture.close();
     other.close();
+  }
+});
+
+it('filters LinkedIn tracking requests from capture', () => {
+  const request = {
+    frame: () => ({ url: () => 'https://jobs.smartrecruiters.com/' }),
+    resourceType: () => 'fetch',
+    url: () => 'https://www.linkedin.com/li/track?x=1',
+  };
+
+  expect(likelyAdOrTracker(request as any)).toBe(true);
+});
+
+it('discards a response body that fails after its page closes', async () => {
+  let closed = false;
+  const page = new EventEmitter();
+  Object.assign(page, { isClosed: () => closed });
+  const library = new DocumentLibrary();
+  const capture = new NetworkCapture(page as unknown as Page, library, 'cursor', 'none');
+  capture.begin();
+  const request = { resourceType: () => 'fetch', url: () => 'https://example.test/jobs' };
+  let rejectBody: (e: Error) => void;
+  const body = vi.fn(
+    () =>
+      new Promise<Buffer>((_resolve, reject) => {
+        rejectBody = reject;
+      })
+  );
+  const resp = {
+    request: () => request,
+    status: () => 200,
+    allHeaders: async () => ({ 'content-type': 'application/json' }),
+    body,
+    url: request.url,
+  };
+  const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
+  try {
+    page.emit('request', request);
+    page.emit('response', resp);
+    await vi.waitFor(() => expect(body).toHaveBeenCalledOnce());
+    closed = true;
+    page.emit('close');
+    rejectBody!(new Error('Target page, context or browser has been closed'));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(warn).not.toHaveBeenCalled();
+    expect(capture.list()).toEqual([]);
+  } finally {
+    warn.mockRestore();
+    capture.close();
   }
 });

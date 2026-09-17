@@ -8,6 +8,7 @@ import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { log } from '../../src/logger.js';
 import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
@@ -113,8 +114,10 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const serviceContext = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary,
       mastra,
       storage,
@@ -168,8 +171,10 @@ describe('DataService', () => {
     } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const source = new DataSource({ url: 'https://example.test/data' });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage,
@@ -205,8 +210,10 @@ describe('DataService', () => {
       status: 'success',
       result: [{ code: syncScriptCode, groupingName: 'data' }],
     });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       storage: temporaryDb.storage,
       mastra: {
@@ -247,8 +254,10 @@ describe('DataService', () => {
   it('lists items from active and inactive scripts, including totals and pagination', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -304,8 +313,10 @@ describe('DataService', () => {
   it('lists and gets current items scoped to the service', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -421,8 +432,10 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary,
       mastra,
       storage,
@@ -484,8 +497,10 @@ describe('DataService', () => {
       });
       const mastra = { listTools: () => ({ fetchTool }) } as unknown as Mastra;
       const source = new DataSource({ url: site.baseUrl });
+      const proxyRegistry = new ProxyRegistry([new NoProxy()]);
       const context = new GlobalContext({
-        proxyRegistry: new ProxyRegistry([new NoProxy()]),
+        browserSession: new BrowserSession(proxyRegistry),
+        proxyRegistry,
         documentLibrary,
         mastra,
         storage,
@@ -571,8 +586,10 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary,
       mastra,
       storage,
@@ -618,8 +635,10 @@ describe('DataService', () => {
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
     const source = new DataSource({ url: 'https://example.test/data' });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary,
       mastra,
       storage,
@@ -666,8 +685,10 @@ describe('DataService', () => {
   it('allows the same data source URL for multiple services', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,
@@ -717,8 +738,10 @@ describe('DataService', () => {
       getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
       listTools: () => ({ routeTrace: routeTraceTool }),
     } as unknown as Mastra;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -779,8 +802,10 @@ describe('DataService', () => {
       getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
       listTools: () => ({}),
     } as unknown as Mastra;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -814,8 +839,10 @@ describe('DataService', () => {
       getWorkflowById: () => ({ createRun: async () => ({ start: workflowStart }) }),
       listTools: () => ({}),
     } as unknown as Mastra;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra,
       storage: temporaryDb.storage,
@@ -842,8 +869,10 @@ describe('DataService', () => {
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
     const documentLibrary = new DocumentLibrary(new MemoryLibraryBackend());
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary,
       mastra,
       storage,

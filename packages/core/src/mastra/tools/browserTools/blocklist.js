@@ -1,4 +1,4 @@
-export const list = `[Adblock Plus 1.1]
+const adblockPlusList = `[Adblock Plus 1.1]
 !Blocklist for use with Adblock Plus. Use the following URL to add
 !AdBlock Plus:
 
@@ -3534,3 +3534,10 @@ export const list = `[Adblock Plus 1.1]
 ||zqtk.net^
 ||zzhc.vnet.cn^
 `;
+
+const fetchFoxList = `
+! Fetchfox-specific tracker rules.
+||www.linkedin.com/li/track
+`;
+
+export const list = [adblockPlusList, fetchFoxList].join('\n');

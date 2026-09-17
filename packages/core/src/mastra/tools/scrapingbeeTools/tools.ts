@@ -1,8 +1,11 @@
 import { type Tool } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
-import { addInstruments } from '../../instruments/index.js';
 import { scrapingbeeApiKey } from '../../../constants.js';
+import type { GlobalContext } from '../../../context/index.js';
+import { addInstruments } from '../../instruments/index.js';
 import { scrapingbeeCostInstrument } from './instruments.js';
+
+export const close = async (_context: GlobalContext): Promise<void> => {};
 
 export const createTools = async (): Promise<Record<string, Tool>> => {
   const mcpClient = new MCPClient({

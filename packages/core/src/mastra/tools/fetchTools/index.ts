@@ -1,1 +1,1 @@
-export { createTools, type CreateFetchToolsOptions } from './tools.js';
+export { close, createTools, type CreateFetchToolsOptions } from './tools.js';

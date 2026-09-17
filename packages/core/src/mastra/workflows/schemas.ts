@@ -75,13 +75,15 @@ const healResultSchema = z.object({
   report: z
     .string()
     .describe(
-      'Describe the code quality, and issues you saw, and anything that needs tobe improved, or that is working well. Focus on robustness of the code for handling potentially varied pages within the target class of URLs, and also on correctness of the data returned.'
+      'Describe the original code quality, and issues you saw, and anything that needs tobe improved, or that is working well. Focus on robustness of the code for handling potentially varied pages within the target class of URLs, and also on correctness of the data returned.'
     ),
   rating: z
     .number()
     .min(1)
     .max(100)
-    .describe('An overall rating of the code, where 100 is perfect, and 1 is completely unusable.'),
+    .describe(
+      'An overall rating of the riginal code, where 100 is perfect, and 1 is completely unusable.'
+    ),
   noChanges: z
     .boolean()
     .describe(
@@ -91,6 +93,14 @@ const healResultSchema = z.object({
 
 export const healAgentOutputSchema = healResultSchema.extend({
   code: z.string().nullable(),
+  confidence: z
+    .number()
+    .min(1)
+    .max(100)
+    .nullable()
+    .describe(
+      'If you wrote new code, give your confidence in it on a scale from 1 to 100, where 100 is the most confident.'
+    ),
 });
 
 export const healOutputSchema = healResultSchema.extend({

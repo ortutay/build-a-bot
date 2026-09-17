@@ -3,7 +3,7 @@ import { documentLibrary } from '../../src/documents/index.js';
 import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
 import { browserCacheInstrument } from '../../src/mastra/tools/browserTools/instruments.js';
-import { closeBrowserTools, executors } from '../../src/mastra/tools/browserTools/tools.js';
+import { executors } from '../../src/mastra/tools/browserTools/tools.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 
@@ -86,6 +86,6 @@ it('resets reused cursor history and live status while keeping other cursors and
       { toolId: 'browserTools_gotoTool', input: { url: input.url, proxy: 'none' } },
     ]);
   } finally {
-    await closeBrowserTools();
+    await session.close();
   }
 });

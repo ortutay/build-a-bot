@@ -4,13 +4,14 @@ import { z } from 'zod';
 import { Script } from '../../src/compile/Script.js';
 import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { healWorkflow } from '../../src/mastra/workflows/index.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
-vi.mock('../../src/mastra/index.js', () => ({ defaultMastra: vi.fn() }));
+vi.mock('../../src/mastra/create.js', () => ({ defaultMastra: vi.fn() }));
 
 let db: TemporaryDb;
 afterEach(async () => {
@@ -22,13 +23,21 @@ it('persists dependency-only healing and skips saving an unchanged script', asyn
   db = await createTemporaryDb();
   const mastra = new Mastra({ workflows: { healWorkflow }, logger: false });
   const generate = vi.fn().mockResolvedValue({
-    object: { code: null, noChanges: true, rating: 100, report: 'The code is correct.' },
+    object: {
+      code: null,
+      confidence: 100,
+      noChanges: true,
+      rating: 100,
+      report: 'The code is correct.',
+    },
   });
   vi.spyOn(mastra, 'getAgentById').mockReturnValue({ generate } as any);
+  const proxyRegistry = new ProxyRegistry([new NoProxy()]);
   const context = new GlobalContext({
+    browserSession: new BrowserSession(proxyRegistry),
     documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
     mastra,
-    proxyRegistry: new ProxyRegistry([new NoProxy()]),
+    proxyRegistry,
     storage: db.storage,
   });
   const url = 'https://example.test/items';
@@ -96,7 +105,9 @@ it('serializes a queued heal after build completes', async () => {
     },
     status: 'success',
   });
+  const proxyRegistry = new ProxyRegistry([new NoProxy()]);
   const context = new GlobalContext({
+    browserSession: new BrowserSession(proxyRegistry),
     documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
     mastra: {
       getWorkflowById: (id) => ({
@@ -104,7 +115,7 @@ it('serializes a queued heal after build completes', async () => {
       }),
       listTools: () => ({}),
     } as any,
-    proxyRegistry: new ProxyRegistry([new NoProxy()]),
+    proxyRegistry,
     storage: db.storage,
   });
   const service = new DataService({

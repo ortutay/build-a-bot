@@ -1,5 +1,6 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
+import type { GlobalContext } from '../../../context/index.js';
 import {
   documentContentTypes,
   type ContentType,
@@ -14,6 +15,8 @@ import {
   markAvailableTool,
   runtimeInstrument,
 } from '../../instruments/index.js';
+
+export const close = async (_context: GlobalContext): Promise<void> => {};
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();

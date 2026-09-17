@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { documentLibrary } from '../../src/documents/index.js';
-import {
-  closeBrowserTools,
-  createTools as createBrowserTools,
-} from '../../src/mastra/tools/browserTools/index.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
+import { createTools as createBrowserTools } from '../../src/mastra/tools/browserTools/index.js';
 import { createTools as createDocumentTools } from '../../src/mastra/tools/documents/index.js';
 import { planStep } from '../../src/mastra/workflows/steps.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
@@ -12,6 +10,7 @@ import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockWaitHttp } from '../lib/mockWaitHttp.js';
 
 describe('browser plan cache', () => {
+  const session = new BrowserSession(new ProxyRegistry([new NoProxy()]));
   let site: Awaited<ReturnType<typeof startMockWaitHttp>>;
 
   beforeAll(async () => {
@@ -19,7 +18,7 @@ describe('browser plan cache', () => {
   });
 
   afterAll(async () => {
-    await closeBrowserTools();
+    await session.close();
     if (site) {
       await site.close();
     }
@@ -29,9 +28,10 @@ describe('browser plan cache', () => {
     const wait = 1_000;
     const url = `${site.baseUrl}/?wait=${wait}`;
     const tools = await createBrowserTools({
+      browserSession: session,
       cache: new BrowserToolCache(new MemoryCache()),
       documentLibrary,
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      proxyRegistry: session.proxyRegistry,
     });
     const documentTools = await createDocumentTools({ documentLibrary });
 

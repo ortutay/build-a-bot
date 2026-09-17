@@ -1,3 +1,5 @@
+import { createGlobalContext } from '../src/context/index.js';
+import { DocumentLibrary } from '../src/documents/index.js';
 import {
   createBasicIfNotExists,
   createRealEstateIfNotExists,
@@ -6,11 +8,16 @@ import {
 } from '../src/mastra/datasets/index.js';
 
 const main = async () => {
-  const realEstateDataset = await createRealEstateIfNotExists();
-  await upsertRealEstate(realEstateDataset);
+  const context = await createGlobalContext({ documentLibrary: new DocumentLibrary() });
+  try {
+    const realEstateDataset = await createRealEstateIfNotExists(context.mastra);
+    await upsertRealEstate(context.mastra, realEstateDataset);
 
-  const basicDataset = await createBasicIfNotExists();
-  await upsertBasic(basicDataset);
+    const basicDataset = await createBasicIfNotExists(context.mastra);
+    await upsertBasic(context.mastra, basicDataset);
+  } finally {
+    await context.close();
+  }
 };
 
 main().then(() => process.exit(0));

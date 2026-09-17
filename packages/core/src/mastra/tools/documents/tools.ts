@@ -1,5 +1,6 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
+import type { GlobalContext } from '../../../context/index.js';
 import {
   documentContentTypes,
   documentFormats,
@@ -16,6 +17,8 @@ import {
 import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
 
 const prefix = (str: string): string => 'documentTools_' + str;
+
+export const close = async (_context: GlobalContext): Promise<void> => {};
 
 type GetDocumentInput = z.input<typeof getDocumentInputSchema>;
 

@@ -1,10 +1,10 @@
+import type { Mastra } from '@mastra/core';
 import type { Dataset } from '@mastra/core/datasets';
 import { z } from 'zod';
 import { availableContext, availableModules } from '../../compile/Compiler.js';
 import { log } from '../../logger.js';
-import { mastra } from '../index.js';
-import { selectAvailableTools } from '../instruments/availableTools.js';
 import { getOrNull } from '../../util/index.js';
+import { selectAvailableTools } from '../instruments/availableTools.js';
 import { basicTargets, realEstateTargets } from './targets.js';
 
 const realEstateDatasetName = 'real-estate';
@@ -36,7 +36,7 @@ class DatasetNotFoundError extends Error {
   }
 }
 
-export const loadDataset = async (name: string): Promise<Dataset> => {
+export const loadDataset = async (mastra: Mastra, name: string): Promise<Dataset> => {
   const existing = await mastra.datasets.list({ filters: { name } });
   const datasets = existing.datasets.filter((dataset) => dataset.name === name);
   if (datasets.length === 0) {
@@ -54,16 +54,20 @@ export const loadDataset = async (name: string): Promise<Dataset> => {
   return mastra.datasets.get({ id: dataset.id });
 };
 
-export const loadItemsFromDataset = async (name: string, { limit }: { limit: number }) => {
-  const dataset = await loadDataset(name);
+export const loadItemsFromDataset = async (
+  mastra: Mastra,
+  name: string,
+  { limit }: { limit: number }
+) => {
+  const dataset = await loadDataset(mastra, name);
   const result = await dataset.listItems({ page: 0, perPage: limit });
   return Array.isArray(result) ? result : result.items;
 };
 
-const createDatasetIfNotExists = async (name: string, description: string) => {
+const createDatasetIfNotExists = async (mastra: Mastra, name: string, description: string) => {
   let dataset: Dataset;
   try {
-    dataset = await loadDataset(name);
+    dataset = await loadDataset(mastra, name);
 
     const details = await dataset.getDetails();
     const inputSchema = z.toJSONSchema(datasetItemInputSchema);
@@ -87,11 +91,11 @@ const createDatasetIfNotExists = async (name: string, description: string) => {
   return dataset;
 };
 
-export const createRealEstateIfNotExists = async () =>
-  createDatasetIfNotExists(realEstateDatasetName, 'Real-estate scraping targets');
+export const createRealEstateIfNotExists = async (mastra: Mastra) =>
+  createDatasetIfNotExists(mastra, realEstateDatasetName, 'Real-estate scraping targets');
 
-export const createBasicIfNotExists = async () =>
-  createDatasetIfNotExists(basicDatasetName, 'Basic scraping targets');
+export const createBasicIfNotExists = async (mastra: Mastra) =>
+  createDatasetIfNotExists(mastra, basicDatasetName, 'Basic scraping targets');
 
 const existingItemsByUrl = async (dataset: Dataset) => {
   const existing = new Map<string, Awaited<ReturnType<typeof dataset.getItem>>>();
@@ -114,7 +118,7 @@ const existingItemsByUrl = async (dataset: Dataset) => {
   }
 };
 
-const upsertTargets = async (dataset: Dataset, name: string, targets: Target[]) => {
+const upsertTargets = async (mastra: Mastra, dataset: Dataset, name: string, targets: Target[]) => {
   const existing = await existingItemsByUrl(dataset);
   const tools = Object.entries(selectAvailableTools(mastra.listTools() ?? {}))
     .filter(([, tool]) => !('requireApproval' in tool) || !tool.requireApproval)
@@ -159,8 +163,8 @@ const upsertTargets = async (dataset: Dataset, name: string, targets: Target[]) 
   }
 };
 
-export const upsertRealEstate = async (dataset: Dataset) =>
-  upsertTargets(dataset, 'real-estate', realEstateTargets);
+export const upsertRealEstate = async (mastra: Mastra, dataset: Dataset) =>
+  upsertTargets(mastra, dataset, 'real-estate', realEstateTargets);
 
-export const upsertBasic = async (dataset: Dataset) =>
-  upsertTargets(dataset, 'basic', basicTargets);
+export const upsertBasic = async (mastra: Mastra, dataset: Dataset) =>
+  upsertTargets(mastra, dataset, 'basic', basicTargets);

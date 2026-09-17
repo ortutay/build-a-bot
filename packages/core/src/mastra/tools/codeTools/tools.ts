@@ -1,6 +1,7 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { Compiler, availableModules, availableContext } from '../../../compile/Compiler.js';
+import type { GlobalContext } from '../../../context/index.js';
 import {
   documentLibrary as defaultDocumentLibrary,
   type DocumentGetInput,
@@ -10,6 +11,8 @@ import {
 } from '../../../documents/index.js';
 
 const prefix = (str: string): string => 'codeTools_' + str;
+
+export const close = async (_context: GlobalContext): Promise<void> => {};
 
 const createSnippetContext = (documentLibrary: DocumentLibrary) => ({
   values: {

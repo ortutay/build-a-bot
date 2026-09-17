@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGlobalContext, GlobalContext, mergeContext } from '../../src/context/index.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { CdpProxy, NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 
 describe('ProxyRegistry', () => {
@@ -45,15 +46,17 @@ describe('GlobalContext proxy registry', () => {
     expect(other.proxyRegistry).not.toBe(context.proxyRegistry);
   });
 
-  it('preserves or replaces the registry when contexts merge', () => {
+  it('preserves the registry and rejects replacing it without rebuilding tools', () => {
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
+      browserSession: new BrowserSession(proxyRegistry),
       ...dependencies,
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      proxyRegistry,
     });
     const registry = new ProxyRegistry([new NoProxy()]);
 
     expect(mergeContext(context).proxyRegistry).toBe(context.proxyRegistry);
-    expect(mergeContext(context, { proxyRegistry: registry }).proxyRegistry).toBe(registry);
+    expect(() => mergeContext(context, { proxyRegistry: registry })).toThrow('createGlobalContext');
   });
 
   it('uses an injected registry when creating a context', async () => {

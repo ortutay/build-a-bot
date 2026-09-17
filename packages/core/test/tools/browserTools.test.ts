@@ -3,7 +3,6 @@ import { documentLibrary } from '../../src/documents/index.js';
 import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
 import {
-  closeBrowserTools,
   createTools as createBrowserTools,
   executors,
 } from '../../src/mastra/tools/browserTools/tools.js';
@@ -32,7 +31,7 @@ describe('browser tools', () => {
   });
 
   afterAll(async () => {
-    await closeBrowserTools();
+    await session.close();
     if (site) await site.close();
   });
 
@@ -99,7 +98,7 @@ describe('browser tools', () => {
 
   describe('executors in isolation', () => {
     afterEach(async () => {
-      await closeBrowserTools();
+      await session.close();
       site.resetRequests();
     });
 
@@ -237,12 +236,12 @@ describe('browser tools', () => {
     });
 
     afterAll(async () => {
-      await closeBrowserTools();
+      await session.close();
       await dynamicSite.close();
     });
 
     afterEach(async () => {
-      await closeBrowserTools();
+      await session.close();
     });
 
     it('captures initial JSON requests as dynamic documents', async () => {
@@ -282,7 +281,7 @@ describe('browser tools', () => {
 
   describe('agent document flow', () => {
     afterEach(async () => {
-      await closeBrowserTools();
+      await session.close();
       site.resetRequests();
     });
 
@@ -290,7 +289,8 @@ describe('browser tools', () => {
       const browserTools = await createBrowserTools({
         cache: new BrowserToolCache(new MemoryCache()),
         documentLibrary,
-        proxyRegistry: new ProxyRegistry([new NoProxy()]),
+        browserSession: session,
+        proxyRegistry: session.proxyRegistry,
       });
       const documentTools = await createDocumentTools({ documentLibrary });
 
@@ -338,13 +338,14 @@ describe('browser tools', () => {
       tools = await createBrowserTools({
         cache,
         documentLibrary,
-        proxyRegistry: new ProxyRegistry([new NoProxy()]),
+        browserSession: session,
+        proxyRegistry: session.proxyRegistry,
       });
       site.resetRequests();
     });
 
     afterEach(async () => {
-      await closeBrowserTools();
+      await session.close();
     });
 
     it('orders concurrent operations submitted for one page', async () => {

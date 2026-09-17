@@ -319,8 +319,10 @@ export const healCodeStep = createStep({
       errors = [];
 
       output = healAgentOutputSchema.parse(resp.object);
-      const { report, rating, noChanges, code: updatedCode } = output;
-      log.info(`Heal result: noChanges=${noChanges}, rating=${rating}, report=${report}`);
+      const { report, rating, noChanges, code: updatedCode, confidence } = output;
+      log.info(
+        `Heal result: noChanges=${noChanges}, rating=${rating}, confidence=${confidence}, report=${report}`
+      );
       if (updatedCode) {
         log.debug(`Heal gave new code:\n${indentCode(updatedCode)}`);
         if (await compileCode(updatedCode)) {

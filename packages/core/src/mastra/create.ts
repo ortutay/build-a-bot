@@ -1,20 +1,19 @@
-import chalk from 'chalk';
-import { Redis } from 'ioredis';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ConsoleLogger } from '@mastra/core/logger';
-import { type ToolHooks } from '@mastra/core/tools';
-import { RedisServerCache } from '@mastra/redis';
-import { LibSQLStore } from '@mastra/libsql';
+import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
 import { MastraCompositeStore } from '@mastra/core/storage';
+import { type ToolHooks } from '@mastra/core/tools';
+import { LibSQLStore } from '@mastra/libsql';
 import {
   Observability,
   MastraStorageExporter,
   MastraPlatformExporter,
   SensitiveDataFilter,
 } from '@mastra/observability';
-import { TokenLimiter, type ResponseCacheKeyInputs } from '@mastra/core/processors';
-import { DiskServerCache } from './extensions/cache/DiskServerCache.js';
+import { RedisServerCache } from '@mastra/redis';
+import chalk from 'chalk';
+import { Redis } from 'ioredis';
 import { cb } from '../cache/busters.js';
 import { responseCacheHashInput } from '../cache/responseCacheKey.js';
 import { toolCacheSchema } from '../cache/toolCacheKey.js';
@@ -24,34 +23,32 @@ import {
   tursoAuthToken,
   tursoDatabaseUrl,
 } from '../constants.js';
-import { DocumentLibrary } from '../documents/index.js';
+import type { GlobalContext } from '../context/index.js';
 import { log } from '../logger.js';
-import { NoProxy, ProxyRegistry } from '../proxy/index.js';
 import { getOrNull, hash } from '../util/index.js';
+import { DiskServerCache } from './extensions/cache/DiskServerCache.js';
 import { ContextCompressionProcessor } from './processors/ContextCompressionProcessor.js';
 import {
   LoggingResponseCache,
   ResponseLoggingProcessor,
 } from './processors/ResponseLoggingProcessor.js';
 import { createBuildScorer } from './scorers/index.js';
-import { createToolsSets } from './tools/index.js';
+import { closeTools, createToolsSets } from './tools/index.js';
 import { planWorkflow, writeWorkflow, healWorkflow } from './workflows/index.js';
 
-export type MastraOptions = {
-  documentLibrary?: DocumentLibrary;
-  proxyRegistry?: ProxyRegistry;
-};
+export type MastraOptions = Pick<
+  GlobalContext,
+  'browserSession' | 'documentLibrary' | 'proxyRegistry'
+>;
 
 export const defaultMastra = async (
-  options: MastraOptions = {}
+  options: MastraOptions
 ): Promise<{
   mastra: Mastra;
-  cleanup: () => Promise<void>;
+  cleanup: (context: GlobalContext) => Promise<void>;
 }> => {
-  const documentLibrary = options.documentLibrary ?? new DocumentLibrary();
-  const proxyRegistry = options.proxyRegistry ?? new ProxyRegistry([new NoProxy()]);
   const { allTools, fetchResearchTools, browserResearchTools, planningTools } =
-    await createToolsSets({ documentLibrary, proxyRegistry });
+    await createToolsSets(options);
   const redisClient = redisCacheUrl ? new Redis(redisCacheUrl) : null;
   if (!redisClient) {
     log.info('No Redis client, using disk cache');
@@ -63,7 +60,9 @@ export const defaultMastra = async (
       )
     : new DiskServerCache({ keyPrefix: 'cb:' + cb.mastraResponseCache + ':' });
 
-  const model = 'openai/gpt-5.6-terra';
+  // const model = 'openai/gpt-5.6-terra';
+  const model = 'openai/gpt-5.6-sol';
+
   const responseLogger = new ResponseLoggingProcessor();
   const inputProcessors = [
     // Compress individual page-sized tool responses first, then cap the full
@@ -112,7 +111,9 @@ export const defaultMastra = async (
       const { toolName, error, output, context } = it;
       const toolCallId = (context as { toolCallId: string }).toolCallId;
       if (error) {
-        log.error(`${chalk.bgRed('Tool error')} id=${toolCallId} ${toolName}: ${error}`);
+        log.error(
+          `${chalk.bgRed('Tool error')} id=${toolCallId} ${chalk.bold.cyanBright(toolName)}: ${error}`
+        );
       } else {
         log.info(`Tool done:  id=${toolCallId} ${toolName}`);
       }
@@ -251,24 +252,28 @@ export const defaultMastra = async (
 
   mastra.addScorer(createBuildScorer(mastra));
 
-  let cleanupPromise: Promise<void> | null = null;
-  const cleanup = (): Promise<void> => {
-    if (!cleanupPromise) {
-      cleanupPromise = (async () => {
+  let cleanupPromise: Promise<void> | undefined;
+  const cleanup = (context: GlobalContext): Promise<void> => {
+    cleanupPromise ??= (async () => {
+      const errors: unknown[] = [];
+      // Stop work before closing the resources used by that work. Try every phase.
+      for (const close of [
+        () => mastra.shutdown(),
+        () => closeTools(context),
+        () => redisClient?.disconnect(),
+      ]) {
         try {
-          await mastra.shutdown();
-        } finally {
-          await redisClient?.disconnect();
+          await close();
+        } catch (e) {
+          errors.push(e);
         }
-      })();
-    }
-
+      }
+      if (errors.length) {
+        throw new AggregateError(errors, 'Failed to clean up Mastra');
+      }
+    })();
     return cleanupPromise;
   };
 
   return { mastra, cleanup };
 };
-
-const default_ = await defaultMastra();
-const { mastra, cleanup } = default_;
-export { mastra, cleanup };

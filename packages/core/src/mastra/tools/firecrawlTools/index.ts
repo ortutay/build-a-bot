@@ -1,1 +1,1 @@
-export { createTools } from './tools.js';
+export { close, createTools } from './tools.js';

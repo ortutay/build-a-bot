@@ -5,6 +5,7 @@ import { failureScript } from '../../src/compile/failureScript.js';
 import { Script } from '../../src/compile/Script.js';
 import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
@@ -35,10 +36,12 @@ afterEach(async () => {
 const setup = async (urls: string[]) => {
   db = await createTemporaryDb();
   const start = vi.fn();
+  const proxyRegistry = new ProxyRegistry([new NoProxy()]);
   const context = new GlobalContext({
+    browserSession: new BrowserSession(proxyRegistry),
     storage: db.storage,
     documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
-    proxyRegistry: new ProxyRegistry([new NoProxy()]),
+    proxyRegistry,
     mastra: {
       getWorkflowById: () => ({ createRun: async () => ({ start }) }),
       listTools: () => ({}),

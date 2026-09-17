@@ -16,6 +16,7 @@ export class NetworkCapture {
   private requests = new WeakMap<Request, string>();
   private ids: string[] = [];
   private listeners = new Set<() => void>();
+  private captures = new Set<Promise<void>>();
   private closed = false;
 
   constructor(
@@ -50,31 +51,47 @@ export class NetworkCapture {
   }
 
   private onRequest = (request: Request): void => {
-    if (['fetch', 'xhr'].includes(request.resourceType()) && !likelyAdOrTracker(request)) {
+    if (
+      !this.isClosed() &&
+      ['fetch', 'xhr'].includes(request.resourceType()) &&
+      !likelyAdOrTracker(request)
+    ) {
       this.requests.set(request, this.id);
     }
   };
 
   private onResponse = (resp: Response): void => {
-    void this.capture(resp).catch((e) =>
-      log.warn(`Could not capture browser response ${resp.url()}: ${String(e)}`)
-    );
+    const capture = this.capture(resp);
+    this.captures.add(capture);
+    void capture
+      .catch((e) => {
+        if (!this.isExpectedCaptureError(e)) {
+          log.warn(`Could not capture browser response ${resp.url()}: ${String(e)}`);
+        }
+      })
+      .finally(() => this.captures.delete(capture));
   };
 
   private async capture(resp: Response): Promise<void> {
+    if (this.isClosed()) {
+      return;
+    }
     const request = resp.request();
     const captureId = this.requests.get(request);
     if (!captureId || (resp.status() >= 300 && resp.status() < 400)) {
       return;
     }
     const headers = await resp.allHeaders();
+    if (this.isClosed()) {
+      return;
+    }
     const mime = headers['content-type']?.split(';')[0].trim().toLowerCase();
     const contentType = documentContentTypes.find((type) => type === mime);
     if (!contentType || Number(headers['content-length']) > 2_000_000) {
       return;
     }
     const body = await resp.body();
-    if (body.byteLength > 2_000_000 || this.closed) {
+    if (body.byteLength > 2_000_000 || this.isClosed()) {
       return;
     }
     const id = this.library.save({
@@ -152,9 +169,25 @@ export class NetworkCapture {
     this.closed = true;
     this.page.off('request', this.onRequest);
     this.page.off('response', this.onResponse);
+    this.captures.clear();
     for (const listener of this.listeners) {
       listener();
     }
     this.listeners.clear();
+  }
+
+  private isClosed(): boolean {
+    return this.closed || this.page.isClosed();
+  }
+
+  private isExpectedCaptureError(e: unknown): boolean {
+    if (this.isClosed()) {
+      return true;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    return (
+      message.includes('Target page, context or browser has been closed') ||
+      message.includes('Response body is not available for a response that was navigated away from')
+    );
   }
 }

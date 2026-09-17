@@ -8,11 +8,7 @@ import {
   inspectionMaxChars,
   inspectResultSchema,
 } from '../../src/mastra/tools/browserTools/elements.js';
-import {
-  closeBrowserTools,
-  createTools,
-  executors,
-} from '../../src/mastra/tools/browserTools/tools.js';
+import { createTools, executors } from '../../src/mastra/tools/browserTools/tools.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 
@@ -24,7 +20,6 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await session.close();
-  await closeBrowserTools();
 });
 const inspect = (input: Record<string, unknown>) =>
   executors.inspectElementsTool(library, session, { cursorId: 'test', ...input });
@@ -216,7 +211,8 @@ it('replays cached fills and key presses before an uncached inspection', async (
   try {
     const tools = await createTools({
       documentLibrary: library,
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: session,
+      proxyRegistry: session.proxyRegistry,
       cache: new BrowserToolCache(new MemoryCache()),
     });
     const execute = async (name: string, input: Record<string, unknown> = {}): Promise<any> =>
@@ -245,7 +241,7 @@ it('replays cached fills and key presses before an uncached inspection', async (
     const form = await execute('inspectElements', { cursorId: cold.cursorId, selector: 'form' });
     expect(form.elements[0].attributes['data-submitted']).toBeUndefined();
   } finally {
-    await closeBrowserTools();
+    await session.close();
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

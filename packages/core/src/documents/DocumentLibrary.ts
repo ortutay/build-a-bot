@@ -140,7 +140,7 @@ export class DocumentLibrary {
       throw new Error(`Attempting to save unsupported content type: ${document.contentType}`);
     }
 
-    log.info(
+    log.debug(
       `Saving document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
     );
     this.backend.save(document);
@@ -156,7 +156,7 @@ export class DocumentLibrary {
     const document = merge(existing, input);
 
     this.backend.save(document);
-    log.info(`Updated document: id=${id}`);
+    log.debug(`Updated document: id=${id}`);
   }
 
   summary(id: DocumentId): DocumentSummary | null {

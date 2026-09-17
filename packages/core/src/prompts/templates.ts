@@ -227,11 +227,31 @@ You should use this for limiting concurrency for fetch, browser instances, etc. 
     urls.map(url => pq.add(() => tools.fetchTool({ url, proxy: '...' }))
   );
 
+Generally, URLs should be handled concurrently.
+
 Again, you do not need to create the pq object. It is already in the context.
 
 # Comments
 
-Begin your code with context, explanation and a description. This comment section should contain enough information for a future LLM or human to read the script, understand the intent, and make fixes. Include information about pages that are or are not in scope, and so on.
+Begin your code with context, explanation and a description. This comment section should contain enough information for a future LLM or human to read the script, understand the intent, and make fixes. Include information about pages that are or are not in scope, including relevant format considerations, selectors, and so on.
+
+# Debug logging
+
+Send debug output via console.log() as you go along. Log items as they are parsed, URLs you visit, and key points in the scraping. You should make use of console.log(...) to log debug output. This will be useful both for the user experience, and also for you, if and when you need to debug the script. Log major events, browser actions, page navigation, parsed items, and anything else that is significant, or liable to fail, or take seconds to complete.
+
+# Comments
+
+# Additional guidelines
+
+- Because you have availableModules, do not write any "import" lines.
+- Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
+- Write structured code, and avoid hard coding specific data or content.
+- The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
+- Do not parse more than 10,000 pages or generate more than 10,000 items. Enforce this by stopping early and/or processing only a deterministic subset of the input.
+- Generally, prefer to return items with errors in fields over crashing out entirely
+- ${guidelineDoNotInvent}
+- ${guidelinePlaywrightStrictMode}
+- ${guidelineTestSnippets}
 `;
 
 export const code = new Template(
@@ -284,24 +304,6 @@ The shared report covers all groupings. Apply its general findings and the findi
 {{report}}
 </report>
 
-# Comments
-
-Begin your code with comments summarizing report findings briefly, including relevant format considerations, selectors, rate limits, provider, cost and runtime recommendations, as well as any other considerations.
-
-# Debug output
-
-Send debug output via console.log() as you go along. Log items as they are parsed, URLs you visit, and key points in the scraping.
-
-# Additional guidelines
-
-- Because you have availableModules, do not write any "import" lines.
-- Do not attempt to spoof User Agents, etc. That will be handled elsewhere.
-- The fetch tools already handle robots.txt rules. You can call them at any rate limit, and robots.txt handling is applied upstream
-- Do not parse more than 10,000 pages or generate more than 10,000 items. Enforce this by stopping early and/or processing only a deterministic subset of the input.
-- ${guidelineDoNotInvent}
-- ${guidelinePlaywrightStrictMode}
-- ${guidelineTestSnippets}
-
 {{userInput}}
 `
 );
@@ -347,5 +349,7 @@ If there was an errors for this code, they will be below:
 # Keep intent
 
 If you make fixes, be sure to keep the original intent of the code, and be careful not to broaden the script beyond what it was meant to handle.
+
+That said, do not be restricted by the previous code you see. You an throw it all out, especially if it is structurally flawed, overly complex, or hard to salvage.
 `
 );

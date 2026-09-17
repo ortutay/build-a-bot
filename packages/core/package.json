@@ -23,7 +23,6 @@
   },
   "scripts": {
     "build": "tsc && rm -rf dist/db/drizzle && mkdir -p dist/db/drizzle && cp -R src/db/drizzle/. dist/db/drizzle",
-    "mastra:build": "mastra build",
     "dev": "tsc --watch",
     "test": "ENV=test FORCE_COLOR=1 vitest run --dir test",
     "test:brightdata": "ENV=integration vitest run --config vitest.brightdata.config.ts",

@@ -5,6 +5,7 @@ import { Script, ScriptDependencyUnavailableError } from '../../src/compile/Scri
 import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
@@ -26,8 +27,10 @@ describe('Script', () => {
 
   const createService = async (name: string) => {
     const storage = temporaryDb!.storage;
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      browserSession: new BrowserSession(proxyRegistry),
+      proxyRegistry,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
       mastra: {} as Mastra,
       storage,

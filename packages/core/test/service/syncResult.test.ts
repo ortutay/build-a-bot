@@ -7,6 +7,7 @@ import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { log } from '../../src/logger.js';
 import { markAvailableTool } from '../../src/mastra/instruments/availableTools.js';
+import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
@@ -54,10 +55,12 @@ describe('sync change reporting', () => {
     const tool = await markAvailableTool({ id: 'fixture', execute: fixture });
     const trace = vi.fn(async (_input: { phase: string; url: string }) => ({}));
     const traceTool = await markAvailableTool({ id: 'trace', execute: trace });
+    const proxyRegistry = new ProxyRegistry([new NoProxy()]);
     const context = new GlobalContext({
+      browserSession: new BrowserSession(proxyRegistry),
       storage: db.storage,
       documentLibrary: new DocumentLibrary(new MemoryLibraryBackend()),
-      proxyRegistry: new ProxyRegistry([new NoProxy()]),
+      proxyRegistry,
       mastra: { listTools: () => ({ fixture: tool, trace: traceTool }) } as unknown as Mastra,
     });
     const service = new DataService({

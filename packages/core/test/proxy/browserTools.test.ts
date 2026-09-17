@@ -7,13 +7,24 @@ import { DocumentLibrary } from '../../src/documents/index.js';
 import { asJSONSchema } from '../../src/mastra/instruments/shared.js';
 import { BrowserSession } from '../../src/mastra/tools/browserTools/BrowserSession.js';
 import { BrowserToolCache } from '../../src/mastra/tools/browserTools/BrowserToolCache.js';
-import { closeBrowserTools, createTools } from '../../src/mastra/tools/browserTools/tools.js';
+import { createTools as createBrowserTools } from '../../src/mastra/tools/browserTools/tools.js';
 import { CdpProxy, HttpProxy, NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { MemoryCache } from '../lib/MemoryCache.js';
 import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 import { startMockEcommerceSite } from '../lib/mockEcommerceSite.js';
 
 describe('browser tools with CDP proxies', () => {
+  const sessions: BrowserSession[] = [];
+  const createTools = async (
+    options: Omit<Parameters<typeof createBrowserTools>[0], 'browserSession'>
+  ) => {
+    const browserSession = new BrowserSession(options.proxyRegistry);
+    sessions.push(browserSession);
+    return createBrowserTools({ ...options, browserSession });
+  };
+  const closeSessions = async () => {
+    await Promise.all(sessions.splice(0).map((session) => session.close()));
+  };
   let profile: string;
   let browser: BrowserContext;
   let cdpUrl: string;
@@ -43,7 +54,7 @@ describe('browser tools with CDP proxies', () => {
     site.resetRequests();
   });
 
-  afterEach(async () => closeBrowserTools());
+  afterEach(closeSessions);
 
   afterAll(async () => {
     await browser?.close();
@@ -169,7 +180,7 @@ describe('browser tools with CDP proxies', () => {
         content: expect.stringContaining('JSON Widget'),
       });
     } finally {
-      await closeBrowserTools();
+      await closeSessions();
       await dynamicSite.close();
     }
   });

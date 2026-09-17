@@ -126,9 +126,10 @@ let urls: string[] = [
 //   }
 // }
 
+const context = await createClientContext();
 const service = new DataService({
-  name: `beta-jobs`,
-  context: await createClientContext(),
+  name: `beta-jobs-3`,
+  context,
   itemSchema: jobSchema,
   identity: {
     fields: [
@@ -139,5 +140,10 @@ const service = new DataService({
   },
   sources: urls.map((url) => new DataSource({ url })),
 });
-const ok = await exercise(service, 1);
-process.exit(ok ? 0 : 1);
+let exitCode = 1;
+try {
+  exitCode = (await exercise(service, 1)) ? 0 : 1;
+} finally {
+  await context.close();
+}
+process.exit(exitCode);

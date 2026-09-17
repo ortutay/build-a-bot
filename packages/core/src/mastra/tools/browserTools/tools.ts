@@ -1,6 +1,7 @@
 import { createTool, type Tool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { DiskCache } from '../../../cache/DiskCache.js';
+import type { GlobalContext } from '../../../context/index.js';
 import {
   documentContentTypes,
   documentOrigins,
@@ -12,15 +13,13 @@ import { log } from '../../../logger.js';
 import { isCdpProxy, NoProxy, type ProxyRegistry } from '../../../proxy/index.js';
 import { getOrNull, hash } from '../../../util/index.js';
 import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
-import { BrowserSession } from './BrowserSession.js';
+import type { BrowserSession } from './BrowserSession.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
 import { NetworkCapture } from './NetworkCapture.js';
 import { composedHtml, frameAt, frameTree } from './dom.js';
 import { inspectElements, inspectOptionsSchema, inspectResultSchema } from './elements.js';
 import { browserCacheInstrument } from './instruments.js';
 import { withReadiness, type Readiness } from './readiness.js';
-
-const sessions = new Set<BrowserSession>();
 
 const framePathSchema = z
   .array(z.number().int().nonnegative())
@@ -298,7 +297,6 @@ export const executors: Record<string, any> = {
     { proxy = 'none' }: z.input<typeof newPageInputSchema>,
     context: unknown
   ): Promise<z.infer<typeof newPageOutputSchema>> => {
-    sessions.add(session);
     const agent = getOrNull<Record<string, unknown>>(context, 'agent');
     const toolCallId =
       getOrNull<string>(agent, 'toolCallId') ?? getOrNull<string>(context, 'toolCallId');
@@ -460,6 +458,7 @@ const createClickTool = (documentLibrary: DocumentLibrary, session: BrowserSessi
   });
 
 export type CreateBrowserToolsOptions = {
+  browserSession: BrowserSession;
   cache?: BrowserToolCache;
   documentLibrary: DocumentLibrary;
   proxyRegistry: ProxyRegistry;
@@ -473,7 +472,10 @@ export const createTools = async (
   ) {
     return {};
   }
-  const session = new BrowserSession(options.proxyRegistry);
+  const session = options.browserSession;
+  if (session.proxyRegistry !== options.proxyRegistry) {
+    throw new Error('Browser session must use the tool proxy registry');
+  }
   const documentLibrary = options.documentLibrary;
   const cache =
     options.cache ??
@@ -578,12 +580,6 @@ export const createTools = async (
   return result;
 };
 
-export const closeBrowserTools = async (): Promise<void> => {
-  const closing = [...sessions];
-  sessions.clear();
-  const results = await Promise.allSettled(closing.map((session) => session.close()));
-  const errors = results.filter((result) => result.status === 'rejected');
-  if (errors.length) {
-    throw new AggregateError(errors.map((result) => result.reason));
-  }
+export const close = async (context: GlobalContext): Promise<void> => {
+  await context.browserSession.close();
 };

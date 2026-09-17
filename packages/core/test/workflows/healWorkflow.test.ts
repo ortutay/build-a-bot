@@ -67,6 +67,7 @@ const runHeal = async (
 
 const noChanges = (report: string): HealAgentOutput => ({
   code: null,
+  confidence: 100,
   noChanges: true,
   rating: 100,
   report,
@@ -74,6 +75,7 @@ const noChanges = (report: string): HealAgentOutput => ({
 
 const changed = (code: string, report: string): HealAgentOutput => ({
   code,
+  confidence: 70,
   noChanges: false,
   rating: 70,
   report,
