@@ -35,7 +35,7 @@ import {
 } from './processors/ResponseLoggingProcessor.js';
 import { createBuildScorer } from './scorers/index.js';
 import { createToolsSets } from './tools/index.js';
-import { planWorkflow, writeWorkflow } from './workflows/index.js';
+import { planWorkflow, writeWorkflow, healWorkflow } from './workflows/index.js';
 
 export type MastraOptions = {
   documentLibrary?: DocumentLibrary;
@@ -231,6 +231,7 @@ export const defaultMastra = async (
     workflows: {
       planWorkflow,
       writeWorkflow,
+      healWorkflow,
     },
     cache,
     storage,

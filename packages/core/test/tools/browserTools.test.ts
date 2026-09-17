@@ -115,7 +115,7 @@ describe('browser tools', () => {
     it('uses a hashed tool call ID as the page ID', async () => {
       await expect(
         executors.newPageTool(documentLibrary, session, {}, { toolCallId: 'call_cached-new-page' })
-      ).resolves.toEqual({ cursorId: '66c2100d' });
+      ).resolves.toEqual({ cursorId: '66c2100d5d76ba' });
     });
 
     it('navigates and returns a saved document ID', async () => {
@@ -126,7 +126,7 @@ describe('browser tools', () => {
           cursorId,
           url: `${site.baseUrl}/products/footwear-1`,
         })
-      ).resolves.toEqual({ status: 200, ok: true });
+      ).resolves.toMatchObject({ status: 200, ok: true, readiness: { state: 'settled' } });
       const result = await executors.contentTool(documentLibrary, session, { cursorId });
       expect(result).toEqual({
         documentId: expect.stringMatching(/^doc:/),
@@ -204,7 +204,7 @@ describe('browser tools', () => {
           selector: '#add-to-cart',
           timeout: 1_000,
         })
-      ).resolves.toEqual({ ok: true });
+      ).resolves.toMatchObject({ ok: true, readiness: { state: 'settled' } });
 
       const content = await executors.contentTool(documentLibrary, session, { cursorId });
       expect(documentContent(content.documentId)).toContain('data-cart-updated="true"');
@@ -222,7 +222,7 @@ describe('browser tools', () => {
           index: 1,
           timeout: 1_000,
         })
-      ).resolves.toEqual({ ok: true });
+      ).resolves.toMatchObject({ ok: true, readiness: { state: 'settled' } });
 
       const content = await executors.contentTool(documentLibrary, session, { cursorId });
       expect(documentContent(content.documentId)).toContain('Electronics');

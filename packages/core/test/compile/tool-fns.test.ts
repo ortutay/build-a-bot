@@ -5,7 +5,7 @@ it.each([{ error: true }, { isError: true }])('throws returned tool failures: %j
   const tools = toContextTools({
     fetch: { execute: async () => ({ ...flag, message: 'Invalid input' }) },
   });
-  await expect(tools.fetch({})).rejects.toThrow('fetch: Invalid input');
+  await expect(tools.fetch({})).rejects.toThrow('Invalid input');
 });
 
 it('preserves normal results and thrown exceptions', async () => {

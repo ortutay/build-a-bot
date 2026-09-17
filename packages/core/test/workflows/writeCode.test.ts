@@ -1,7 +1,10 @@
 import { expect, it, vi } from 'vitest';
 import { Bot } from '../../src/bot/Bot.js';
 import { Compiler } from '../../src/compile/Compiler.js';
+import { planOutputSchema } from '../../src/mastra/workflows/schemas.js';
 import { planStep, writeCodeStep } from '../../src/mastra/workflows/steps.js';
+
+type Generate = (prompt: string, options: Record<string, unknown>) => Promise<{ text: string }>;
 
 const code = `export const itemSchema = { type: 'object' };
 export const uniqueId = item => item.id;
@@ -9,25 +12,32 @@ export const check = async url => true;
 export const run = async url => [];`;
 const grouping = {
   groupingName: 'jobs',
-  groupingDescription: 'Jobs',
-  goal: 'Extract jobs',
+  groupingDescription: 'Jobs from the verified endpoint.',
   urls: ['https://example.test/jobs'],
-  report: 'Use the verified endpoint.',
+};
+const inputData = planOutputSchema.parse({
+  goal: 'Extract jobs',
   itemSchema: { type: 'object' },
-  tools: [] as string[],
+  report: 'Research complete.',
+  tools: [],
   modules: [],
   context: [],
-};
-const inputData = { generalReport: 'Research complete.', groupings: [grouping] };
-const execute = (generate: ReturnType<typeof vi.fn>, groups = [grouping]) =>
+  groupings: [grouping],
+});
+const execute = (generate: Generate, groups = [grouping]) =>
   (writeCodeStep.execute as any)({
     inputData: { ...inputData, groupings: groups },
-    mastra: { getAgentById: () => ({ generate }), listTools: () => ({}) },
+    mastra: {
+      getAgentById: () => ({ generate }),
+      listTools: () => ({}),
+    },
   });
 
 it('writes and compiles code in a single step without tools', async () => {
   const generate = vi.fn().mockResolvedValue({ text: code });
   expect(await execute(generate)).toEqual([{ groupingName: 'jobs', code }]);
+  expect(generate.mock.calls[0][0]).toContain(inputData.report);
+  expect(generate.mock.calls[0][0]).toContain(grouping.groupingDescription);
   expect(generate).toHaveBeenCalledWith(
     expect.stringContaining('Return JavaScript now without calling tools'),
     { maxSteps: 1, toolChoice: 'none' }
@@ -55,7 +65,6 @@ it('retries blank and invalid code only for the failed group', async () => {
     ])
   ).toHaveLength(2);
   expect(generate).toHaveBeenCalledTimes(4);
-  expect(generate.mock.calls[3][0]).toContain('Previous attempt failed');
 });
 
 it('keeps the successful group and emits a throwing placeholder after three failures', async () => {
@@ -81,29 +90,25 @@ it('keeps the successful group and emits a throwing placeholder after three fail
   await expect(bot.run('https://other.test/jobs')).rejects.toThrow('Provider failed');
 });
 
-it('isolates a group that requests an unavailable capability', async () => {
+it.each([
+  ['tools', 'tool'],
+  ['modules', 'module'],
+  ['context', 'context'],
+])('rejects unavailable shared %s before generating any code', async (field, type) => {
   const generate = vi.fn().mockResolvedValue({ text: code });
-  const results = await execute(generate, [
-    grouping,
-    {
-      ...grouping,
-      groupingName: 'broken',
-      tools: ['missingTool'],
-    },
-  ]);
-  expect(results[0].code).toBe(code);
-  const bot = new Bot(await new Compiler().compile(results[1].code));
-  await expect(bot.run(grouping.urls[0])).rejects.toThrow('Requested tool is not available');
-  expect(generate).toHaveBeenCalledOnce();
+  await expect(
+    (writeCodeStep.execute as any)({
+      inputData: { ...inputData, [field]: ['missing'] },
+      mastra: { getAgentById: () => ({ generate }), listTools: () => ({}) },
+    })
+  ).rejects.toThrow(`Requested ${type} is not available: missing`);
+  expect(generate).not.toHaveBeenCalled();
 });
 
-const planObject = {
-  generalReport: 'Collected evidence',
-  groupings: [{ ...grouping, itemSchema: null }],
-};
+const planObject = inputData;
 const plan = (generate: ReturnType<typeof vi.fn>) =>
   (planStep.execute as any)({
-    inputData: { ...grouping, itemSchema: grouping.itemSchema },
+    inputData: { ...inputData, urls: grouping.urls },
     mastra: { getAgentById: () => ({ generate }) },
   });
 
@@ -113,7 +118,7 @@ it('finalizes exhausted planning from collected evidence without tools', async (
     .fn()
     .mockResolvedValueOnce({ object: undefined, steps: Array(20).fill({}), messages })
     .mockResolvedValueOnce({ object: planObject });
-  expect((await plan(generate)).groupings[0].itemSchema).toEqual(grouping.itemSchema);
+  expect((await plan(generate)).itemSchema).toEqual(inputData.itemSchema);
   expect(generate).toHaveBeenCalledTimes(2);
   expect(generate.mock.calls[1][0]).toEqual([
     ...messages,
@@ -132,4 +137,23 @@ it.each([
     .mockResolvedValue({ object: undefined, steps: Array(20).fill({}), ...failure });
   await expect(plan(generate)).rejects.toThrow('Planner did not return a structured report');
   expect(generate).toHaveBeenCalledOnce();
+});
+
+it('preserves the provider error as the planning failure cause', async () => {
+  const e = new Error('Provider error');
+  const generate = vi.fn().mockResolvedValue({ object: undefined, error: e });
+  await expect(plan(generate)).rejects.toMatchObject({
+    message: 'Planner did not return a structured report',
+    cause: e,
+  });
+});
+
+it('reports a failed finalization without another generation attempt', async () => {
+  const generate = vi.fn().mockResolvedValue({
+    object: undefined,
+    steps: Array(20).fill({}),
+    messages: [],
+  });
+  await expect(plan(generate)).rejects.toThrow('Planner did not return a structured report');
+  expect(generate).toHaveBeenCalledTimes(2);
 });

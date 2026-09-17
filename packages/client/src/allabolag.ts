@@ -1,11 +1,7 @@
 import process from 'node:process';
 import { z } from 'zod';
-import {
-  createBrightdataProxies,
-  createGlobalContext,
-  DataService,
-  DataSource,
-} from '@build-a-bot/core';
+import { DataService, DataSource } from '@build-a-bot/core';
+import { createClientContext } from './timo/proxies.js';
 import { exercise } from './workflow.js';
 
 const text = (description: string) => z.string().nullable().describe(description);
@@ -45,17 +41,12 @@ export const companySchema = z
 export const companyUrl =
   'https://www.allabolag.se/foretag/volvo-personvagnar-aktiebolag/g%C3%B6teborg/elmotorer-generatorer/2JYQ0TTI5YE0U';
 
-const proxyRegistry = await createBrightdataProxies('fetchfox');
-console.log('proxyRegistry:', proxyRegistry);
-// process.exit(0);
-const context = await createGlobalContext({ proxyRegistry });
 const service = new DataService({
-  context,
+  context: await createClientContext(),
   name: 'beta-allabolag-2',
   itemSchema: companySchema,
-  // identity: { fields: [{ path: 'org_number', normalize: 'digits' }] },
+  identity: { fields: [{ path: 'org_number', normalize: 'digits' }] },
   sources: [new DataSource({ url: companyUrl })],
-  // sources: [new DataSource({ url: companyUrl, cache: { maxAgeMs: 7 * 24 * 60 * 60 * 1000 } })],
 });
 
 process.exit((await exercise(service, 1)) ? 0 : 1);

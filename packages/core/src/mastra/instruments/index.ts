@@ -1,4 +1,5 @@
 import { type Tool } from '@mastra/core/tools';
+import type { AnyTool } from '../../types.js';
 
 export * from './runtime.js';
 export * from './availableTools.js';
@@ -6,8 +7,6 @@ export * from './cacheInstrument.js';
 export * from './concurrency.js';
 
 export type Instrument = (tool: Tool) => Promise<Tool>;
-
-type AnyTool = Tool<any, any, any, any, any, any, any>;
 
 export const addInstruments = async (
   instruments: Instrument[],

@@ -40,10 +40,16 @@ Tools:
 );
 
 export const plan = new Template(
-  ['userInput', 'itemSchema'],
+  ['userInput', 'itemSchema', 'capabilities'],
   `You are planning JavaScript web-scraping scripts for one data service. Explore and gather the information needed to write those scripts.
 
-Do not write code yet. Produce a written implementation report for the coding agent and an item schema. If a schema was supplied, return itemSchema: null in every grouping; core injects the exact supplied schema. Do not repeat its JSON in reports. If no schema was supplied, generate it from the user goal and your research and return it as a JSON string without Markdown fences.
+Do not write code yet. Return one shared report. The supplied item schema is authoritative: do not return, alter, or repeat it. Each grouping contains only groupingName, groupingDescription, and urls.
+
+Copy the user goal into the top-level goal field. Copy these capability lists into the top-level modules, context, and tools fields without changing them:
+
+<capabilities>
+{{capabilities}}
+</capabilities>
 
 Guidelines:
 - When code will operate on multiple pages, inspect at least two examples to confirm reusable selectors.
@@ -78,7 +84,7 @@ Every supplied URL must appear in exactly one grouping. Do not omit, duplicate, 
 
 Each groupingName is a descriptive label for a grouping in this plan. It must be non-empty, unique within the plan, kebab-case, and stable for the same page type.
 
-Split the report into a general section, which applies to all groupings, and group-specific reports.
+Within the shared report, include a general section and sections with findings specific to each named grouping.
 
 Include your analysis of groupings in a section called "Groupings report". Describe both URL patterns, page structures, and justify your groupings.
 
@@ -124,16 +130,7 @@ If tools are available, test your assumptions using snippets. You may include sm
 
 # Item schema
 
-Define an item schema for this function.
-
-If the user input includes an item schema, it is authoritative. Do not add fields, wrappers, or metadata that are not present in the supplied schema.
-
-Guidelines for item schema:
-- Follow the user prompt
-- Beyond that, give a nicely structured item with the key data
-- Make it resilient. Unless absolutely necessary, make outputs optional.
-- Do not overcomplicate the schema or add excessive nesting.
-- If a specific item schema is provided, design extraction for it exactly, but return itemSchema: null; core preserves the original object.
+The supplied item schema is authoritative. Research the page structure needed to extract it exactly; do not add fields, wrappers, or metadata.
 
 # Additional guidelines
 
@@ -162,52 +159,20 @@ Guidelines for item schema:
 `
 );
 
-export const code = new Template(
-  [
-    'toolsForCode',
-    'availableModules',
-    'availableContext',
-    'userInput',
-    'itemSchema',
-    'generalReport',
-    'groupingName',
-    'groupingUrls',
-    'groupingReport',
-  ],
-  `You are writing a JavaScript web-scraping script. Use the reports below to write code.
+const codeStructureSection = `# Code structure
 
-Research is complete. Return JavaScript now without calling tools during this response. Tool functions described below are for the emitted script to call at runtime; they are not instructions to continue browsing while writing code.
-
-The item schema below describes one extracted item. It is authoritative; export it exactly, and follow it exactly.
-
-<item-schema>
-{{itemSchema}}
-</item-schema>
-
-Each extracted item must match this item schema. run(url) returns an array of these items directly, without a results wrapper.
-
-# Targeting the specific grouping
-
-You are targetting a specific named grouping of pages with the name "{{groupingName}}". This grouping represents pages that were determined to have similar structure, and can be parsed together. The scraper you will write should handle these types of pages.
-
-These are some example URLs for this grouping. These are merely representative examples, and may not be an exhaustive list of URLs that your scraper should handle.
-
-<grouping-urls>
-{{groupingUrls}}
-</grouping-urls>
-
-# Structure
-
-Your code must be structured in the following way:
+Bot code must be structured in the following way:
 
   export const itemSchema = { /* ... JSON schema ...*/ };
   export const uniqueId = (item) => { /* ... return a canonical string ... */ };
   export const check = async (url) => { /* ... returns boolean ... */ };
   export const run = async (url) => { /* ... returns an array of items ... */ };
 
-Both functions receive one URL string. They may be called concurrently for different URLs. Generate executable JavaScript, without TypeScript annotations. Let exceptions propagate to the caller; DataService handles errors independently for each URL.
+The process that loads the bot code expects this format, with these exact names.
 
-# Function descriptions  
+Both functions check and run receive one URL string. They may be called concurrently for different URLs. Generate executable JavaScript, without TypeScript annotations. Let exceptions propagate to the caller; DataService handles errors independently for each URL.
+
+# Function descriptions
 
 ## uniqueId(result)
 
@@ -225,10 +190,11 @@ Export an async run(url) function returning an array of items matching itemSchem
 - Return [] only when extraction succeeds with zero items. Do not return null or undefined, and never treat blocked, timed-out or incomplete extraction as an empty source.
 - Let extraction failures throw. Buffer items until extraction completes so failures do not return partial data.
 - Calls for independent URLs may run concurrently. Use pq to limit acquisition, keep browser cursors and temporary state local to the call, and clean up resources in finally blocks.
+`;
 
-# Tools
+const codeGuidelinesSection = `# Tools
 
-The process that loads your code expects this format, with these exact names.
+You have access to the following tools.
 
 {{toolsForCode}}
 
@@ -244,6 +210,11 @@ You have access to these globals in the VM context
 
 {{availableContext}}
 
+# Dependencies
+
+- Use only the modules, context, and tools from above. 
+- Do not import or require anything, they are already in the context.
+
 # Concurrency object
 
 You have in your context a special object: \`pq\`. It is an instance of new PQueue() from https://github.com/sindresorhus/p-queue. It was instantiated like this:
@@ -258,22 +229,60 @@ You should use this for limiting concurrency for fetch, browser instances, etc. 
 
 Again, you do not need to create the pq object. It is already in the context.
 
-# Dependencies
+# Comments
 
-- Use only the modules, context, and tools from above. 
-- Do not import or require anything, they are already in the context.
+Begin your code with context, explanation and a description. This comment section should contain enough information for a future LLM or human to read the script, understand the intent, and make fixes. Include information about pages that are or are not in scope, and so on.
+`;
+
+export const code = new Template(
+  [
+    'toolsForCode',
+    'availableModules',
+    'availableContext',
+    'userInput',
+    'itemSchema',
+    'report',
+    'groupingDescription',
+    'groupingName',
+    'groupingUrls',
+  ],
+  `You are writing a JavaScript web-scraping script. Use the reports below to write code.
+
+Research is complete. Return JavaScript now without calling tools during this response. Tool functions described below are for the emitted script to call at runtime; they are not instructions to continue browsing while writing code.
+
+The item schema below describes one extracted item. It is authoritative; export it exactly, and follow it exactly.
+
+<item-schema>
+{{itemSchema}}
+</item-schema>
+
+Each extracted item must match this item schema. run(url) returns an array of these items directly, without a results wrapper.
+
+# Targeting the specific grouping
+
+You are targetting a specific named grouping of pages with the name "{{groupingName}}". This grouping represents pages that were determined to have similar structure, and can be parsed together. The scraper you will write should handle these types of pages.
+
+<grouping-description>
+{{groupingDescription}}
+</grouping-description>
+
+These are some example URLs for this grouping. These are merely representative examples, and may not be an exhaustive list of URLs that your scraper should handle.
+
+<grouping-urls>
+{{groupingUrls}}
+</grouping-urls>
+
+${codeStructureSection}
+
+${codeGuidelinesSection}
 
 # Reports
 
-The general report applies to every script. The grouping report applies only to this script and takes precedence when it is more specific.
+The shared report covers all groupings. Apply its general findings and the findings specific to the named grouping above.
 
-<general-report>
-{{generalReport}}
-</general-report>
-
-<group-report grouping-name="{{groupingName}}">
-{{groupingReport}}
-</group-report>
+<report>
+{{report}}
+</report>
 
 # Comments
 
@@ -294,5 +303,49 @@ Send debug output via console.log() as you go along. Log items as they are parse
 - ${guidelineTestSnippets}
 
 {{userInput}}
+`
+);
+
+export const heal = new Template(
+  [
+    'userInput',
+    'toolsForCode',
+    'itemSchema',
+    'availableModules',
+    'availableContext',
+    'errors',
+    'code',
+  ],
+  `You are evaluating and possibly fixing a Javascript scraping script.
+
+${codeStructureSection}
+
+${codeGuidelinesSection}
+
+# Original user input
+
+{{userInput}}
+
+The item schema is:
+
+{{itemSchema}}
+
+# Existing code
+
+The code for the script you are evaluating is below. This script is loaded into the bot tool.
+
+<existing-code>
+{{code}}
+</existing-code>
+
+If there was an errors for this code, they will be below:
+
+<errors>
+{{errors}}
+</errors>
+
+# Keep intent
+
+If you make fixes, be sure to keep the original intent of the code, and be careful not to broaden the script beyond what it was meant to handle.
 `
 );

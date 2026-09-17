@@ -6,6 +6,7 @@ import * as nodeHtmlParser from 'node-html-parser';
 import PQueue from 'p-queue';
 import * as playwright from 'playwright';
 import * as zod from 'zod';
+import { Bot } from '../bot/Bot.js';
 import { log } from '../logger.js';
 
 export type CompileResult = {
@@ -71,11 +72,15 @@ const wrapPQueue = (pq: PQueue, logger: Pick<Console, 'info'>): PQueue => {
 export class Compiler {
   constructor() {}
 
+  async compileBot(code: string, options: CompileOptions = {}): Promise<Bot> {
+    return new Bot(await this.compile(code, options));
+  }
+
   async compile(
     code: string,
     { additionalContext = {} }: CompileOptions = {}
   ): Promise<CompileResult> {
-    const pq = new PQueue({ concurrency: 50, intervalCap: 5, interval: 1000, strict: true });
+    const pq = new PQueue({ concurrency: 50, intervalCap: 20, interval: 1000, strict: true });
     const sharedContext = { ...additionalContext, pq };
     const context = vm.createContext({ ...sharedContext });
 

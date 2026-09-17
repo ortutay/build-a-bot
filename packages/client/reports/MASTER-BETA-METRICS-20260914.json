@@ -1,0 +1,1468 @@
+{
+  "method": "Isolated master working-tree and beta/timo snapshots. Cold generation timings are observational, not controlled benchmarks. See companion Markdown report for reruns and corrections.",
+  "workflowRuns": [
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-30-49.153Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 1,
+        "elapsedMs": 94779,
+        "buildMs": 94747,
+        "syncMs": 31,
+        "listMs": 1,
+        "total": 1,
+        "created": 1,
+        "updated": 0,
+        "fingerprint": "0d6292d7cd0ca043232d9135d0ed77b512b9f998cf649dcb6b5749ba60ea4ecc",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-30-49.153Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 2,
+        "elapsedMs": 33,
+        "buildMs": 5,
+        "syncMs": 28,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "0d6292d7cd0ca043232d9135d0ed77b512b9f998cf649dcb6b5749ba60ea4ecc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-30-49.153Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 3,
+        "elapsedMs": 20,
+        "buildMs": 3,
+        "syncMs": 17,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "0d6292d7cd0ca043232d9135d0ed77b512b9f998cf649dcb6b5749ba60ea4ecc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-45-06.191Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 1,
+        "elapsedMs": 124115,
+        "buildMs": 124086,
+        "syncMs": 28,
+        "listMs": 1,
+        "total": 2,
+        "created": 1,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-45-06.191Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 2,
+        "elapsedMs": 47,
+        "buildMs": 6,
+        "syncMs": 40,
+        "listMs": 1,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-45-06.191Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 3,
+        "elapsedMs": 26,
+        "buildMs": 4,
+        "syncMs": 21,
+        "listMs": 1,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-14.959Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 1,
+        "elapsedMs": 82,
+        "buildMs": 28,
+        "syncMs": 54,
+        "listMs": 0,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-14.959Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 2,
+        "elapsedMs": 28,
+        "buildMs": 4,
+        "syncMs": 24,
+        "listMs": 0,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-14.959Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 3,
+        "elapsedMs": 27,
+        "buildMs": 3,
+        "syncMs": 24,
+        "listMs": 0,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "fingerprint": "889c146951f67db1bd1b4648383793d92e9e176d09aaa2e2900f66addb68bed6",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-29.431Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 1,
+        "elapsedMs": 295442,
+        "buildMs": 295398,
+        "syncMs": 43,
+        "listMs": 1,
+        "total": 2,
+        "created": 0,
+        "updated": 1,
+        "outcome": {
+          "success": 1,
+          "unhandled": 0,
+          "errors": 0
+        },
+        "fingerprint": "01f475d9a3e70b773c97a56302fc391b8711e18aaf6d2419fef5e1f5982bec88",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-29.431Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 2,
+        "elapsedMs": 46,
+        "buildMs": 5,
+        "syncMs": 40,
+        "listMs": 1,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": 1,
+          "unhandled": 0,
+          "errors": 0
+        },
+        "fingerprint": "01f475d9a3e70b773c97a56302fc391b8711e18aaf6d2419fef5e1f5982bec88",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "master",
+      "artifact": "master/.log/beta-workflows/beta-allabolag-2/2026-09-15T00-53-29.431Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag-2",
+        "iteration": 3,
+        "elapsedMs": 26,
+        "buildMs": 4,
+        "syncMs": 21,
+        "listMs": 1,
+        "total": 2,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": 1,
+          "unhandled": 0,
+          "errors": 0
+        },
+        "fingerprint": "01f475d9a3e70b773c97a56302fc391b8711e18aaf6d2419fef5e1f5982bec88",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "errors": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-allabolag/2026-09-15T00-27-25.505Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag",
+        "iteration": 1,
+        "elapsedMs": 173182,
+        "buildMs": 164032,
+        "syncMs": 9149,
+        "listMs": 1,
+        "total": 1,
+        "created": 1,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "e3c43c93aa25db046380cb8ba886103c97f529f7bf3c8ce22350273bda24eb37",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-allabolag/2026-09-15T00-27-25.505Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag",
+        "iteration": 2,
+        "elapsedMs": 9,
+        "buildMs": 5,
+        "syncMs": 3,
+        "listMs": 1,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "e3c43c93aa25db046380cb8ba886103c97f529f7bf3c8ce22350273bda24eb37",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-allabolag/2026-09-15T00-27-25.505Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-allabolag",
+        "iteration": 3,
+        "elapsedMs": 7,
+        "buildMs": 4,
+        "syncMs": 2,
+        "listMs": 1,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "e3c43c93aa25db046380cb8ba886103c97f529f7bf3c8ce22350273bda24eb37",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-33-40.352Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 1,
+        "elapsedMs": 175912,
+        "buildMs": 175889,
+        "syncMs": 23,
+        "listMs": 0,
+        "total": 1,
+        "created": 1,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-33-40.352Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 2,
+        "elapsedMs": 9,
+        "buildMs": 5,
+        "syncMs": 4,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-33-40.352Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 3,
+        "elapsedMs": 8,
+        "buildMs": 5,
+        "syncMs": 3,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-37-18.814Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 1,
+        "elapsedMs": 27,
+        "buildMs": 23,
+        "syncMs": 4,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-37-18.814Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 2,
+        "elapsedMs": 6,
+        "buildMs": 4,
+        "syncMs": 1,
+        "listMs": 1,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-ashby/2026-09-15T00-37-18.814Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-ashby",
+        "iteration": 3,
+        "elapsedMs": 5,
+        "buildMs": 3,
+        "syncMs": 2,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "797caa5c7f92205760af4b35be1e54fd72605da959e0db0e6d5c799e0433b4dc",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-greenhouse/2026-09-15T00-30-31.013Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 1,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-greenhouse",
+        "iteration": 1,
+        "elapsedMs": 143365,
+        "buildMs": 143344,
+        "syncMs": 20,
+        "listMs": 1,
+        "total": 1,
+        "created": 1,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "86dc32873198bb5b4be898ac24c87e0817b0baa2c382bc2dc0cc8bd7ea0f62d3",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-greenhouse/2026-09-15T00-30-31.013Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 1,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-greenhouse",
+        "iteration": 2,
+        "elapsedMs": 9,
+        "buildMs": 6,
+        "syncMs": 3,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "86dc32873198bb5b4be898ac24c87e0817b0baa2c382bc2dc0cc8bd7ea0f62d3",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-greenhouse/2026-09-15T00-30-31.013Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 1,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-greenhouse",
+        "iteration": 3,
+        "elapsedMs": 8,
+        "buildMs": 5,
+        "syncMs": 3,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "86dc32873198bb5b4be898ac24c87e0817b0baa2c382bc2dc0cc8bd7ea0f62d3",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-32-54.397Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 1,
+        "elapsedMs": 264400,
+        "buildMs": 264397,
+        "syncMs": 2,
+        "listMs": 1,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-32-54.397Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 2,
+        "elapsedMs": 8,
+        "buildMs": 5,
+        "syncMs": 3,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-32-54.397Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 3,
+        "elapsedMs": 8,
+        "buildMs": 5,
+        "syncMs": 3,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-33-40.352Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 1,
+        "elapsedMs": 143686,
+        "buildMs": 138099,
+        "syncMs": 5586,
+        "listMs": 1,
+        "total": 1,
+        "created": 1,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-33-40.352Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 2,
+        "elapsedMs": 10,
+        "buildMs": 6,
+        "syncMs": 3,
+        "listMs": 1,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-lever/2026-09-15T00-33-40.352Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 1,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-lever",
+        "iteration": 3,
+        "elapsedMs": 7,
+        "buildMs": 5,
+        "syncMs": 2,
+        "listMs": 0,
+        "total": 1,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "6c7e4c8a93861ed64c26c707023312d6fa3193b9c22bcead4d156a88e06e381b",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-teamtailor/2026-09-15T00-27-25.504Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 3,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-teamtailor",
+        "iteration": 1,
+        "elapsedMs": 185460,
+        "buildMs": 185378,
+        "syncMs": 81,
+        "listMs": 1,
+        "total": 3,
+        "created": 3,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "7484911231925e7f91afd11d30a9ce53210a171e0e9cf356e433c0350677aa9e",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-teamtailor/2026-09-15T00-27-25.504Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 3,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-teamtailor",
+        "iteration": 2,
+        "elapsedMs": 13,
+        "buildMs": 4,
+        "syncMs": 8,
+        "listMs": 1,
+        "total": 3,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "7484911231925e7f91afd11d30a9ce53210a171e0e9cf356e433c0350677aa9e",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-teamtailor/2026-09-15T00-27-25.504Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 3,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-teamtailor",
+        "iteration": 3,
+        "elapsedMs": 20,
+        "buildMs": 5,
+        "syncMs": 14,
+        "listMs": 1,
+        "total": 3,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "7484911231925e7f91afd11d30a9ce53210a171e0e9cf356e433c0350677aa9e",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 1,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-33-40.361Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 1,
+        "elapsedMs": 481592,
+        "buildMs": 476881,
+        "syncMs": 4710,
+        "listMs": 1,
+        "total": 0,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 0,
+        "unhandled": 0,
+        "error": 4
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-33-40.361Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 2,
+        "elapsedMs": 2040,
+        "buildMs": 14,
+        "syncMs": 2026,
+        "listMs": 0,
+        "total": 0,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 0,
+        "unhandled": 0,
+        "error": 4
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-33-40.361Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 0,
+          "unavailable": 0
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 3,
+        "elapsedMs": 2036,
+        "buildMs": 8,
+        "syncMs": 2028,
+        "listMs": 0,
+        "total": 0,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 0,
+        "unhandled": 0,
+        "error": 4
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-42-41.096Z/run-1.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 10,
+          "unavailable": 1
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 1,
+        "elapsedMs": 113908,
+        "buildMs": 34,
+        "syncMs": 113873,
+        "listMs": 1,
+        "total": 10,
+        "created": 10,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "8d7bad478cce7cf8106c92c63376ec14276203757029409468376acc6ad98a42",
+        "unchanged": null,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 4,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-42-41.096Z/run-2.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 10,
+          "unavailable": 1
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 2,
+        "elapsedMs": 12,
+        "buildMs": 8,
+        "syncMs": 4,
+        "listMs": 0,
+        "total": 10,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "8d7bad478cce7cf8106c92c63376ec14276203757029409468376acc6ad98a42",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 4,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    },
+    {
+      "branch": "beta",
+      "artifact": "beta/.log/beta-workflows/beta-jobs-workday/2026-09-15T00-42-41.096Z/run-3.json",
+      "summary": {
+        "quality": {
+          "complete": 0,
+          "partial": 10,
+          "unavailable": 1
+        },
+        "service": "beta-jobs-workday",
+        "iteration": 3,
+        "elapsedMs": 13,
+        "buildMs": 8,
+        "syncMs": 4,
+        "listMs": 1,
+        "total": 10,
+        "created": 0,
+        "updated": 0,
+        "removed": 0,
+        "fingerprint": "8d7bad478cce7cf8106c92c63376ec14276203757029409468376acc6ad98a42",
+        "unchanged": true,
+        "meetsMinimum": true
+      },
+      "outcomeCounts": {
+        "success": 4,
+        "unhandled": 0,
+        "error": 0
+      },
+      "exception": null
+    }
+  ],
+  "pokemonDetailRepeats": {
+    "master-pokemon-repeat": [
+      {
+        "iteration": 1,
+        "ms": 83,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 1027
+      },
+      {
+        "iteration": 2,
+        "ms": 43,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 1027
+      },
+      {
+        "iteration": 3,
+        "ms": 36,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 1027
+      }
+    ],
+    "beta-pokemon-repeat": [
+      {
+        "iteration": 1,
+        "ms": 145,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "error": []
+        },
+        "total": 1027
+      },
+      {
+        "iteration": 2,
+        "ms": 69,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "error": []
+        },
+        "total": 1027
+      },
+      {
+        "iteration": 3,
+        "ms": 80,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "error": []
+        },
+        "total": 1027
+      }
+    ],
+    "master-pokemon-identity-repeat": [
+      {
+        "iteration": 1,
+        "ms": 75,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 2054
+      },
+      {
+        "iteration": 2,
+        "ms": 33,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 2054
+      },
+      {
+        "iteration": 3,
+        "ms": 34,
+        "created": 0,
+        "updated": 0,
+        "outcome": {
+          "success": [
+            {
+              "url": "https://pokemondb.net/pokedex/bulbasaur"
+            },
+            {
+              "url": "https://pokemondb.net/pokedex/charmander"
+            }
+          ],
+          "unhandled": [],
+          "errors": []
+        },
+        "total": 2054
+      }
+    ]
+  },
+  "configuredPokemon": {
+    "nationalSyncMs": 410612,
+    "sourceSuccesses": 3,
+    "errors": 0,
+    "unhandled": 0,
+    "retainedRows": 2054,
+    "distinctNumbers": 1025,
+    "note": "Rebuild before identity configuration changed generated IDs; existing rows intentionally retained."
+  },
+  "queueBenchmark": [
+    {
+      "name": "cache-fast-limit5",
+      "ms": 5009,
+      "peak": 5
+    },
+    {
+      "name": "network-150ms-limit5",
+      "ms": 5157,
+      "peak": 5
+    },
+    {
+      "name": "network-150ms-no-rate-limit",
+      "ms": 151,
+      "peak": 30
+    }
+  ],
+  "queueLiveSample": {
+    "beta-pokemon": {
+      "starts": 622,
+      "spanSeconds": 122.428,
+      "runningHistogram": {
+        "1": 233,
+        "2": 231,
+        "3": 132,
+        "4": 11,
+        "5": 7,
+        "6": 2,
+        "7": 2,
+        "8": 2,
+        "9": 1,
+        "10": 1
+      },
+      "lastStarts": [
+        [
+          "2026-09-15 00:31:30.137",
+          418,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.139",
+          417,
+          2
+        ],
+        [
+          "2026-09-15 00:31:30.140",
+          416,
+          3
+        ],
+        [
+          "2026-09-15 00:31:30.431",
+          415,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.442",
+          414,
+          2
+        ]
+      ],
+      "fetchHits": 4,
+      "fetchMisses": 615
+    },
+    "master-restored-pokemon": {
+      "starts": 142,
+      "spanSeconds": 26.258,
+      "runningHistogram": {
+        "1": 95,
+        "2": 28,
+        "3": 19
+      },
+      "lastStarts": [
+        [
+          "2026-09-15 00:31:30.383",
+          896,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.491",
+          895,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.583",
+          894,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.602",
+          893,
+          1
+        ],
+        [
+          "2026-09-15 00:31:30.617",
+          892,
+          1
+        ]
+      ],
+      "fetchHits": 141,
+      "fetchMisses": 0
+    }
+  }
+}

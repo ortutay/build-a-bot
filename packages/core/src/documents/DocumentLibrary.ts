@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { collapseHtml, collapseJson, remove, slimHtml } from '../formats.js';
 import { log } from '../logger.js';
 import { hash } from '../util/index.js';
@@ -16,6 +17,7 @@ export type Origin = (typeof documentOrigins)[number];
 export const documentContentTypes = [
   'text/html',
   'text/plain',
+  'text/markdown',
   'application/json',
   'application/json+protobuf',
 ] as const;
@@ -27,6 +29,11 @@ export type DocumentHeaders = Record<string, string>;
 export const documentRequestModes = ['fetch', 'browser'] as const;
 
 export type DocumentRequest = {
+  cursorId?: string;
+  captureId?: string;
+  method?: string;
+  body?: string | null;
+  frameUrl?: string | null;
   timestamp: string;
   headers: DocumentHeaders;
   proxy: string | null;
@@ -71,6 +78,7 @@ export type DocumentGetInput = {
 };
 
 export type DocumentListQuery = {
+  captureId?: string;
   documentIds?: DocumentId[];
   origin?: Origin;
   contentType?: ContentType;
@@ -85,6 +93,7 @@ export type StoredDocument = DocumentInput & {
 };
 
 export type DocumentLibraryBackend = {
+  cacheScope?: string;
   save(document: StoredDocument): void;
   get(id: DocumentId): StoredDocument | null;
   list(): StoredDocument[];
@@ -108,7 +117,11 @@ const merge = (doc1: Pick<StoredDocument, 'id'>, doc2: DocumentInput): StoredDoc
 });
 
 export class DocumentLibrary {
-  constructor(private backend: DocumentLibraryBackend = new MemoryLibraryBackend()) {}
+  readonly cacheScope: string;
+
+  constructor(private backend: DocumentLibraryBackend = new MemoryLibraryBackend()) {
+    this.cacheScope = backend.cacheScope ?? randomUUID();
+  }
 
   save(input: DocumentInput): DocumentId {
     const id = `doc:${hash({
@@ -117,17 +130,20 @@ export class DocumentLibrary {
       contentType: input.contentType,
       status: input.status,
       content: input.content,
-    }).substring(0, 8)}`;
+      captureId: input.request.captureId,
+      method: input.request.method,
+      body: input.request.body,
+    }).substring(0, 14)}`;
     const document = merge({ id }, input);
 
     if (!documentContentTypes.includes(document.contentType)) {
       throw new Error(`Attempting to save unsupported content type: ${document.contentType}`);
     }
 
-    this.backend.save(document);
     log.info(
-      `Saved document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
+      `Saving document: id=${id}, status=${input.status}, contentType=${input.contentType}, url=${input.url}`
     );
+    this.backend.save(document);
     return id;
   }
 
@@ -184,6 +200,9 @@ export class DocumentLibrary {
       .filter((document) => documentContentTypes.includes(document.contentType))
       .filter((document) => {
         if (ids && !ids.has(document.id)) return false;
+        if (query.captureId && document.request.captureId !== query.captureId) {
+          return false;
+        }
         if (query.origin && document.origin !== query.origin) return false;
         if (query.contentType && document.contentType !== query.contentType) return false;
         if (query.urlPrefix && !document.url.startsWith(query.urlPrefix)) return false;

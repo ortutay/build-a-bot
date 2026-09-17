@@ -11,7 +11,7 @@ type CachedToolResult = { type: 'output'; output: unknown };
 
 const cache = new DiskCache<CachedToolResult>('cacheInstrument');
 
-export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
+export const cacheInstrument = async (tool: Tool, cacheScope = ''): Promise<Tool> => {
   const execute = tool.execute;
   if (!execute) {
     return tool;
@@ -22,6 +22,7 @@ export const cacheInstrument = async (tool: Tool): Promise<Tool> => {
     execute: async (input, context) => {
       const key = hash({
         instrument: 'cacheInstrument',
+        cacheScope,
         cacheBuster: cb.cacheInstrument,
         tool: {
           id: tool.id,

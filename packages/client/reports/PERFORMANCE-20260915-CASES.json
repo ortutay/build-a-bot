@@ -1,0 +1,681 @@
+{
+  "jobs": {
+    "itemSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "source_url": {
+          "type": "string",
+          "description": "Supplied discovery or detail URL"
+        },
+        "canonical_url": {
+          "type": "string",
+          "description": "Canonical URL of this individual job, without tracking parameters"
+        },
+        "external_job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Durable ATS posting/requisition ID. Use with ATS and company for stable identity; never derive identity from mutable job text"
+        },
+        "title": {
+          "type": "string"
+        },
+        "company": {
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "All published job locations"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Published country"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Complete job description as normalized plain text"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Published timestamp in ISO format where available"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Application deadline in ISO format where available"
+        },
+        "employment_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Permanent, temporary, contract, internship, etc., as published"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Contract duration, if published"
+        },
+        "working_hours": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Full-time/part-time or published hours"
+        },
+        "work_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Remote, hybrid, onsite, if explicitly published"
+        },
+        "application_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Direct URL of the application form"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Published job requirements; no inferred qualifications"
+        },
+        "taxonomy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Published job categories, departments, seniority or skill tags"
+        },
+        "ats_platform": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Identify the underlying ATS from page, scripts, forms or endpoint evidence"
+        },
+        "ats_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Observed URLs or page markers identifying the ATS"
+        },
+        "application_structure": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["complete", "partial", "unavailable"],
+              "description": "Complete only if the actual application form has been inspected; login/gating or inaccessible form means partial/unavailable"
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Describe inaccessible, conditional, login-gated or multi-step portions"
+            },
+            "cv_required": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cover_letter_required": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "groups": {
+              "default": [],
+              "description": "Observed alternative input groups, e.g. resume file OR manual text; infer rules only from inspected page evidence",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "rule": {
+                    "type": "string",
+                    "const": "oneOf"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["label", "required", "rule", "fields"],
+                "additionalProperties": false
+              }
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Stable HTML field name or ATS question ID"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "text, email, textarea, select, radio, checkbox, file, etc."
+                  },
+                  "required": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Required only when supported by form metadata; null when unknown"
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "All observed dropdown/radio/checkbox choices"
+                  },
+                  "accepted_file_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Allowed upload extensions/MIME types, if published"
+                  }
+                },
+                "required": ["name", "label", "type", "required", "options", "accepted_file_types"],
+                "additionalProperties": false
+              },
+              "description": "All visible application inputs and questions, including consent and uploads"
+            }
+          },
+          "required": [
+            "status",
+            "notes",
+            "cv_required",
+            "cover_letter_required",
+            "groups",
+            "fields"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "source_url",
+        "canonical_url",
+        "external_job_id",
+        "title",
+        "company",
+        "location",
+        "country",
+        "description",
+        "published_at",
+        "deadline_at",
+        "employment_type",
+        "duration",
+        "working_hours",
+        "work_model",
+        "application_url",
+        "requirements",
+        "taxonomy",
+        "ats_platform",
+        "ats_evidence",
+        "application_structure"
+      ],
+      "additionalProperties": false,
+      "description": "Extract each currently open job matching the supplied URL filters, following listing links to job details and inspecting application forms. Do not apply, submit, upload files, or create accounts. Preserve missing facts as null or empty arrays. Closed/removed listings yield no items only with positive evidence; throw on blocked/failed fetches instead of interpreting failure as removal. Validate discovered unique posting counts against published listing totals and throw on mismatch. Follow actual listing links or captured read-only JSON identifiers, including canonical /job/ links when supplied examples use /details/. A results container with no matching links is not evidence of an empty listing."
+    },
+    "groups": {
+      "teamtailor": ["https://career.teamtailor.com/jobs?country=Sweden"],
+      "greenhouse": ["https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101"],
+      "lever": ["https://jobs.lever.co/walkme?location=Stockholm"],
+      "ashby": ["https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770"],
+      "smartrecruiters": [
+        "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm"
+      ],
+      "workday": [
+        "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+        "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+        "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+        "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+      ]
+    },
+    "urls": [
+      "https://career.teamtailor.com/jobs?country=Sweden",
+      "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+      "https://jobs.lever.co/walkme?location=Stockholm",
+      "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+      "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+      "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+      "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+      "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+      "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+    ],
+    "identity": {
+      "fields": [
+        {
+          "path": "ats_platform",
+          "normalize": "lowercase"
+        },
+        {
+          "path": "canonical_url",
+          "normalize": "url-tenant"
+        },
+        {
+          "path": "external_job_id"
+        }
+      ]
+    }
+  },
+  "allabolag": {
+    "itemSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "company_name": {
+          "type": "string",
+          "description": "Registered legal company name, exactly as published"
+        },
+        "org_number": {
+          "type": "string",
+          "description": "Swedish organisation number; durable company identity"
+        },
+        "company_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Registration/activity status as published"
+        },
+        "industry_sni": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "SNI code"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Industry label"
+              }
+            },
+            "required": ["code", "name"],
+            "additionalProperties": false
+          }
+        },
+        "municipality": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Municipality / kommun"
+        },
+        "county": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "County / län"
+        },
+        "financial_year": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Reporting period for the financial amounts and employee count"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Currency for financial amounts"
+        },
+        "revenue": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Revenue / omsättning; normalize to whole currency units, not thousands"
+        },
+        "employees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Reported employee count for the financial year"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Published net result / årets resultat, in whole currency units"
+        },
+        "ebitda": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Published EBITDA in whole currency units; null when not available, do not substitute EBIT"
+        },
+        "website": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Official company website"
+        },
+        "management_board": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Published management or board role"
+              }
+            },
+            "required": ["name", "role"],
+            "additionalProperties": false
+          }
+        },
+        "parent_group": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "parent_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Direct parent company"
+                },
+                "parent_org_number": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Direct parent organisation number"
+                },
+                "group_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Ultimate group / koncern name"
+                }
+              },
+              "required": ["parent_name", "parent_org_number", "group_name"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "company_name",
+        "org_number",
+        "company_status",
+        "industry_sni",
+        "municipality",
+        "county",
+        "financial_year",
+        "currency",
+        "revenue",
+        "employees",
+        "result",
+        "ebitda",
+        "website",
+        "management_board",
+        "parent_group"
+      ],
+      "additionalProperties": false,
+      "description": "Extract raw published company facts from the supplied Allabolag profile. Use null or empty arrays for unavailable fields; never invent or infer financial amounts or people."
+    },
+    "urls": [
+      "https://www.allabolag.se/foretag/volvo-personvagnar-aktiebolag/g%C3%B6teborg/elmotorer-generatorer/2JYQ0TTI5YE0U"
+    ],
+    "identity": {
+      "fields": [
+        {
+          "path": "org_number",
+          "normalize": "digits"
+        }
+      ]
+    }
+  },
+  "pokemon": {
+    "itemSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "pokemon name. note, you are in a test/dev context, focused on URL groupings, so try to work quickly, even if it means sacrificing a little bit of quality"
+        },
+        "number": {
+          "type": "string",
+          "description": "pokemon number"
+        },
+        "hp": {
+          "type": "string",
+          "description": "pokemon hit points"
+        },
+        "height": {
+          "type": "number",
+          "description": "pokemon height in meters"
+        },
+        "weight": {
+          "type": "number",
+          "description": "pokemon weight in kg"
+        }
+      },
+      "required": ["name", "number", "hp", "height", "weight"],
+      "additionalProperties": false
+    },
+    "urls": [
+      "https://pokemondb.net/pokedex/national",
+      "https://pokemondb.net/pokedex/bulbasaur",
+      "https://pokemondb.net/pokedex/pikachu"
+    ],
+    "syncUrls": [
+      "https://pokemondb.net/pokedex/bulbasaur",
+      "https://pokemondb.net/pokedex/charmander",
+      "https://pokemondb.net/pokedex/national"
+    ],
+    "identity": {
+      "fields": [
+        {
+          "path": "number",
+          "normalize": "digits"
+        }
+      ]
+    }
+  }
+}

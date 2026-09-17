@@ -1,5 +1,5 @@
 import { createWorkflow } from '@mastra/core/workflows';
-import { planStep, writeCodeStep } from './steps.js';
+import { planStep, writeCodeStep, healCodeStep } from './steps.js';
 
 export const planWorkflow = createWorkflow({
   id: 'plan-workflow',
@@ -16,4 +16,12 @@ export const writeWorkflow = createWorkflow({
 })
   .then(planStep)
   .then(writeCodeStep)
+  .commit();
+
+export const healWorkflow = createWorkflow({
+  id: 'heal-workflow',
+  inputSchema: healCodeStep.inputSchema,
+  outputSchema: healCodeStep.outputSchema,
+})
+  .then(healCodeStep)
   .commit();

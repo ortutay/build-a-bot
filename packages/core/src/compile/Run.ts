@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { type RunStatus, resultsTable, runsTable } from '../storage/db/schema.js';
+import { log } from '../logger.js';
+import { type RunStatus, runsTable } from '../storage/db/schema.js';
 import { type Storage } from '../storage/Storage.js';
 
 type StorageDb = Storage['db'];
@@ -10,7 +11,6 @@ export type RunOptions = {
   endTime?: string | null;
   error?: Record<string, unknown> | null;
   input: Record<string, unknown>;
-  results?: unknown[] | null;
   scriptId: string;
   startTime?: string;
   status?: RunStatus;
@@ -29,7 +29,6 @@ export class Run {
   endTime: string | null;
   error: Record<string, unknown> | null;
   input: Record<string, unknown>;
-  results: unknown[] | null;
   scriptId: string;
   startTime: string;
   status: RunStatus;
@@ -39,7 +38,6 @@ export class Run {
     this.error = options.error ?? null;
     this.id = options.id ?? null;
     this.input = options.input;
-    this.results = options.results ?? null;
     this.scriptId = options.scriptId;
     this.startTime = options.startTime ?? new Date().toISOString();
     this.status = options.status ?? 'active';
@@ -56,6 +54,7 @@ export class Run {
     };
 
     if (this.id) {
+      log.info(`Updating run id=${this.id}`);
       const [run] = await db
         .update(runsTable)
         .set(vals)
@@ -67,6 +66,7 @@ export class Run {
       return;
     }
 
+    log.info('Creating new run');
     const [run] = await db.insert(runsTable).values(vals).returning();
     if (!run) {
       throw new Error(`Could not save run for script: ${this.scriptId}`);
@@ -75,34 +75,13 @@ export class Run {
     this.id = run.id;
   }
 
-  async complete(storage: Storage, results: unknown[], tx?: Transaction): Promise<void> {
-    const id = this.id;
-    if (!id) {
+  async complete(storage: Storage, tx?: Transaction): Promise<void> {
+    if (!this.id) {
       throw new Error('Cannot complete an unsaved run');
     }
-
-    const endTime = new Date().toISOString();
-    this.endTime = endTime;
-    this.results = results;
+    this.endTime = new Date().toISOString();
     this.status = 'done';
-    const commit = async (tx: Transaction) => {
-      if (results.length > 0) {
-        await tx.insert(resultsTable).values(
-          results.map((data) => ({
-            createdAt: endTime,
-            data,
-            runId: id,
-          }))
-        );
-      }
-
-      await this.save(storage, tx);
-    };
-    if (tx) {
-      await commit(tx);
-    } else {
-      await storage.db.transaction(commit);
-    }
+    await this.save(storage, tx ?? storage.db);
   }
 
   async fail(storage: Storage, e: unknown): Promise<void> {

@@ -16,7 +16,9 @@ export class Template {
       argumentsSet.size !== placeholdersSet.size ||
       [...argumentsSet].some((argument) => !placeholdersSet.has(argument))
     ) {
-      throw new Error('Template placeholders must exactly match the argumentList.');
+      throw new Error(
+        `Template placeholders must exactly match the argumentList. Argument list: ${argumentList.join(', ')}. Template body placeholders: ${placeholders.join(', ')}.`
+      );
     }
 
     this.argumentList = argumentList;

@@ -1,8 +1,12 @@
+import process from 'node:process';
 import { z } from 'zod';
 import { DataService, DataSource } from '@build-a-bot/core';
+import { createClientContext } from './timo/proxies.js';
 
 const service = new DataService({
-  name: 'pokemon-8',
+  name: 'pokemon-9',
+  context: await createClientContext(),
+  identity: { fields: [{ path: 'number', normalize: 'digits' }] },
   itemSchema: z.object({
     name: z
       .string()
@@ -15,18 +19,17 @@ const service = new DataService({
     weight: z.number().describe('pokemon weight in kg'),
   }),
   sources: [
-    new DataSource({ url: 'https://pokemondb.net/pokedex/national' }),
+    // new DataSource({ url: 'https://pokemondb.net/pokedex/national' }),
     new DataSource({ url: 'https://pokemondb.net/pokedex/bulbasaur' }),
     new DataSource({ url: 'https://pokemondb.net/pokedex/pikachu' }),
   ],
 });
 
-console.log('service:', service);
-
-await service.build();
+await service.start();
 const out1 = await service.sync([
   'https://pokemondb.net/pokedex/bulbasaur',
   'https://pokemondb.net/pokedex/charmander',
-  'https://pokemondb.net/pokedex/national',
+  // 'https://pokemondb.net/pokedex/national',
 ]);
 console.log('out1:', out1);
+process.exit(out1.outcome.errors.length || out1.outcome.unhandled.length ? 1 : 0);

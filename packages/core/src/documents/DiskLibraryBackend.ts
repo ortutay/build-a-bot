@@ -14,6 +14,7 @@ export type DiskLibraryBackendOptions = {
 
 export class DiskLibraryBackend implements DocumentLibraryBackend {
   dirname: string;
+  readonly cacheScope: string;
 
   constructor(
     namespace: string,
@@ -21,12 +22,14 @@ export class DiskLibraryBackend implements DocumentLibraryBackend {
       rootDir = path.join(os.tmpdir(), 'build-a-bot', 'document-library'),
     }: DiskLibraryBackendOptions = {}
   ) {
-    this.dirname = path.join(rootDir, namespace, cb.documentLibrary);
+    this.dirname = path.resolve(rootDir, namespace, cb.documentLibrary);
+    this.cacheScope = this.dirname;
     log.info(`Disk based document library, dirname=${this.dirname}`);
     fs.mkdirSync(this.dirname, { recursive: true });
   }
 
   save(document: StoredDocument): void {
+    log.info(`Saving document id=${document.id} backend=disk`);
     fs.writeFileSync(this.filepath(document.id), JSON.stringify(document), 'utf8');
   }
 

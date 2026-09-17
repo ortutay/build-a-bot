@@ -3,6 +3,7 @@ import type { GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
+import { log } from '../logger.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import { accountsTable } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
@@ -66,6 +67,7 @@ export class Account extends UsesContext implements ISerializable<{ username: st
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
+    log.info(`Saving account id=${this.id}`);
     const context = await this.context();
 
     await context.storage.fillInTransaction(tx, async (tx) => {

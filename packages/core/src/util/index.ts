@@ -59,6 +59,14 @@ export const clip = (value: unknown, max = 500): string => {
   return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
 };
 
+export const errorString = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+export const indentCode = (code: string): string =>
+  code
+    .split('\n')
+    .map((line, i) => `    ${String(i + 1).padStart(3, ' ')}: ${line}`)
+    .join('\n');
+
 const protobufFields = (bytes: Uint8Array): number[] => {
   const reader = Reader.create(bytes);
   const fields: number[] = [];

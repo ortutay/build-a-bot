@@ -96,17 +96,6 @@ export const runsTable = sqliteTable('runs', {
   error: text({ mode: 'json' }).$type<Record<string, unknown>>(),
 });
 
-export const resultsTable = sqliteTable('results', {
-  id: text()
-    .primaryKey()
-    .$defaultFn(() => srid(10)),
-  runId: text('run_id')
-    .notNull()
-    .references(() => runsTable.id),
-  createdAt: createdAt(),
-  data: text({ mode: 'json' }).$type<unknown>().notNull(),
-});
-
 export const itemsTable = sqliteTable(
   'items',
   {
@@ -121,6 +110,7 @@ export const itemsTable = sqliteTable(
     data: text({ mode: 'json' }).$type<unknown>().notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    lastSeenAt: text('last_seen_at').notNull().$defaultFn(currentTimestamp),
   },
   (table) => [
     unique('items_source_script_id_source_url_unique_id_unique').on(

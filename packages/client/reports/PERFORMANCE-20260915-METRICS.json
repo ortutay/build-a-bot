@@ -1,0 +1,1553 @@
+{
+  "method": {
+    "masterRef": "db4d52f6158b3ccd3218b91650dd1dc316974c1b",
+    "masterIncludesWorkingTree": true,
+    "betaRef": "45b4fb9bb3f58b32d3d75778265c2ad042fdf147",
+    "combinedJobs": true,
+    "sourceSnapshotCache": false,
+    "isolatedSqliteDocumentsAndToolCaches": true,
+    "sharedInstalledDependencies": true,
+    "coreIntegrity": {
+      "checkedFiles": 266,
+      "changed": []
+    }
+  },
+  "runs": {
+    "master-jobs": [
+      {
+        "name": "jobs",
+        "iteration": 1,
+        "setupMs": 570,
+        "buildMs": 398389,
+        "syncMs": 3972,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 16,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/8e50565d-5755-41d5-9ede-7e8d6dca8d2e?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "iteration": 2,
+        "setupMs": 570,
+        "buildMs": 13,
+        "syncMs": 3791,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/8e50565d-5755-41d5-9ede-7e8d6dca8d2e?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "iteration": 3,
+        "setupMs": 570,
+        "buildMs": 25,
+        "syncMs": 3767,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/8e50565d-5755-41d5-9ede-7e8d6dca8d2e?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": true
+      }
+    ],
+    "master-allabolag": [
+      {
+        "name": "allabolag",
+        "iteration": 1,
+        "setupMs": 570,
+        "buildMs": 251248,
+        "syncMs": 23729,
+        "listMs": 0,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 1,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": null
+      },
+      {
+        "name": "allabolag",
+        "iteration": 2,
+        "setupMs": 570,
+        "buildMs": 6,
+        "syncMs": 38626,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": true
+      },
+      {
+        "name": "allabolag",
+        "iteration": 3,
+        "setupMs": 570,
+        "buildMs": 12,
+        "syncMs": 33666,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 0,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://www.allabolag.se/foretag/volvo-personvagnar-aktiebolag/g%C3%B6teborg/elmotorer-generatorer/2JYQ0TTI5YE0U",
+            "error": "frame.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('table[aria-label=\\'simple table\\']')\u001b[22m\n"
+          }
+        ],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": true
+      }
+    ],
+    "master-pokemon": [
+      {
+        "name": "pokemon",
+        "iteration": 1,
+        "setupMs": 988,
+        "buildMs": 146512,
+        "syncMs": 51521,
+        "listMs": 8,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 1027,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": null
+      },
+      {
+        "name": "pokemon",
+        "iteration": 2,
+        "setupMs": 988,
+        "buildMs": 7,
+        "syncMs": 51407,
+        "listMs": 6,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": true
+      },
+      {
+        "name": "pokemon",
+        "iteration": 3,
+        "setupMs": 988,
+        "buildMs": 6,
+        "syncMs": 51417,
+        "listMs": 6,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": true
+      }
+    ],
+    "master-jobs-coldsync": [
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 1,
+        "setupMs": 762,
+        "buildMs": 6,
+        "syncMs": 12761,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 3,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/dffcb20c-d3a6-4766-a5c5-a1c2b5a988cb?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "788ee0165d7e659120ef2ea2ac0eff6f15c0bce02a9ff9669465806d1da5c955",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 2,
+        "setupMs": 762,
+        "buildMs": 0,
+        "syncMs": 3791,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/18844ee7-a08d-4a2a-9ad8-440718351e55?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "788ee0165d7e659120ef2ea2ac0eff6f15c0bce02a9ff9669465806d1da5c955",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 3,
+        "setupMs": 762,
+        "buildMs": 0,
+        "syncMs": 3806,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [
+          {
+            "url": "https://careers.smartrecruiters.com/SopraSteria1/se_ssg_sweden-stockholm",
+            "error": "Navigation failed (403) for https://jobs.smartrecruiters.com/oneclick-ui/company/SopraSteria1/publication/8e50565d-5755-41d5-9ede-7e8d6dca8d2e?dcr_ci=SopraSteria1"
+          }
+        ],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "788ee0165d7e659120ef2ea2ac0eff6f15c0bce02a9ff9669465806d1da5c955",
+        "unchanged": true
+      }
+    ],
+    "master-allabolag-coldsync": [
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 1,
+        "setupMs": 597,
+        "buildMs": 5,
+        "syncMs": 18183,
+        "listMs": 0,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": null
+      },
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 2,
+        "setupMs": 597,
+        "buildMs": 0,
+        "syncMs": 20372,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": true
+      },
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 3,
+        "setupMs": 597,
+        "buildMs": 0,
+        "syncMs": 21037,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "ec6b328149a589de7d74455fb481de09f5f39ae6989932e60e80710a2b8e2774",
+        "unchanged": true
+      }
+    ],
+    "master-pokemon-coldsync": [
+      {
+        "name": "pokemon",
+        "syncOnly": true,
+        "iteration": 1,
+        "setupMs": 616,
+        "buildMs": 7,
+        "syncMs": 51788,
+        "listMs": 7,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": null
+      },
+      {
+        "name": "pokemon",
+        "syncOnly": true,
+        "iteration": 2,
+        "setupMs": 616,
+        "buildMs": 0,
+        "syncMs": 51377,
+        "listMs": 6,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": true
+      },
+      {
+        "name": "pokemon",
+        "syncOnly": true,
+        "iteration": 3,
+        "setupMs": 616,
+        "buildMs": 0,
+        "syncMs": 51400,
+        "listMs": 8,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "710d3fe654698bc9ed21cb142c75867f36b3dd40352d6cfb84f5a0ed64ce954f",
+        "unchanged": true
+      }
+    ],
+    "master-jobs-matched": [
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 1,
+        "setupMs": 546,
+        "buildMs": 4,
+        "syncMs": 1081,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 2,
+        "setupMs": 546,
+        "buildMs": 0,
+        "syncMs": 1052,
+        "listMs": 0,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 3,
+        "setupMs": 546,
+        "buildMs": 1,
+        "syncMs": 1073,
+        "listMs": 1,
+        "total": 16,
+        "distinctIdentities": 13,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "partial": 12,
+          "complete": 4
+        },
+        "fingerprint": "5af2bf0765c1954d0919dba8a70e29b92678c7581e3bc205e1d00b3980cb3f3c",
+        "unchanged": true
+      }
+    ],
+    "beta-jobs": [
+      {
+        "name": "jobs",
+        "iteration": 1,
+        "setupMs": 561,
+        "buildMs": 720961,
+        "syncMs": 103712,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 30,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "iteration": 2,
+        "setupMs": 561,
+        "buildMs": 12,
+        "syncMs": 102786,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "iteration": 3,
+        "setupMs": 561,
+        "buildMs": 13,
+        "syncMs": 103270,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      }
+    ],
+    "beta-allabolag": [
+      {
+        "name": "allabolag",
+        "iteration": 1,
+        "setupMs": 553,
+        "buildMs": 202309,
+        "syncMs": 9999,
+        "listMs": 2,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 1,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": null
+      },
+      {
+        "name": "allabolag",
+        "iteration": 2,
+        "setupMs": 553,
+        "buildMs": 7,
+        "syncMs": 9481,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": true
+      },
+      {
+        "name": "allabolag",
+        "iteration": 3,
+        "setupMs": 553,
+        "buildMs": 5,
+        "syncMs": 8364,
+        "listMs": 2,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": true
+      }
+    ],
+    "beta-pokemon": [
+      {
+        "name": "pokemon",
+        "iteration": 1,
+        "setupMs": 579,
+        "buildMs": 745689,
+        "syncMs": 204555,
+        "listMs": 6,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 1027,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "df704ac19f8278db5df6295d39f6c82e49dfeb2049e072ff97f738c0890b2bfc",
+        "unchanged": null
+      },
+      {
+        "name": "pokemon",
+        "iteration": 2,
+        "setupMs": 579,
+        "buildMs": 5,
+        "syncMs": 204503,
+        "listMs": 8,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "df704ac19f8278db5df6295d39f6c82e49dfeb2049e072ff97f738c0890b2bfc",
+        "unchanged": true
+      },
+      {
+        "name": "pokemon",
+        "iteration": 3,
+        "setupMs": 579,
+        "buildMs": 7,
+        "syncMs": 204507,
+        "listMs": 7,
+        "total": 1027,
+        "distinctIdentities": 1025,
+        "created": 0,
+        "updated": 0,
+        "success": 3,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "df704ac19f8278db5df6295d39f6c82e49dfeb2049e072ff97f738c0890b2bfc",
+        "unchanged": true
+      }
+    ],
+    "beta-jobs-coldsync": [
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 1,
+        "setupMs": 550,
+        "buildMs": 6,
+        "syncMs": 177825,
+        "listMs": 2,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 2,
+        "setupMs": 550,
+        "buildMs": 1,
+        "syncMs": 101038,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "iteration": 3,
+        "setupMs": 550,
+        "buildMs": 0,
+        "syncMs": 105584,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 9,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      }
+    ],
+    "beta-allabolag-coldsync": [
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 1,
+        "setupMs": 592,
+        "buildMs": 6,
+        "syncMs": 7687,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": null
+      },
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 2,
+        "setupMs": 592,
+        "buildMs": 0,
+        "syncMs": 9284,
+        "listMs": 1,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": true
+      },
+      {
+        "name": "allabolag",
+        "syncOnly": true,
+        "iteration": 3,
+        "setupMs": 592,
+        "buildMs": 0,
+        "syncMs": 8463,
+        "listMs": 2,
+        "total": 1,
+        "distinctIdentities": 1,
+        "created": 0,
+        "updated": 0,
+        "success": 1,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {},
+        "forms": {},
+        "fingerprint": "c0fb615335e815f9330bf0f59d03c6055e5951e6eedc95bb7960105ab89e4006",
+        "unchanged": true
+      }
+    ],
+    "beta-jobs-matched": [
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 1,
+        "setupMs": 530,
+        "buildMs": 5,
+        "syncMs": 6583,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": null
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 2,
+        "setupMs": 530,
+        "buildMs": 0,
+        "syncMs": 7380,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      },
+      {
+        "name": "jobs",
+        "syncOnly": true,
+        "urls": [
+          "https://career.teamtailor.com/jobs?country=Sweden",
+          "https://job-boards.eu.greenhouse.io/mentimeter/jobs/4954100101",
+          "https://jobs.lever.co/walkme?location=Stockholm",
+          "https://jobs.ashbyhq.com/neuralconcept/2a1e39ac-4135-411d-a63d-cd67f1679770",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Test-Engineer---Mechanical_JR101455",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Buyer---Maternity-Leave-Coverage--12-14-Month-Contract_JR101454",
+          "https://vaderstad.wd3.myworkdayjobs.com/sv-SE/External_Careers/details/Maintenance-Technician_JR101452"
+        ],
+        "iteration": 3,
+        "setupMs": 530,
+        "buildMs": 0,
+        "syncMs": 6574,
+        "listMs": 1,
+        "total": 30,
+        "distinctIdentities": 27,
+        "created": 0,
+        "updated": 0,
+        "success": 8,
+        "unhandled": 0,
+        "errors": [],
+        "byAts": {
+          "Teamtailor": 3,
+          "SmartRecruiters": 14,
+          "Workday": 10,
+          "Greenhouse": 1,
+          "Ashby": 1,
+          "Lever": 1
+        },
+        "forms": {
+          "complete": 3,
+          "partial": 27
+        },
+        "fingerprint": "0b88013130a91f279b3fd9d46b0fb0f166ab0573c64537daebf87774084fb67a",
+        "unchanged": true
+      }
+    ]
+  },
+  "cache": {
+    "master-jobs": {
+      "bySync": {
+        "1": {
+          "queueStarts": 164,
+          "toolHit": 7,
+          "browserHit": 121,
+          "browserMiss": 46
+        },
+        "2": {
+          "queueStarts": 196,
+          "toolHit": 7,
+          "browserHit": 208,
+          "browserMiss": 49
+        },
+        "3": {
+          "queueStarts": 196,
+          "toolHit": 7,
+          "browserHit": 208,
+          "browserMiss": 49
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:3c0439634be4": [1, 2, 3],
+        "browserTools_gotoTool:762eb81127dd": [1, 2, 3],
+        "browserTools_gotoTool:0ecc8b18c14f": [1, 2, 3],
+        "browserTools_gotoTool:22ec126b41e6": [1, 2, 3],
+        "browserTools_gotoTool:54014a7dfbf6": [1, 2, 3],
+        "browserTools_gotoTool:701190493afa": [1, 2, 3],
+        "browserTools_gotoTool:04516e2a0c1b": [1, 2, 3],
+        "browserTools_gotoTool:ff8ddc9e677a": [1, 2, 3],
+        "browserTools_gotoTool:701aad1d70ac": [1, 2, 3],
+        "browserTools_gotoTool:e330965dd982": [1, 2, 3],
+        "browserTools_gotoTool:34e04a08ebd9": [1, 2, 3],
+        "browserTools_gotoTool:438561e704d3": [1, 2, 3],
+        "browserTools_gotoTool:75f3ae305d7e": [1, 2, 3],
+        "browserTools_gotoTool:651841b8dc40": [1, 2, 3],
+        "browserTools_gotoTool:bc5a739d9a44": [1, 2, 3],
+        "browserTools_gotoTool:ff081e0f0196": [1, 2, 3],
+        "browserTools_gotoTool:0696579c1108": [1, 2, 3],
+        "browserTools_gotoTool:e3eac164f0f9": [1, 2, 3],
+        "browserTools_gotoTool:451ee5c1c5b1": [1, 2, 3],
+        "browserTools_gotoTool:cd6ead70d474": [1, 2, 3],
+        "browserTools_gotoTool:6309dc6c483a": [1, 2, 3],
+        "browserTools_gotoTool:1f33651e4c11": [1, 2, 3],
+        "browserTools_gotoTool:4af57fee3a20": [1, 2, 3],
+        "browserTools_gotoTool:3531ec258f6d": [1, 2, 3],
+        "browserTools_gotoTool:6b1a5fb13189": [1, 2, 3],
+        "browserTools_gotoTool:00c8d6ee9327": [1, 2, 3],
+        "browserTools_gotoTool:5d7a27f39d33": [1, 2, 3],
+        "browserTools_gotoTool:7163f1a15bdf": [1, 2, 3],
+        "browserTools_gotoTool:837873f76454": [1, 2, 3],
+        "browserTools_gotoTool:d0ddef97631d": [1, 2, 3],
+        "browserTools_gotoTool:5fb638640b68": [1, 2, 3],
+        "browserTools_gotoTool:302f2b54f153": [1, 2, 3],
+        "browserTools_gotoTool:298659ab2ef5": [1, 2, 3],
+        "browserTools_gotoTool:60585fbd2d4d": [1, 2, 3],
+        "browserTools_gotoTool:2e5df34ff036": [1, 2, 3],
+        "browserTools_gotoTool:45952878ad7b": [1, 2, 3],
+        "browserTools_gotoTool:1562d4eaabf2": [1, 2, 3],
+        "browserTools_gotoTool:be1039c8cb92": [1, 2, 3],
+        "browserTools_gotoTool:ecc05e7b496f": [1, 2, 3],
+        "browserTools_gotoTool:33ec4863cb09": [1, 2, 3],
+        "browserTools_gotoTool:7e064040e4f5": [1, 2, 3],
+        "browserTools_gotoTool:fdeebb863ff0": [1, 2, 3],
+        "browserTools_gotoTool:0fc6153ef288": [1, 2, 3],
+        "browserTools_gotoTool:ebc84e23d8ff": [1, 2, 3],
+        "browserTools_gotoTool:d169b1c7e144": [1, 2, 3],
+        "browserTools_gotoTool:24d41c8d0f4c": [1, 2, 3],
+        "browserTools_gotoTool:8336eb33d8ea": [2, 3],
+        "browserTools_gotoTool:869b0a32b454": [2, 3],
+        "browserTools_gotoTool:a31c6ce179c3": [2, 3]
+      }
+    },
+    "master-allabolag": {
+      "bySync": {
+        "1": {
+          "queueStarts": 2,
+          "browserMiss": 2
+        },
+        "2": {
+          "queueStarts": 2,
+          "browserMiss": 2
+        },
+        "3": {
+          "queueStarts": 1,
+          "browserMiss": 2
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:119259b80de9": [1, 2, 3],
+        "browserTools_gotoTool:c96432faabb1": [1, 2, 3]
+      }
+    },
+    "master-pokemon": {
+      "bySync": {
+        "1": {
+          "queueStarts": 1039,
+          "toolMiss": 1,
+          "toolHit": 1029
+        },
+        "2": {
+          "queueStarts": 1039,
+          "toolHit": 1030
+        },
+        "3": {
+          "queueStarts": 1039,
+          "toolHit": 1030
+        }
+      },
+      "repeatedMisses": {}
+    },
+    "master-jobs-coldsync": {
+      "bySync": {
+        "1": {
+          "queueStarts": 196,
+          "toolMiss": 7,
+          "browserMiss": 112
+        },
+        "2": {
+          "queueStarts": 127,
+          "browserHit": 121,
+          "toolHit": 7,
+          "browserMiss": 9
+        },
+        "3": {
+          "queueStarts": 196,
+          "toolHit": 7,
+          "browserHit": 208,
+          "browserMiss": 49
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:0d37ab58fa8d": [1, 2, 3],
+        "browserTools_gotoTool:852fec890538": [1, 2, 3],
+        "browserTools_gotoTool:69a933b2b096": [1, 2, 3],
+        "browserTools_gotoTool:d9ceaf82d038": [1, 3],
+        "browserTools_gotoTool:f2d0004b65b1": [1, 2, 3],
+        "browserTools_gotoTool:7cf8f28469f3": [1, 2, 3],
+        "browserTools_gotoTool:836f189eff44": [1, 2, 3],
+        "browserTools_gotoTool:2a4b6aeb900c": [1, 2, 3],
+        "browserTools_gotoTool:47177c26b429": [1, 2, 3],
+        "browserTools_gotoTool:cc679a851192": [1, 2, 3],
+        "browserTools_gotoTool:7b0928bda772": [1, 3],
+        "browserTools_gotoTool:67040203a847": [1, 3],
+        "browserTools_gotoTool:ecfec238857a": [1, 3],
+        "browserTools_gotoTool:fb141620cc6a": [1, 3],
+        "browserTools_gotoTool:9b4cb1c3eae6": [1, 3],
+        "browserTools_gotoTool:727c1bd288e2": [1, 3],
+        "browserTools_gotoTool:d996de678c90": [1, 3],
+        "browserTools_gotoTool:a77485522c8a": [1, 3],
+        "browserTools_gotoTool:ef381654f62b": [1, 3],
+        "browserTools_gotoTool:472b823c4536": [1, 3],
+        "browserTools_gotoTool:3cb2311fb4f7": [1, 3],
+        "browserTools_gotoTool:366fb6d17536": [1, 3],
+        "browserTools_gotoTool:684d86196501": [1, 3],
+        "browserTools_gotoTool:78c665ee48fa": [1, 3],
+        "browserTools_gotoTool:e57e6bd4ae8b": [1, 3],
+        "browserTools_gotoTool:92d9ffabd91d": [1, 3],
+        "browserTools_gotoTool:6bb3cb50d878": [1, 3],
+        "browserTools_gotoTool:3e3cace91ce9": [1, 3],
+        "browserTools_gotoTool:c037efa7aacf": [1, 3],
+        "browserTools_gotoTool:5c202fe31ee1": [1, 3],
+        "browserTools_gotoTool:82218ae9fced": [1, 3],
+        "browserTools_gotoTool:24c6cf3f4355": [1, 3],
+        "browserTools_gotoTool:777c329192ba": [1, 3],
+        "browserTools_gotoTool:55030bb1ff44": [1, 3],
+        "browserTools_gotoTool:3ab04b476209": [1, 3],
+        "browserTools_gotoTool:55bbf5259391": [1, 3],
+        "browserTools_gotoTool:17d432065703": [1, 3],
+        "browserTools_gotoTool:b7c08a8cf275": [1, 3],
+        "browserTools_gotoTool:d1a496d10454": [1, 3],
+        "browserTools_gotoTool:dc48106fe868": [1, 3],
+        "browserTools_gotoTool:79dd7d4e9a00": [1, 3],
+        "browserTools_gotoTool:2bc0df78e09f": [1, 3],
+        "browserTools_gotoTool:a41b92dbe22b": [1, 3],
+        "browserTools_gotoTool:94be90c8547f": [1, 3],
+        "browserTools_gotoTool:115657a31e0a": [1, 3],
+        "browserTools_gotoTool:83a93a170de8": [1, 3],
+        "browserTools_gotoTool:ede8b9b8d426": [1, 3],
+        "browserTools_gotoTool:97921a5e0bc8": [1, 3],
+        "browserTools_gotoTool:8ed13983cd32": [1, 3]
+      }
+    },
+    "master-allabolag-coldsync": {
+      "bySync": {
+        "1": {
+          "queueStarts": 2,
+          "browserMiss": 2
+        },
+        "2": {
+          "queueStarts": 2,
+          "browserMiss": 2
+        },
+        "3": {
+          "queueStarts": 2,
+          "browserMiss": 2
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:eefe61b4744e": [1, 2, 3],
+        "browserTools_gotoTool:b8c68c42710a": [1, 2, 3]
+      }
+    },
+    "master-pokemon-coldsync": {
+      "bySync": {
+        "1": {
+          "queueStarts": 1039,
+          "toolMiss": 1028,
+          "toolHit": 2
+        },
+        "2": {
+          "queueStarts": 1039,
+          "toolHit": 1030
+        },
+        "3": {
+          "queueStarts": 1039,
+          "toolHit": 1030
+        }
+      },
+      "repeatedMisses": {}
+    },
+    "master-jobs-matched": {
+      "bySync": {
+        "1": {
+          "queueStarts": 47,
+          "browserHit": 57,
+          "toolHit": 7
+        },
+        "2": {
+          "queueStarts": 47,
+          "toolHit": 7,
+          "browserHit": 57
+        },
+        "3": {
+          "queueStarts": 47,
+          "toolHit": 7,
+          "browserHit": 57
+        }
+      },
+      "repeatedMisses": {}
+    },
+    "beta-jobs": {
+      "bySync": {
+        "1": {
+          "queueStarts": 21,
+          "toolHit": 23,
+          "browserHit": 41,
+          "browserMiss": 2
+        },
+        "2": {
+          "queueStarts": 21,
+          "toolHit": 23,
+          "browserHit": 41,
+          "browserMiss": 2
+        },
+        "3": {
+          "queueStarts": 21,
+          "toolHit": 23,
+          "browserHit": 41,
+          "browserMiss": 2
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_clickTool:93e0c360a9ce": [1, 2, 3],
+        "browserTools_gotoTool:16031db41e09": [1, 2, 3]
+      }
+    },
+    "beta-allabolag": {
+      "bySync": {
+        "1": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        },
+        "2": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        },
+        "3": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:db8514b3c5a6": [1, 2, 3]
+      }
+    },
+    "beta-pokemon": {
+      "bySync": {
+        "1": {
+          "queueStarts": 1030,
+          "toolHit": 1028
+        },
+        "2": {
+          "queueStarts": 1030,
+          "toolHit": 1028
+        },
+        "3": {
+          "queueStarts": 1030,
+          "toolHit": 1028
+        }
+      },
+      "repeatedMisses": {}
+    },
+    "beta-jobs-coldsync": {
+      "bySync": {
+        "1": {
+          "queueStarts": 21,
+          "toolMiss": 22,
+          "browserMiss": 10,
+          "toolHit": 1
+        },
+        "2": {
+          "queueStarts": 21,
+          "toolHit": 23,
+          "browserHit": 41,
+          "browserMiss": 2
+        },
+        "3": {
+          "queueStarts": 21,
+          "toolHit": 23,
+          "browserHit": 41,
+          "browserMiss": 2
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:16031db41e09": [1, 2, 3],
+        "browserTools_clickTool:93e0c360a9ce": [2, 3]
+      }
+    },
+    "beta-allabolag-coldsync": {
+      "bySync": {
+        "1": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        },
+        "2": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        },
+        "3": {
+          "queueStarts": 2,
+          "browserMiss": 1
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:db8514b3c5a6": [1, 2, 3]
+      }
+    },
+    "beta-jobs-matched": {
+      "bySync": {
+        "1": {
+          "queueStarts": 20,
+          "toolHit": 7,
+          "browserHit": 39,
+          "browserMiss": 1
+        },
+        "2": {
+          "queueStarts": 20,
+          "toolHit": 7,
+          "browserHit": 39,
+          "browserMiss": 1
+        },
+        "3": {
+          "queueStarts": 20,
+          "toolHit": 7,
+          "browserHit": 39,
+          "browserMiss": 1
+        }
+      },
+      "repeatedMisses": {
+        "browserTools_gotoTool:16031db41e09": [1, 2, 3]
+      }
+    }
+  },
+  "jobsQuality": {
+    "master": {
+      "Teamtailor": {
+        "rows": 3,
+        "distinct": 3,
+        "reportedForms": {
+          "partial": 3
+        },
+        "fieldCounts": [0],
+        "emptyRequirements": 3
+      },
+      "Workday": {
+        "rows": 10,
+        "distinct": 7,
+        "reportedForms": {
+          "partial": 7,
+          "complete": 3
+        },
+        "fieldCounts": [0, 1],
+        "emptyRequirements": 2
+      },
+      "Greenhouse": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "complete": 1
+        },
+        "fieldCounts": [15],
+        "emptyRequirements": 0
+      },
+      "Ashby": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "partial": 1
+        },
+        "fieldCounts": [9],
+        "emptyRequirements": 0
+      },
+      "Lever": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "partial": 1
+        },
+        "fieldCounts": [0],
+        "emptyRequirements": 0
+      }
+    },
+    "beta": {
+      "Teamtailor": {
+        "rows": 3,
+        "distinct": 3,
+        "reportedForms": {
+          "complete": 3
+        },
+        "fieldCounts": [10, 14, 16],
+        "emptyRequirements": 3
+      },
+      "SmartRecruiters": {
+        "rows": 14,
+        "distinct": 14,
+        "reportedForms": {
+          "partial": 14
+        },
+        "fieldCounts": [0],
+        "emptyRequirements": 14
+      },
+      "Workday": {
+        "rows": 10,
+        "distinct": 7,
+        "reportedForms": {
+          "partial": 10
+        },
+        "fieldCounts": [15],
+        "emptyRequirements": 2
+      },
+      "Greenhouse": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "partial": 1
+        },
+        "fieldCounts": [15],
+        "emptyRequirements": 1
+      },
+      "Ashby": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "partial": 1
+        },
+        "fieldCounts": [11],
+        "emptyRequirements": 1
+      },
+      "Lever": {
+        "rows": 1,
+        "distinct": 1,
+        "reportedForms": {
+          "partial": 1
+        },
+        "fieldCounts": [19],
+        "emptyRequirements": 1
+      }
+    }
+  },
+  "artifacts": "/tmp/fetchfox-performance-20260915"
+}

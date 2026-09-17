@@ -1,4 +1,15 @@
 import { BaseLogger, fullCoreFeatures, Logger, LogLevel, type ISettingsParam } from 'tslog';
+import { logLevel } from './constants.js';
+
+const logLevels: Record<string, LogLevel> = {
+  debug: LogLevel.DEBUG,
+  error: LogLevel.ERROR,
+  fatal: LogLevel.FATAL,
+  info: LogLevel.INFO,
+  silly: LogLevel.SILLY,
+  trace: LogLevel.TRACE,
+  warn: LogLevel.WARN,
+};
 
 class SourceMappedLogger extends BaseLogger<Record<string, unknown>> {
   constructor(settings: ISettingsParam<Record<string, unknown>>) {
@@ -24,6 +35,7 @@ class SourceMappedLogger extends BaseLogger<Record<string, unknown>> {
 
 export const log = new SourceMappedLogger({
   name: 'builder',
+  minLevel: logLevels[logLevel?.toLowerCase() ?? ''],
   type: 'hidden',
   pretty: {
     style: true,

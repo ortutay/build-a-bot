@@ -3,10 +3,11 @@ import type { GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
 import type { ISerializable } from '../interface/ISerializable.js';
 import type { ISaveable } from '../interface/ISaveable.js';
+import { log } from '../logger.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import { dataSourcesTable } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
-import { type Url, parseUrl } from '../types.js';
+import { parseUrl } from '../types.js';
 
 export type DataSourceOptions = UsesContextOptions & {
   id?: string;
@@ -17,7 +18,7 @@ export type DataSourceOptions = UsesContextOptions & {
 export class DataSource extends UsesContext implements ISerializable<{ url: string }>, ISaveable {
   id: string | null;
   dataServiceId: string | null;
-  url: Url;
+  url: string;
 
   constructor(options: DataSourceOptions) {
     super(options);
@@ -53,6 +54,7 @@ export class DataSource extends UsesContext implements ISerializable<{ url: stri
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
+    log.info(`Saving data source id=${this.id}`);
     const context = await this.context();
     const dataServiceId = this.dataServiceId;
     if (!dataServiceId) {

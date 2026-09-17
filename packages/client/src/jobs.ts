@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { z } from 'zod';
 import { DataService, DataSource } from '@build-a-bot/core';
-import { proxies } from './timo/proxies.js';
+import { createClientContext } from './timo/proxies.js';
 import { exercise } from './workflow.js';
 
 const text = (description: string) => z.string().nullable().describe(description);
@@ -56,7 +56,7 @@ export const jobSchema = z
         )
         .default([])
         .describe(
-          'Alternative input groups from browserTools_formsTool, e.g. resume file OR manual text'
+          'Observed alternative input groups, e.g. resume file OR manual text; infer rules only from inspected page evidence'
         ),
       fields: z
         .array(
@@ -128,7 +128,7 @@ let urls: string[] = [
 
 const service = new DataService({
   name: `beta-jobs`,
-  proxies: proxies(),
+  context: await createClientContext(),
   itemSchema: jobSchema,
   identity: {
     fields: [
@@ -137,7 +137,7 @@ const service = new DataService({
       { path: 'external_job_id' },
     ],
   },
-  sources: urls.map((url) => new DataSource({ url, cache: { maxAgeMs: 15 * 60 * 1000 } })),
+  sources: urls.map((url) => new DataSource({ url })),
 });
-const ok = await exercise(service);
+const ok = await exercise(service, 1);
 process.exit(ok ? 0 : 1);

@@ -53,41 +53,34 @@ const setup = async (urls: string[]) => {
   return { service, context, start };
 };
 
-it('repairs only the failed script URLs and preserves the other candidate code', async () => {
+it('activates all generated scripts without retrying failed candidates', async () => {
   const { service, context, start } = await setup([a, b, c]);
   const good = code([a]);
   const bad = code([b, c], true);
-  const repaired = code([b, c]);
-  start.mockResolvedValueOnce(result(good, bad)).mockResolvedValueOnce(result(repaired));
+  start.mockResolvedValueOnce(result(good, bad));
   await service.build();
-  expect(start).toHaveBeenCalledTimes(2);
-  expect(start.mock.calls[1][0].inputData.urls).toEqual([b, c]);
-  expect(start.mock.calls[1][0].inputData.goal).toContain('Source unavailable');
-  expect(start.mock.calls[1][0].inputData.goal).toContain(bad);
+  expect(start).toHaveBeenCalledOnce();
   expect(
     (await Script.findActiveForDataService(context, service.id!))
       .map((script) => script.code)
       .sort()
-  ).toEqual([good, repaired].sort());
+  ).toEqual([good, bad].sort());
   expect((await service.sync([a, b, c])).outcome).toEqual({
-    success: [a, b, c].map((url) => ({ url })),
+    success: [{ url: a }],
     unhandled: [],
-    errors: [],
+    errors: [b, c].map((url) => ({ url, error: 'Source unavailable' })),
   });
 });
 
-it('repairs separate failing groups without regenerating successful groups', async () => {
+it('generates each group once without build-time repair', async () => {
   const { service, start } = await setup([a, b, c]);
-  start
-    .mockResolvedValueOnce(result(code([a]), code([b], true), code([c], true)))
-    .mockResolvedValueOnce(result(code([b])))
-    .mockResolvedValueOnce(result(code([c])));
+  start.mockResolvedValueOnce(result(code([a]), code([b], true), code([c], true)));
   await service.build();
-  expect(start.mock.calls.map(([input]) => input.inputData.urls)).toEqual([[a, b, c], [b], [c]]);
-  expect((await service.sync([a, b, c])).created).toHaveLength(3);
+  expect(start.mock.calls.map(([input]) => input.inputData.urls)).toEqual([[a, b, c]]);
+  expect((await service.sync([a, b, c])).created).toHaveLength(1);
 });
 
-it('activates a persistent generation failure alongside working scripts and preserves prior items', async () => {
+it('activates a replacement once and leaves repair to healing', async () => {
   const { service, context, start } = await setup([a, b, c, d]);
   start.mockResolvedValueOnce(result(code([a]), code([b, c, d])));
   await service.build();
@@ -98,13 +91,11 @@ it('activates a persistent generation failure alongside working scripts and pres
     await script.save();
   }
   const placeholder = failureScript([b, c, d], 'Script generation failed: provider unavailable');
-  start
-    .mockResolvedValueOnce(result(code([a]), placeholder))
-    .mockResolvedValueOnce(result(placeholder));
+  start.mockResolvedValueOnce(result(code([a]), placeholder));
   await service.build();
   expect(await db.storage.db.select().from(itemsTable)).toEqual(snapshots);
-  expect(start).toHaveBeenCalledTimes(3);
-  expect(start.mock.calls[2][0].inputData.urls).toEqual([b, c, d]);
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(start.mock.calls[1][0].inputData.urls).toEqual([a, b, c, d]);
   const changes = await service.sync([a, b, c, d]);
   expect(changes.outcome.success).toEqual([{ url: a }]);
   expect(changes.outcome.errors).toEqual(
@@ -112,10 +103,9 @@ it('activates a persistent generation failure alongside working scripts and pres
   );
   expect(changes.created).toEqual([]);
   expect(changes.updated).toEqual([]);
-  expect(changes.removed).toEqual([]);
   expect((await service.list()).total).toBe(first.created.length);
   await service.build();
-  expect(start).toHaveBeenCalledTimes(3);
+  expect(start).toHaveBeenCalledTimes(2);
 });
 
 it('rebuilds for tool names and schemas but ignores tool order and injected background fields', async () => {

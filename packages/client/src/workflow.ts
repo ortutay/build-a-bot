@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { DataService } from '@build-a-bot/core';
+import type { DataService } from '@build-a-bot/core';
 
 // Keep service names stable across processes so build() reuses persisted scripts.
 // Every invocation repeats build/sync/list three times and retains full evidence.
@@ -18,9 +18,8 @@ export const exercise = async (service: DataService, minItems = 0): Promise<bool
   for (let i = 1; i <= 3; i++) {
     const started = Date.now();
     try {
-      await service.build();
+      const changes = await service.start();
       const builtAt = Date.now();
-      const changes = await service.sync(service.sources.map((source) => source.url));
       const syncedAt = Date.now();
       const listed = await service.list({ limit: 100 });
       for (let page = 2; listed.results.length < listed.total; page++) {
@@ -52,7 +51,11 @@ export const exercise = async (service: DataService, minItems = 0): Promise<bool
         total: listed.total,
         created: changes.created.length,
         updated: changes.updated.length,
-        removed: changes.removed.length,
+        outcome: {
+          success: changes.outcome.success.length,
+          unhandled: changes.outcome.unhandled.length,
+          errors: changes.outcome.errors.length,
+        },
         fingerprint,
         unchanged: previous === undefined ? null : previous === fingerprint,
         meetsMinimum: listed.total >= minItems,
@@ -63,12 +66,18 @@ export const exercise = async (service: DataService, minItems = 0): Promise<bool
       );
       console.log('BETA_RESULT', JSON.stringify(summary));
       console.log('BETA_ITEMS', JSON.stringify(listed.results, null, 2));
-      if (!summary.meetsMinimum || quality.partial || quality.unavailable) {
+      if (
+        !summary.meetsMinimum ||
+        summary.outcome.errors ||
+        summary.outcome.unhandled ||
+        quality.partial ||
+        quality.unavailable
+      ) {
         ok = false;
         console.error(
           'BETA_INCOMPLETE',
           service.name,
-          `Expected at least ${minItems} items and complete application structures; quality=${JSON.stringify(quality)}`
+          `Expected successful syncs, at least ${minItems} items and complete application structures; outcome=${JSON.stringify(summary.outcome)}, quality=${JSON.stringify(quality)}`
         );
       }
       previous = fingerprint;

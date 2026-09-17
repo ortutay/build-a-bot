@@ -1,16 +1,7 @@
 import { parse, HTMLElement, type Node } from 'node-html-parser';
 import pretty from 'pretty';
 
-export const defaultRemoveTags = [
-  'style',
-  'svg',
-  'symbol',
-  'link',
-  'noscript',
-  'template',
-  'iframe',
-  'canvas',
-];
+export const defaultRemoveTags = ['style', 'svg', 'symbol', 'noscript', 'template', 'canvas'];
 
 export const defaultRemoveAttributes = ['style', 'srcset'];
 
@@ -18,7 +9,13 @@ const parseHtml = (html: string) => parse(html || '', { comment: true });
 
 const removeNoise = (root: HTMLElement) => {
   root
-    .querySelectorAll([...defaultRemoveTags, 'script'].join(', '))
+    .querySelectorAll(
+      [
+        ...defaultRemoveTags,
+        'script:not([type="application/ld+json"]):not([type="application/json"])',
+        'link:not([rel="canonical"])',
+      ].join(', ')
+    )
     .forEach((node: HTMLElement) => node.remove());
   return root;
 };
@@ -45,13 +42,26 @@ const cleanAttributes = (root: HTMLElement, attributes = defaultRemoveAttributes
 };
 
 const absoluteUrls = (root: HTMLElement, url?: string) => {
-  if (!url) return root;
+  if (!url) {
+    return root;
+  }
+  const base = root.querySelector('base[href]')?.getAttribute('href');
+  if (base) {
+    try {
+      url = new URL(base, url).toString();
+    } catch (e) {
+      /* Keep the document URL for malformed bases. */
+    }
+  }
 
   const attrsToFix: Record<string, string> = {
     a: 'href',
     img: 'src',
     source: 'src',
     script: 'src',
+    iframe: 'src',
+    form: 'action',
+    link: 'href',
   };
   const visit = (node: Node) => {
     const element = node as HTMLElement;
@@ -61,7 +71,7 @@ const absoluteUrls = (root: HTMLElement, url?: string) => {
     if (value && !/^(?:[a-z]+:|#)/i.test(value)) {
       try {
         element.setAttribute(attribute, new URL(value, url).toString());
-      } catch {
+      } catch (e) {
         // Leave malformed URLs unchanged.
       }
     }
@@ -162,6 +172,17 @@ export const collapseHtml = (
     divs.map((div, index) => [div, `d${index.toString(36)}`])
   );
   const open = new Set<HTMLElement>();
+  // Keep form controls and their label/group ancestry inspectable.
+  for (const element of root.querySelectorAll('form, fieldset, input, select, textarea, button')) {
+    for (let node: HTMLElement | null = element; node; node = node.parentNode) {
+      if (refs.has(node)) {
+        open.add(node);
+      }
+    }
+    for (const div of element.querySelectorAll('div')) {
+      open.add(div);
+    }
+  }
 
   for (const div of divs) {
     if (!expansionIds.has(refs.get(div)!)) continue;
@@ -186,7 +207,7 @@ export const collapseHtml = (
 
     const summary = `[collapsed ${ref}; ${div.childElementCount} elements]`;
     const preview = previewText(div.text);
-    div.setAttributes({ 'data-collapse-id': ref! });
+    div.setAttribute('data-collapse-id', ref!);
     div.set_content('');
     div.append(preview ? `${summary} ${preview}` : summary);
   }
@@ -240,31 +261,91 @@ export const inspect = (html: string, collapseId: string) => {
 export const slimHtml = ({ html, url }: { html: string; url?: string }) => {
   const root = absoluteUrls(removeNoise(parseHtml(html)), url);
 
+  const escape = (str: string) =>
+    str.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+  const voidTags = new Set([
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr',
+  ]);
+  const attrs = new Set([
+    'class',
+    'id',
+    'name',
+    'type',
+    'required',
+    'value',
+    'accept',
+    'multiple',
+    'disabled',
+    'checked',
+    'selected',
+    'for',
+    'role',
+    'action',
+    'method',
+    'placeholder',
+    'min',
+    'max',
+    'step',
+    'pattern',
+    'rel',
+    'title',
+  ]);
   const visit = (node: Node): string => {
-    if (node.nodeType === 3) return node.rawText;
-    if (node.nodeType === 8) return `<!--${node.rawText}-->`;
+    if (node.nodeType === 3) {
+      return node.rawText;
+    }
+    if (node.nodeType === 8) {
+      return `<!--${node.rawText}-->`;
+    }
 
     const element = node as HTMLElement;
     const tagName = (element.tagName || '').toLowerCase();
     const attributes = Object.entries(element.attrs || {})
       .filter(
-        ([key, value]) =>
-          ['class', 'id'].includes(key) || (key.startsWith('data-') && value && value.length < 500)
+        ([key, val]) =>
+          attrs.has(key) ||
+          key.startsWith('aria-') ||
+          (key.startsWith('data-') && val && val.length < 500)
       )
-      .map(([key, value]) => ` ${key}="${String(value).slice(0, 400)}"`)
+      .map(([key, val]) => ` ${key}="${escape(String(val).slice(0, 400))}"`)
       .join('');
-    const inner = (node.childNodes || []).map(visit).join('').trim();
+    if (tagName === 'script') {
+      return node.toString().length <= 100_000 ? node.toString() : '';
+    }
+    const inner = (node.childNodes || []).map(visit).join('');
     const href = (element.getAttribute?.('href') || '').slice(0, 1000);
     const src = (element.getAttribute?.('src') || '').slice(0, 1000);
 
-    if (tagName === 'a' && href) return `<a href="${href}"${attributes}>${inner}</a>`;
-    if (tagName === 'meta') return node.toString();
-    if (['img', 'source', 'video', 'audio'].includes(tagName) && src && !src.startsWith('data:')) {
-      return `<${tagName} src="${src}"${attributes}/>`;
+    if (tagName === 'a' && href) {
+      return `<a href="${escape(href)}"${attributes}>${inner}</a>`;
     }
-    if (tagName) return `<${tagName}${attributes}>${inner}</${tagName}>`;
+    if (tagName === 'meta' || tagName === 'link' || tagName === 'iframe') {
+      return node.toString();
+    }
+    if (['img', 'source', 'video', 'audio'].includes(tagName) && src && !src.startsWith('data:')) {
+      return `<${tagName} src="${escape(src)}"${attributes}>${voidTags.has(tagName) ? '' : `${inner}</${tagName}>`}`;
+    }
+    if (voidTags.has(tagName)) {
+      return `<${tagName}${attributes}>`;
+    }
+    if (tagName) {
+      return `<${tagName}${attributes}>${inner}</${tagName}>`;
+    }
     return inner;
   };
 
-  return pretty(`<html>${visit(root)}</html>`, { ocd: true }).trim();
+  return pretty(visit(root), { ocd: true }).trim();
 };

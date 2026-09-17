@@ -20,7 +20,9 @@ describe('browser plan cache', () => {
 
   afterAll(async () => {
     await closeBrowserTools();
-    if (site) await site.close();
+    if (site) {
+      await site.close();
+    }
   });
 
   it('makes the second browser-plan run fast', async () => {
@@ -49,15 +51,17 @@ describe('browser plan cache', () => {
         const page = (await getDocument({ documentId }, {} as any)) as any;
         return {
           object: {
-            generalReport: 'Use browser tools.',
+            goal: 'List catalog items.',
+            modules: [],
+            context: [],
+            tools: [],
+            report: `Use browser tools. Catalog page: ${page.content}`,
+            itemSchema: { type: 'object' },
             groupings: [
               {
                 groupingName: 'catalog-pages',
                 groupingDescription: 'Catalog pages',
                 urls: [url],
-                goal: 'List catalog items.',
-                report: `Catalog page: ${page.content}`,
-                itemSchema: JSON.stringify({ type: 'object' }),
               },
             ],
           },
@@ -74,6 +78,7 @@ describe('browser plan cache', () => {
         inputData: {
           urls: [url],
           goal: 'List each catalog item with its SKU and name. This is a test of browser caching, so use browser instead of fetch().',
+          itemSchema: { type: 'object' },
           modules: [],
           context: [],
           tools: [],
@@ -87,7 +92,7 @@ describe('browser plan cache', () => {
     const slowRequestsAfterFirstRun = site.requestCount(wait);
     const second = await runPlan();
 
-    expect(first.result.groupings[0].report).toContain('Delayed catalog');
+    expect(first.result.report).toContain('Delayed catalog');
     expect(second.result).toEqual(first.result);
     expect(first.elapsed).toBeGreaterThanOrEqual(wait * 0.8);
     expect(slowRequestsAfterFirstRun).toBe(1);

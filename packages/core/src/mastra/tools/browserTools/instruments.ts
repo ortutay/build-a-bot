@@ -62,7 +62,7 @@ export const browserCacheInstrument = (
           }
           // Only cache successful executions and completed cache hits.
           if (cursorId) {
-            await cache.recordToolCall(cursorId, tool.id, cacheInput, output);
+            await cache.recordToolCall(cursorId, tool.id, cacheInput, output, !hit);
           }
 
           return output;

@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { and, count, desc, eq, notInArray } from 'drizzle-orm';
+import PQueue from 'p-queue';
 import { z } from 'zod';
 import { Account } from '../account/Account.js';
 import { cb } from '../cache/busters.js';
@@ -10,9 +11,9 @@ import type { ISaveable } from '../interface/ISaveable.js';
 import { availableContext, availableModules } from '../compile/Compiler.js';
 import { Run } from '../compile/Run.js';
 import { Script } from '../compile/Script.js';
-import { SeedValidationError, validateScripts } from '../compile/validateScripts.js';
 import { log } from '../logger.js';
 import { selectAvailableTools } from '../mastra/instruments/availableTools.js';
+import { healOutputSchema } from '../mastra/workflows/schemas.js';
 import { getOrNull, hash, norm } from '../util/index.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import {
@@ -38,7 +39,6 @@ export type DataServiceOptions = UsesContextOptions & {
 export type DataServiceSyncResult = {
   created: Item[];
   updated: { before: Item; after: Item }[];
-  removed: Item[];
   outcome: {
     success: { url: string }[];
     unhandled: { url: string }[];
@@ -49,7 +49,6 @@ export type DataServiceListOptions = { limit?: number; page?: number };
 export type DataServiceItemSchema = z.ZodType | Record<string, unknown>;
 
 export const defaultListLimit = 100;
-const maxAttempts = 2;
 
 export class ScriptNotFoundError extends Error {
   constructor(serviceName: string, url: string) {
@@ -68,6 +67,7 @@ export class DataService extends UsesContext implements ISaveable {
 
   #initPromise?: Promise<void>;
   #itemSchemaConfig: Record<string, unknown>;
+  #pq = new PQueue({ concurrency: 1 });
 
   constructor(options: DataServiceOptions) {
     super(options);
@@ -163,6 +163,7 @@ export class DataService extends UsesContext implements ISaveable {
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
+    log.info(`Saving data service id=${this.id}`);
     const context = await this.context();
 
     await context.storage.fillInTransaction(tx, async (tx) => {
@@ -235,18 +236,30 @@ export class DataService extends UsesContext implements ISaveable {
     };
   }
 
-  async start(): Promise<void> {
-    const context = await this.context();
-    await this.#build(context);
-    const changes = await this.sync(this.sources.map((source) => source.url));
+  async start(urls?: string[]): Promise<DataServiceSyncResult> {
+    await this.#pq.add(async () => {
+      const context = await this.context();
+      await this.#build(context);
+      await this.#heal(context);
+    });
+    urls ??= this.sources.map((source) => source.url);
+    const changes = await this.sync(urls);
     log.info(
-      `Data service sync complete: service=${this.name}, created=${changes.created.length}, updated=${changes.updated.length}, removed=${changes.removed.length}`
+      `Data service sync complete: service=${this.name}, created=${changes.created.length}, updated=${changes.updated.length}`
     );
+    return changes;
   }
 
   async build(): Promise<void> {
-    const context = await this.context();
-    return this.#build(context);
+    await this.#pq.add(async () => {
+      await this.#build(await this.context());
+    });
+  }
+
+  async heal(): Promise<void> {
+    await this.#pq.add(async () => {
+      await this.#heal(await this.context());
+    });
   }
 
   async sync(urls: string[]): Promise<DataServiceSyncResult> {
@@ -254,7 +267,6 @@ export class DataService extends UsesContext implements ISaveable {
     const changes: DataServiceSyncResult = {
       created: [],
       updated: [],
-      removed: [],
       outcome: { success: [], unhandled: [], errors: [] },
     };
     for (const url of new Set(urls)) {
@@ -377,144 +389,126 @@ export class DataService extends UsesContext implements ISaveable {
     });
     const prefix = `script:${fingerprint}:`;
     const buildInput = { goal, urls };
-    let regenerate = false;
-    let repair = '';
-    let repairUrls = urls;
-    let retained: Script[] = [];
-    let candidates: Script[] = [];
-    const failures = new Map<string, number>();
-    for (let attempt = 1; attempt <= maxAttempts * (urls.length + 1); attempt++) {
-      let scripts = await Script.findActiveForDataService(context, this.id!);
-
-      try {
-        if (
-          scripts.length === 0 ||
-          !scripts.every((script) => script.name.startsWith(prefix)) ||
-          regenerate
-        ) {
-          log.info(`Writing scripts for urls=${urls.join(', ')}`);
-          const activeScriptIds = new Set(scripts.map((script) => script.id));
-
-          const workflow = context.mastra.getWorkflowById('write-workflow');
-          const run = await workflow.createRun();
-
-          const result = await run.start({
-            inputData: {
-              urls: repairUrls,
-              goal: repair ? `${goal}\nRepair the previous candidate. ${repair}` : goal,
-              context: Object.keys(availableContext),
-              modules: Object.keys(availableModules),
-              itemSchema: this.#schemaConfig(),
-              tools,
-            },
-          });
-
-          if (result.status !== 'success') {
-            throw new Error(`Workflow did not complete successfully: ${result.status}`);
-          }
-
-          const generatedScripts = result.result as Array<{ code: string; groupingName: string }>;
-          if (generatedScripts.length === 0) {
-            throw new Error('Workflow generated no scripts');
-          }
-          scripts = [
-            ...retained,
-            ...generatedScripts.map(
-              ({ code }) =>
-                new Script({
-                  context,
-                  name: `${prefix}${hash({ code }).slice(0, 10)}`,
-                  dataServiceId: this.id!,
-                  code,
-                  buildInput,
-                  modules: Object.keys(availableModules),
-                  tools,
-                  vmContext: Object.keys(availableContext),
-                })
-            ),
-          ];
-          candidates = scripts;
-          await validateScripts(
-            scripts,
-            urls,
-            this.itemSchema,
-            (e) => {
-              if (!failures.has(e.url)) {
-                return false;
-              }
-              log.warn(`Activating best-effort candidate; sync will report failures: ${e.message}`);
-              return true;
-            },
-            this.identity ?? undefined
-          );
-          let activated = false;
-          await context.storage.fillInTransaction(undefined, async (tx) => {
-            const activeScripts = await tx
-              .select({ id: scriptsTable.id, name: scriptsTable.name })
-              .from(scriptsTable)
-              .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(scriptsTable.active, true)));
-            if (
-              activeScripts.length > 0 &&
-              activeScripts.every((script) => script.name.startsWith(prefix)) &&
-              activeScripts.some((script) => !activeScriptIds.has(script.id))
-            ) {
-              return;
-            }
-            await tx
-              .update(scriptsTable)
-              .set({ active: false })
-              .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(scriptsTable.active, true)));
-            for (const script of scripts) {
-              await script.save(tx);
-            }
-            activated = true;
-          });
-          if (!activated) {
-            regenerate = false;
-            scripts = await Script.findActiveForDataService(context, this.id!);
-            await Promise.all(scripts.map((script) => script.compile()));
-            for (const script of scripts) {
-              log.info(`Found script: id=${script.id}, name=${script.name}`);
-            }
-          } else {
-            for (const script of scripts) {
-              log.info(`Wrote script: id=${script.id}, name=${script.name}`);
-            }
-          }
-          regenerate = false;
-        } else {
-          for (const script of scripts) {
-            log.info(`Found script: id=${script.id}, name=${script.name}`);
-          }
-          await Promise.all(scripts.map((script) => script.compile()));
-        }
-
-        for (const script of scripts) {
-          log.info(`Compiled script: id=${script.id}, name=${script.name}`);
-        }
-        break;
-      } catch (e) {
-        const key = e instanceof SeedValidationError ? e.url : 'build';
-        const failed = (failures.get(key) ?? 0) + 1;
-        failures.set(key, failed);
-        if (failed >= maxAttempts) {
-          throw e;
-        }
-        retained =
-          e instanceof SeedValidationError
-            ? candidates.filter((script) => script !== e.script)
-            : [];
-        repairUrls = e instanceof SeedValidationError ? e.urls : urls;
-        regenerate = true;
-        repair = `Attempt ${attempt} failed: ${String(e)}. Use only exposed tool names. Validate the supplied URLs and acquire runtime content using the same fetch/browser mode as your evidence.`;
-        if (e instanceof SeedValidationError) {
-          repair += `\nKeep the supported URL patterns. Diagnose and correct this failed candidate:\n${e.script.code}`;
-        }
-        log.warn(
-          `Build attempt ${attempt} failed; repairing urls=${repairUrls.join(', ')}; retaining ${retained.length} candidate scripts`
-        );
+    const activeScripts = await Script.findActiveForDataService(context, this.id!);
+    if (
+      activeScripts.length > 0 &&
+      activeScripts.every((script) => script.name.startsWith(prefix))
+    ) {
+      for (const script of activeScripts) {
+        log.info(`Found script: id=${script.id}, name=${script.name}`);
       }
+      return;
     }
+
+    log.info(`Writing scripts for urls=${urls.join(', ')}`);
+    const activeScriptIds = new Set(activeScripts.map((script) => script.id));
+    const workflow = context.mastra.getWorkflowById('write-workflow');
+    const run = await workflow.createRun();
+    const result = await run.start({
+      inputData: {
+        urls,
+        goal,
+        context: Object.keys(availableContext),
+        modules: Object.keys(availableModules),
+        itemSchema: this.#schemaConfig(),
+        tools,
+      },
+    });
+
+    if (result.status !== 'success') {
+      throw new Error(`Workflow did not complete successfully: ${result.status}`);
+    }
+
+    const generatedScripts = result.result as Array<{ code: string; groupingName: string }>;
+    if (generatedScripts.length === 0) {
+      throw new Error('Workflow generated no scripts');
+    }
+    const scripts = generatedScripts.map(
+      ({ code }) =>
+        new Script({
+          context,
+          name: `${prefix}${hash({ code }).slice(0, 10)}`,
+          dataServiceId: this.id!,
+          code,
+          buildInput,
+          modules: Object.keys(availableModules),
+          tools,
+          vmContext: Object.keys(availableContext),
+        })
+    );
+
+    let activated = false;
+    await context.storage.fillInTransaction(undefined, async (tx) => {
+      const currentActiveScripts = await tx
+        .select({ id: scriptsTable.id, name: scriptsTable.name })
+        .from(scriptsTable)
+        .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(scriptsTable.active, true)));
+      if (
+        currentActiveScripts.length > 0 &&
+        currentActiveScripts.every((script) => script.name.startsWith(prefix)) &&
+        currentActiveScripts.some((script) => !activeScriptIds.has(script.id))
+      ) {
+        return;
+      }
+      await tx
+        .update(scriptsTable)
+        .set({ active: false })
+        .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(scriptsTable.active, true)));
+      for (const script of scripts) {
+        await script.save(tx);
+      }
+      activated = true;
+    });
+
+    if (!activated) {
+      log.info('Skipped script activation because another build completed first');
+      return;
+    }
+
+    for (const script of scripts) {
+      log.info(`Wrote script: id=${script.id}, name=${script.name}`);
+    }
+  }
+
+  async #heal(context: GlobalContext): Promise<void> {
+    const scripts = await Script.findActiveForDataService(context, this.id!);
+    log.info(`Healing ${scripts.length} scripts`);
+    await Promise.allSettled(scripts.map((script) => this.#healScript(context, script)));
+  }
+
+  async #healScript(context: GlobalContext, script: Script): Promise<void> {
+    log.info(`Healing script: id=${script.id}, name=${script.name}`);
+
+    const urls = this.sources.map((it) => it.url);
+    const workflow = context.mastra.getWorkflowById('heal-workflow');
+    const run = await workflow.createRun();
+    const result = await run.start({
+      inputData: {
+        urls,
+        goal: 'Convert items into the item schema',
+        code: script.code,
+        itemSchema: this.#schemaConfig(),
+        modules: script.modules,
+        context: script.vmContext,
+        tools: script.tools,
+      },
+    });
+
+    if (result.status !== 'success') {
+      throw new Error(`Workflow did not complete successfully: ${result.status}`);
+    }
+    const val = healOutputSchema.parse(result.result);
+    if (!val.shouldSave) {
+      log.info(`Heal made no changes to script: id=${script.id}, name=${script.name}`);
+      return;
+    }
+
+    script.code = val.code ?? script.code;
+    script.modules = val.modules;
+    script.tools = val.tools;
+    script.vmContext = val.context;
+    await script.save();
+    log.info(`Healed script: id=${script.id}, name=${script.name}`);
   }
 
   async #sync(
@@ -585,12 +579,9 @@ export class DataService extends UsesContext implements ISaveable {
           .where(and(eq(scriptsTable.dataServiceId, this.id!), eq(itemsTable.sourceUrl, url)))
           .orderBy(desc(itemsTable.updatedAt), desc(itemsTable.id));
         const previous = new Map<string, Item>();
-        const duplicates: Item[] = [];
         for (const { item } of rows) {
           const key = this.identity ? entityId(item.data, this.identity) : item.uniqueId;
-          if (previous.has(key)) {
-            duplicates.push(new Item(item));
-          } else {
+          if (!previous.has(key)) {
             previous.set(key, new Item(item));
           }
         }
@@ -611,30 +602,31 @@ export class DataService extends UsesContext implements ISaveable {
           return [{ data: normalized, uniqueId }];
         });
 
-        const pending: Pick<DataServiceSyncResult, 'created' | 'updated' | 'removed'> = {
+        const pending: Pick<DataServiceSyncResult, 'created' | 'updated'> = {
           created: [],
           updated: [],
-          removed: [...previous].filter(([key]) => !dataById.has(key)).map(([, item]) => item),
         };
 
+        const lastSeenAt = new Date().toISOString();
         await context.storage.fillInTransaction(undefined, async (tx) => {
-          // Older script versions may have stored the same source item more than once.
-          for (const item of duplicates) {
-            await tx.delete(itemsTable).where(eq(itemsTable.id, item.id!));
-          }
           for (const { data, uniqueId } of uniqueResults) {
             const before = previous.get(uniqueId);
-            if (before && isDeepStrictEqual(before.data, data)) {
-              continue;
-            }
             const after = new Item({
               id: before?.id ?? undefined,
+              lastSeenAt,
               data,
               sourceUrl: url,
               sourceScriptId: script.id!,
               uniqueId: before?.uniqueId ?? uniqueId,
             });
+            const unchanged = before && after.compareTo(before);
+            if (unchanged) {
+              after.sourceScriptId = before.sourceScriptId;
+            }
             await after.save(context.storage, tx);
+            if (unchanged) {
+              continue;
+            }
             if (before) {
               pending.updated.push({ before, after });
             } else {
@@ -642,20 +634,10 @@ export class DataService extends UsesContext implements ISaveable {
             }
           }
 
-          for (const item of pending.removed) {
-            // Keep the returned pre-removal item intact, including its stored ID.
-            await tx.delete(itemsTable).where(eq(itemsTable.id, item.id!));
-          }
-
-          await run.complete(
-            context.storage,
-            uniqueResults.map((val) => val.data),
-            tx
-          );
+          await run.complete(context.storage, tx);
         });
         changes.created.push(...pending.created);
         changes.updated.push(...pending.updated);
-        changes.removed.push(...pending.removed);
         changes.outcome.success.push({ url });
       } catch (e) {
         const message = getOrNull<unknown>(e, 'message');

@@ -45,23 +45,14 @@ describe('document identity', () => {
     expect(secondId).not.toBe(firstId);
   });
 
-  it.fails('keeps concurrent browser requests distinct before their response bodies arrive', () => {
+  it('keeps completed responses from separate navigations distinct', () => {
     const library = new DocumentLibrary(new MemoryLibraryBackend());
-    const provisionalRequest = documentInput({
-      status: null,
-      headers: {},
-      request: {
-        timestamp: '2026-08-24T20:15:40.274Z',
-        headers: {},
-        proxy: null,
-        mode: 'browser',
-      },
-      content: '',
-    });
-
-    const firstId = library.save(provisionalRequest);
-    const secondId = library.save(provisionalRequest);
-
+    const first = documentInput();
+    first.request = { ...first.request, mode: 'browser', captureId: 'first' };
+    const firstId = library.save(first);
+    const secondId = library.save({ ...first, request: { ...first.request, captureId: 'second' } });
     expect(secondId).not.toBe(firstId);
+    expect(library.get({ documentId: firstId })?.request.captureId).toBe('first');
+    expect(library.get({ documentId: secondId })?.request.captureId).toBe('second');
   });
 });

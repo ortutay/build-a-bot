@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
+import express, { type ErrorRequestHandler, type Express } from 'express';
 import { DataService } from '@build-a-bot/core';
-import express, { type Express } from 'express';
 import { DataServiceAPI } from './service/DataServiceAPI.js';
 
 export const defaultApiPort = 3000;
@@ -71,6 +71,7 @@ export class API {
   }
 
   #register(): void {
+    this.app.use(express.json());
     this.app.get('/', (_req, resp) => {
       resp.json({ services: this.services.map((service) => service.name) });
     });
@@ -80,6 +81,20 @@ export class API {
     for (const service of this.dataServices) {
       service.register(this.app);
     }
+    const onError: ErrorRequestHandler = (e, _req, resp, next) => {
+      if (resp.headersSent) {
+        next(e);
+        return;
+      }
+      const status = Number(e?.status);
+      if (Number.isInteger(status) && status >= 400 && status < 500) {
+        resp.status(status).json({ error: 'Invalid request body' });
+        return;
+      }
+      console.error('API request failed', e);
+      resp.status(500).json({ error: 'Internal server error' });
+    };
+    this.app.use(onError);
   }
 
   async #startOnce({ host = '127.0.0.1', port }: APIStartOptions): Promise<APIStartResult> {

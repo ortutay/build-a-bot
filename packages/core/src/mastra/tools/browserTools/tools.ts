@@ -1,27 +1,51 @@
 import { createTool, type Tool } from '@mastra/core/tools';
-import { type Request, type Response } from 'playwright';
 import { z } from 'zod';
 import { DiskCache } from '../../../cache/DiskCache.js';
 import {
   documentContentTypes,
   documentOrigins,
-  type ContentType,
   type DocumentHeaders,
-  type DocumentId,
-  type DocumentInput,
   type DocumentLibrary,
   type DocumentSummary,
 } from '../../../documents/index.js';
 import { log } from '../../../logger.js';
 import { isCdpProxy, NoProxy, type ProxyRegistry } from '../../../proxy/index.js';
-import { getOrNull, hash, parseResponseBody } from '../../../util/index.js';
+import { getOrNull, hash } from '../../../util/index.js';
 import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
 import { BrowserSession } from './BrowserSession.js';
 import { BrowserToolCache } from './BrowserToolCache.js';
-import { likelyAdOrTracker } from './block.js';
+import { NetworkCapture } from './NetworkCapture.js';
+import { composedHtml, frameAt, frameTree } from './dom.js';
+import { inspectElements, inspectOptionsSchema, inspectResultSchema } from './elements.js';
 import { browserCacheInstrument } from './instruments.js';
+import { withReadiness, type Readiness } from './readiness.js';
 
 const sessions = new Set<BrowserSession>();
+
+const framePathSchema = z
+  .array(z.number().int().nonnegative())
+  .max(20)
+  .optional()
+  .describe('Frame path from framesTool; omit for main frame. Enumerate again after navigation.');
+
+const elementTargetSchema = z.object({
+  cursorId: z.string(),
+  framePath: framePathSchema,
+  selector: z.string().min(1).max(4096),
+});
+const inspectInputSchema = elementTargetSchema.extend(inspectOptionsSchema.shape);
+const interactionSchema = elementTargetSchema.extend({
+  timeout: z.number().int().positive().max(60_000).default(5000),
+});
+const pressInputSchema = interactionSchema.extend({ key: z.string().min(1).max(128) });
+const fillInputSchema = interactionSchema.extend({ value: z.string().max(65536) });
+
+export type ElementTarget = z.input<typeof elementTargetSchema>;
+export type InspectElementsInput = z.input<typeof inspectInputSchema>;
+export type PressInput = z.input<typeof pressInputSchema>;
+export type FillInput = z.input<typeof fillInputSchema>;
+export type InteractionResult = z.infer<typeof pressOutputSchema>;
+export type { ElementObservation, InspectElementsResult, PropertyResult } from './elements.js';
 
 const prefix = (str: string): string => 'browserTools_' + str;
 
@@ -34,19 +58,129 @@ const documentSummarySchema = z.object({
   bytes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<DocumentSummary>;
 
-const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType | null => {
-  const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
-  const supportedContentType = documentContentTypes.find((type) => type === contentType);
-  if (!supportedContentType) {
-    log.warn(
-      `Unsupported page content type: ${contentType} for headers: ${JSON.stringify(headers, null, 2)}`
-    );
-    return null;
-    // console.log('unsupported??', headers);
-    // throw new Error(`Unsupported page content type: ${contentType}`);
-  }
-  return supportedContentType;
-};
+const newPageInputSchema = z.object({ proxy: z.string().default('none') });
+
+const newPageOutputSchema = z.object({
+  cursorId: z.string(),
+});
+
+const gotoInputSchema = z.object({
+  cursorId: z.string(),
+  url: z.string(),
+});
+
+const readinessSchema = z.object({
+  state: z.enum(['settled', 'timeout']),
+  elapsedMs: z.number(),
+  pending: z.number(),
+}) satisfies z.ZodType<Readiness>;
+
+const gotoOutputSchema = z.object({
+  ok: z.boolean(),
+  status: z.number(),
+  readiness: readinessSchema,
+});
+
+const contentInputSchema = z.object({
+  cursorId: z.string(),
+  framePath: framePathSchema,
+  shadowDom: z.boolean().default(false),
+});
+
+const contentOutputSchema = z.object({
+  documentId: z.string(),
+  summary: documentSummarySchema.nullable(),
+});
+
+const waitForSelectorInputSchema = z.object({
+  cursorId: z.string(),
+  selector: z.string(),
+  framePath: framePathSchema,
+  state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
+  timeout: z.number().int().positive().max(60_000).optional(),
+});
+
+const waitForSelectorOutputSchema = z.object({
+  found: z.boolean(),
+});
+
+const clickInputSchema = z.object({
+  cursorId: z.string(),
+  selector: z.string(),
+  framePath: framePathSchema,
+  index: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe('Zero-based index of the matching element to click.'),
+  timeout: z.number().int().positive().max(60_000).optional(),
+});
+
+const clickOutputSchema = z.object({
+  ok: z.boolean(),
+  readiness: readinessSchema,
+});
+
+const pressOutputSchema = z.object({ ok: z.literal(true) });
+
+const fillOutputSchema = pressOutputSchema;
+
+const framesInputSchema = z.object({ cursorId: z.string() });
+
+const framesOutputSchema = z.object({
+  frames: z.array(z.object({ path: z.array(z.number()), url: z.string(), name: z.string() })),
+});
+
+const scrollInputSchema = z.object({
+  cursorId: z.string(),
+  framePath: framePathSchema,
+  pixels: z.number().int().min(-5000).max(5000).default(600),
+});
+
+const scrollOutputSchema = z.object({ x: z.number(), y: z.number() });
+
+const waitForUrlInputSchema = z.object({
+  cursorId: z.string(),
+  framePath: framePathSchema,
+  url: z.string(),
+  timeout: z.number().int().min(1).max(60000).default(5000),
+});
+
+const waitForUrlOutputSchema = z.object({ url: z.string() });
+
+const networkInputSchema = z.object({
+  cursorId: z.string(),
+  urlPrefix: z.string().default(''),
+  requiredUrlPrefixes: z
+    .array(z.string().min(1))
+    .max(20)
+    .default([])
+    .describe(
+      'Each observed endpoint prefix must have at least one completed matching response; all waits share the timeout budget.'
+    ),
+  contentType: z.enum(documentContentTypes).optional(),
+  minCount: z.number().int().min(0).max(200).default(0),
+  timeout: z.number().int().min(1).max(60000).default(5000),
+});
+
+const networkOutputSchema = z.object({
+  captureId: z.string(),
+  documents: z.array(documentSummarySchema),
+});
+
+const selectInputSchema = z.object({
+  cursorId: z.string(),
+  selector: z.string(),
+  framePath: framePathSchema,
+  values: z.array(z.string()),
+});
+
+const selectOutputSchema = z.object({ selected: z.array(z.string()) });
+
+const closeInputSchema = z.object({ cursorId: z.string() });
+
+const closeOutputSchema = z.object({ ok: z.boolean() });
 
 const replay = async (
   documentLibrary: DocumentLibrary,
@@ -73,85 +207,128 @@ const replay = async (
 };
 
 export const executors: Record<string, any> = {
+  inspectElementsTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    input: z.input<typeof inspectInputSchema>
+  ): Promise<z.infer<typeof inspectResultSchema>> => {
+    const { cursorId, framePath, ...options } = inspectInputSchema.parse(input);
+    const frame = frameAt((await session.getCursor(cursorId)).page, framePath);
+    return inspectElements(frame, options);
+  },
+  pressTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    input: z.input<typeof pressInputSchema>
+  ): Promise<z.infer<typeof pressOutputSchema>> => {
+    const { cursorId, framePath, selector, key, timeout } = pressInputSchema.parse(input);
+    const frame = frameAt((await session.getCursor(cursorId)).page, framePath);
+    await frame.locator(selector).press(key, { timeout });
+    return { ok: true };
+  },
+  fillTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    input: z.input<typeof fillInputSchema>
+  ): Promise<z.infer<typeof fillOutputSchema>> => {
+    const { cursorId, framePath, selector, value, timeout } = fillInputSchema.parse(input);
+    const frame = frameAt((await session.getCursor(cursorId)).page, framePath);
+    await frame.locator(selector).fill(value, { timeout });
+    return { ok: true };
+  },
+  networkTool: async (
+    documentLibrary: DocumentLibrary,
+    session: BrowserSession,
+    {
+      cursorId,
+      urlPrefix = '',
+      requiredUrlPrefixes = [],
+      minCount = 0,
+      timeout = 5000,
+      contentType,
+    }: z.input<typeof networkInputSchema>
+  ): Promise<z.infer<typeof networkOutputSchema>> => {
+    const cursor = await session.getCursor(cursorId);
+    const capture = NetworkCapture.for(cursor.page, documentLibrary, cursorId, cursor.proxy);
+    await Promise.all([
+      capture.wait(urlPrefix, minCount, timeout, contentType),
+      ...requiredUrlPrefixes.map((prefix) => capture.wait(prefix, 1, timeout, contentType)),
+    ]);
+    return { captureId: capture.id, documents: capture.list(urlPrefix, contentType) };
+  },
+  framesTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    { cursorId }: z.input<typeof framesInputSchema>
+  ): Promise<z.infer<typeof framesOutputSchema>> => ({
+    frames: frameTree((await session.getCursor(cursorId)).page),
+  }),
+  scrollTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    { cursorId, framePath, pixels = 600 }: z.input<typeof scrollInputSchema>
+  ): Promise<z.infer<typeof scrollOutputSchema>> => {
+    const frame = frameAt((await session.getCursor(cursorId)).page, framePath);
+    return frame.evaluate((pixels) => {
+      window.scrollBy(0, pixels);
+      return { x: window.scrollX, y: window.scrollY };
+    }, pixels);
+  },
+  waitForUrlTool: async (
+    _library: DocumentLibrary,
+    session: BrowserSession,
+    { cursorId, framePath, url, timeout = 5000 }: z.input<typeof waitForUrlInputSchema>
+  ): Promise<z.infer<typeof waitForUrlOutputSchema>> => {
+    const frame = frameAt((await session.getCursor(cursorId)).page, framePath);
+    await frame.waitForURL(url, { timeout });
+    return { url: frame.url() };
+  },
+  selectTool: async (
+    _documentLibrary: DocumentLibrary,
+    session: BrowserSession,
+    { cursorId, selector, values, framePath }: z.input<typeof selectInputSchema>
+  ): Promise<z.infer<typeof selectOutputSchema>> => ({
+    selected: await frameAt((await session.getCursor(cursorId)).page, framePath)
+      .locator(selector)
+      .selectOption(values, { timeout: 5000 }),
+  }),
   newPageTool: async (
     _documentLibrary: DocumentLibrary,
     session: BrowserSession,
-    { proxy = 'none' }: { proxy?: string },
+    { proxy = 'none' }: z.input<typeof newPageInputSchema>,
     context: unknown
-  ) => {
+  ): Promise<z.infer<typeof newPageOutputSchema>> => {
     sessions.add(session);
-    const toolCallId = getOrNull<string>(context, 'toolCallId');
+    const agent = getOrNull<Record<string, unknown>>(context, 'agent');
+    const toolCallId =
+      getOrNull<string>(agent, 'toolCallId') ?? getOrNull<string>(context, 'toolCallId');
     return session.createCursor(toolCallId ? hash(toolCallId).slice(0, 14) : null, proxy);
   },
   gotoTool: async (
     documentLibrary: DocumentLibrary,
     session: BrowserSession,
-    { cursorId, url }: { cursorId: string; url: string }
-  ) => {
+    { cursorId, url }: z.input<typeof gotoInputSchema>
+  ): Promise<z.infer<typeof gotoOutputSchema>> => {
     const cursor = await session.getCursor(cursorId);
     const timestamp = new Date().toISOString();
 
-    const documents = new Map<Request, { documentId: DocumentId; input: DocumentInput }>();
-    const requestHandler = (request: Request): void => {
-      if (!['fetch', 'xhr'].includes(request.resourceType())) {
-        return;
-      }
-      if (likelyAdOrTracker(request)) {
-        log.debug(`Ignoring likely ad or tracker: ${new URL(request.url()).host}`);
-        return;
-      }
-
-      const input: DocumentInput = {
-        url: request.url(),
-        origin: 'dynamic',
-        contentType: 'application/json',
-        status: null,
-        headers: {},
-        request: {
-          timestamp: new Date().toISOString(),
-          headers: request.headers(),
-          proxy: cursor.proxy,
-          mode: 'browser',
-        },
-        content: '',
-      };
-      const documentId = documentLibrary.save(input);
-      documents.set(request, { documentId, input });
-    };
-    const respHandler = async (resp: Response): Promise<void> => {
-      const document = documents.get(resp.request());
-      if (!document) {
-        return;
-      }
-
-      const headers = await resp.allHeaders();
-      const contentType = contentTypeFromHeaders(headers);
-      if (!contentType) {
-        return;
-      }
-      documentLibrary.update(document.documentId, {
-        ...document.input,
-        url: resp.url(),
-        contentType,
-        status: resp.status(),
-        headers,
-        content: parseResponseBody(contentType, await resp.body()),
-      });
-    };
-
-    cursor.page.on('request', requestHandler);
-    cursor.page.on('response', respHandler);
-
-    const resp = await cursor.page.goto(url);
-
-    setTimeout(() => cursor.page.off('request', requestHandler), 10);
-    setTimeout(() => cursor.page.off('response', respHandler), 5_000);
+    const captureId = NetworkCapture.for(
+      cursor.page,
+      documentLibrary,
+      cursorId,
+      cursor.proxy
+    ).begin();
+    const { result: resp, readiness } = await withReadiness(cursor.page, () =>
+      cursor.page.goto(url, { waitUntil: 'commit' })
+    );
 
     if (!resp) {
       throw new Error(`Navigation did not return a response for: ${url}`);
     }
     cursor.lastResponse = resp;
     cursor.lastRequest = {
+      captureId,
+      cursorId,
       timestamp,
       headers: await resp.request().allHeaders(),
       proxy: cursor.proxy,
@@ -160,30 +337,36 @@ export const executors: Record<string, any> = {
     return {
       status: resp.status(),
       ok: resp.ok(),
+      readiness,
     };
   },
   contentTool: async (
     documentLibrary: DocumentLibrary,
     session: BrowserSession,
-    { cursorId }: { cursorId: string }
-  ) => {
+    { cursorId, framePath, shadowDom = false }: z.input<typeof contentInputSchema>
+  ): Promise<z.infer<typeof contentOutputSchema>> => {
     const cursor = await session.getCursor(cursorId);
-    const content = await cursor.page.content();
-    const headers: DocumentHeaders = cursor.lastResponse
-      ? await cursor.lastResponse.allHeaders()
-      : {};
-    const contentType = contentTypeFromHeaders(headers) ?? 'text/html';
+    const frame = frameAt(cursor.page, framePath);
+    const content = shadowDom ? await frame.evaluate(composedHtml) : await frame.content();
+    const headers: DocumentHeaders =
+      frame === cursor.page.mainFrame() && cursor.lastResponse
+        ? await cursor.lastResponse.allHeaders()
+        : {};
+    const contentType = 'text/html' as const;
     const documentId = documentLibrary.save({
-      url: cursor.page.url(),
+      url: frame.url(),
       origin: 'navigation',
       contentType,
-      status: cursor.lastResponse?.status() ?? null,
+      status: frame === cursor.page.mainFrame() ? (cursor.lastResponse?.status() ?? null) : null,
       headers,
-      request: cursor.lastRequest ?? {
-        timestamp: new Date().toISOString(),
-        headers: {},
-        proxy: cursor.proxy,
-        mode: 'browser',
+      request: {
+        ...(cursor.lastRequest ?? {
+          timestamp: new Date().toISOString(),
+          headers: {},
+          proxy: cursor.proxy,
+          mode: 'browser',
+        }),
+        frameUrl: frame.url(),
       },
       content,
     });
@@ -192,21 +375,12 @@ export const executors: Record<string, any> = {
   waitForSelectorTool: async (
     _documentLibrary: DocumentLibrary,
     session: BrowserSession,
-    {
-      cursorId,
-      selector,
-      state,
-      timeout,
-    }: {
-      cursorId: string;
-      selector: string;
-      state?: 'attached' | 'detached' | 'visible' | 'hidden';
-      timeout?: number;
-    }
-  ) => {
-    const element = await (
-      await session.getCursor(cursorId)
-    ).page.waitForSelector(selector, {
+    { cursorId, selector, state, framePath, timeout }: z.input<typeof waitForSelectorInputSchema>
+  ): Promise<z.infer<typeof waitForSelectorOutputSchema>> => {
+    const element = await frameAt(
+      (await session.getCursor(cursorId)).page,
+      framePath
+    ).waitForSelector(selector, {
       state,
       timeout,
     });
@@ -215,21 +389,14 @@ export const executors: Record<string, any> = {
   clickTool: async (
     _documentLibrary: DocumentLibrary,
     session: BrowserSession,
-    {
-      cursorId,
-      selector,
-      index,
-      timeout,
-    }: {
-      cursorId: string;
-      selector: string;
-      index?: number;
-      timeout?: number;
-    }
-  ) => {
-    const locator = (await session.getCursor(cursorId)).page.locator(selector);
-    await (index === undefined ? locator : locator.nth(index)).click({ timeout });
-    return { ok: true };
+    { cursorId, selector, index, framePath, timeout }: z.input<typeof clickInputSchema>
+  ): Promise<z.infer<typeof clickOutputSchema>> => {
+    const page = (await session.getCursor(cursorId)).page;
+    const locator = frameAt(page, framePath).locator(selector);
+    const { readiness } = await withReadiness(page, () =>
+      (index === undefined ? locator : locator.nth(index)).click({ timeout })
+    );
+    return { ok: true, readiness };
   },
 };
 
@@ -242,12 +409,10 @@ const createNewPageTool = (documentLibrary: DocumentLibrary, session: BrowserSes
   return createTool({
     id: prefix('newPageTool'),
     description: 'Launch a new browser page.',
-    inputSchema: z.object({
+    inputSchema: newPageInputSchema.extend({
       proxy: proxyNames.includes('none') ? proxySchema.default('none') : proxySchema,
     }),
-    outputSchema: z.object({
-      cursorId: z.string(),
-    }),
+    outputSchema: newPageOutputSchema,
     execute: (...args) => executors.newPageTool(documentLibrary, session, ...args),
   });
 };
@@ -255,29 +420,20 @@ const createNewPageTool = (documentLibrary: DocumentLibrary, session: BrowserSes
 const createGotoTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any =>
   createTool({
     id: prefix('gotoTool'),
-    description: 'Go to a URL.',
-    inputSchema: z.object({
-      cursorId: z.string(),
-      url: z.string(),
-    }),
-    outputSchema: z.object({
-      ok: z.boolean(),
-      status: z.number(),
-    }),
+    description:
+      'Navigate and wait for bounded DOM/dynamic-request stability. Readiness timeout is not proof of completeness; wait for an observed element or network response before reading content.',
+    inputSchema: gotoInputSchema,
+    outputSchema: gotoOutputSchema,
     execute: (...args) => executors.gotoTool(documentLibrary, session, ...args),
   });
 
 const createContentTool = (documentLibrary: DocumentLibrary, session: BrowserSession): any =>
   createTool({
     id: prefix('contentTool'),
-    description: 'Save page content and return its document ID.',
-    inputSchema: z.object({
-      cursorId: z.string(),
-    }),
-    outputSchema: z.object({
-      documentId: z.string(),
-      summary: documentSummarySchema.nullable(),
-    }),
+    description:
+      'Save frame DOM as HTML. Set shadowDom to include open shadow roots and flattened slots; frames are separate documents with their own URLs.',
+    inputSchema: contentInputSchema,
+    outputSchema: contentOutputSchema,
     execute: (...args) => executors.contentTool(documentLibrary, session, ...args),
   });
 
@@ -288,15 +444,8 @@ const createWaitForSelectorTool = (
   createTool({
     id: prefix('waitForSelectorTool'),
     description: 'Wait for an element matching a selector to reach a given state.',
-    inputSchema: z.object({
-      cursorId: z.string(),
-      selector: z.string(),
-      state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
-      timeout: z.number().int().positive().max(60_000).optional(),
-    }),
-    outputSchema: z.object({
-      found: z.boolean(),
-    }),
+    inputSchema: waitForSelectorInputSchema,
+    outputSchema: waitForSelectorOutputSchema,
     execute: (...args) => executors.waitForSelectorTool(documentLibrary, session, ...args),
   });
 
@@ -305,20 +454,8 @@ const createClickTool = (documentLibrary: DocumentLibrary, session: BrowserSessi
     id: prefix('clickTool'),
     description:
       'Click an element matching a selector. The selector must match exactly one element unless index is provided.',
-    inputSchema: z.object({
-      cursorId: z.string(),
-      selector: z.string(),
-      index: z
-        .number()
-        .int()
-        .nonnegative()
-        .optional()
-        .describe('Zero-based index of the matching element to click.'),
-      timeout: z.number().int().positive().max(60_000).optional(),
-    }),
-    outputSchema: z.object({
-      ok: z.boolean(),
-    }),
+    inputSchema: clickInputSchema,
+    outputSchema: clickOutputSchema,
     execute: (...args) => executors.clickTool(documentLibrary, session, ...args),
   });
 
@@ -337,21 +474,85 @@ export const createTools = async (
     return {};
   }
   const session = new BrowserSession(options.proxyRegistry);
-  const cache = options.cache ?? new BrowserToolCache(new DiskCache('BrowserToolCache'));
   const documentLibrary = options.documentLibrary;
+  const cache =
+    options.cache ??
+    new BrowserToolCache(new DiskCache('BrowserToolCache'), documentLibrary.cacheScope);
   const instrument = browserCacheInstrument(
     (cursorId: string, steps: any[]) => replay(documentLibrary, session, cursorId, steps),
     cache,
     session
   );
   const internal = [
+    createTool({
+      id: prefix('inspectElementsTool'),
+      description:
+        'Read bounded DOM observations without clicking or interpreting fields. Returns original attributes, textContent, outerHTML, visibility and caller-selected primitive property values. Properties are direct names, not expressions; objects/functions are unsupported. CSS selectors pierce open shadow roots. Truncation is explicit. Does not wait for matches or establish completeness; use selector/network waits when needed. Page-defined property getters may execute.',
+      inputSchema: inspectInputSchema,
+      outputSchema: inspectResultSchema,
+      execute: (...args) => executors.inspectElementsTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('pressTool'),
+      description:
+        'Press the specified key or key combination on exactly one matching element. No extra keys or actions are sent. A requested Enter can submit a form. Use an explicit selector/network wait before inspecting asynchronous changes.',
+      inputSchema: pressInputSchema,
+      outputSchema: pressOutputSchema,
+      execute: (...args) => executors.pressTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('fillTool'),
+      description:
+        'Replace the value of exactly one matching editable element with the supplied text. Does not press Enter or select suggestions. Use an explicit selector/network wait before inspecting asynchronous changes.',
+      inputSchema: fillInputSchema,
+      outputSchema: fillOutputSchema,
+      execute: (...args) => executors.fillTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('framesTool'),
+      description:
+        'Enumerate all frames, including cross-origin frames, with their current paths and URLs.',
+      inputSchema: framesInputSchema,
+      outputSchema: framesOutputSchema,
+      execute: (...args) => executors.framesTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('scrollTool'),
+      description: 'Scroll a frame by a bounded number of pixels to reveal lazy content.',
+      inputSchema: scrollInputSchema,
+      outputSchema: scrollOutputSchema,
+      execute: (...args) => executors.scrollTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('waitForUrlTool'),
+      description: 'Wait for a frame URL (exact URL or Playwright glob) after an action.',
+      inputSchema: waitForUrlInputSchema,
+      outputSchema: waitForUrlOutputSchema,
+      execute: (...args) => executors.waitForUrlTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('networkTool'),
+      description:
+        'Read completed XHR/fetch documents for this cursor navigation, including responses triggered by later clicks. Wait for a URL prefix/count without arbitrary sleeps. When extraction needs multiple specific JSON endpoints, pass their observed prefixes in requiredUrlPrefixes so EVERY endpoint must arrive. A broad contentType/minCount can be satisfied by unrelated configuration responses and is not a product-data readiness check. Returns a captureId for scoped document queries.',
+      inputSchema: networkInputSchema,
+      outputSchema: networkOutputSchema,
+      execute: (...args) => executors.networkTool(documentLibrary, session, ...args),
+    }),
+    createTool({
+      id: prefix('selectTool'),
+      description:
+        'Choose native select options to reveal dependent fields. Does not submit the form.',
+      inputSchema: selectInputSchema,
+      outputSchema: selectOutputSchema,
+      execute: (...args) => executors.selectTool(documentLibrary, session, ...args),
+    }),
     createNewPageTool(documentLibrary, session),
     createGotoTool(documentLibrary, session),
     createContentTool(documentLibrary, session),
     createWaitForSelectorTool(documentLibrary, session),
     createClickTool(documentLibrary, session),
   ];
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     (
       await Promise.all(
         internal.map((tool) =>
@@ -360,6 +561,21 @@ export const createTools = async (
       )
     ).map((tool) => [tool.id, tool])
   );
+  result[prefix('closeTool')] = await addInstruments(
+    [runtimeInstrument, markAvailableTool],
+    createTool({
+      id: prefix('closeTool'),
+      description: 'Close a cursor and release its browser resources. This action is never cached.',
+      inputSchema: closeInputSchema,
+      outputSchema: closeOutputSchema,
+      execute: async ({ cursorId }) => {
+        await session.closeCursor(cursorId);
+        delete cache.sequences[cursorId];
+        return { ok: true };
+      },
+    })
+  );
+  return result;
 };
 
 export const closeBrowserTools = async (): Promise<void> => {

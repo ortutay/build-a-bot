@@ -12,12 +12,7 @@ import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
 import { Item } from '../../src/service/Item.js';
-import {
-  dataSourcesTable,
-  itemsTable,
-  resultsTable,
-  runsTable,
-} from '../../src/storage/db/schema.js';
+import { dataSourcesTable, itemsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 import { startMockDynamicJsonSite } from '../lib/mockDynamicJsonSite.js';
 
@@ -154,7 +149,7 @@ describe('DataService', () => {
     });
   });
 
-  it('replaces an invalid active script on retry while preserving its history', async () => {
+  it('leaves an invalid active script for the heal workflow while preserving its history', async () => {
     temporaryDb = await createTemporaryDb();
     let workflowRuns = 0;
     const mastra = {
@@ -192,24 +187,19 @@ describe('DataService', () => {
     const invalidScriptId = invalidScript.id;
     const run = new Run({ input: {}, scriptId: invalidScriptId! });
     await run.save(storage);
-    await run.complete(storage, [{ value: 'historical' }]);
+    await run.complete(storage);
 
     await service.build();
 
     const active = await Script.findActiveForDataService(context, service.id!);
-    expect(workflowRuns).toBe(2);
+    expect(workflowRuns).toBe(1);
     expect(active).toHaveLength(1);
-    expect(active[0]).toMatchObject({ active: true, code: scriptCode });
-    expect(active[0].id).not.toBe(invalidScriptId);
-    await expect(Script.findById(context, invalidScriptId!)).resolves.toMatchObject({
-      active: false,
-      code: invalidBuildScriptCode,
-    });
+    expect(active[0]).toMatchObject({ active: true, code: invalidBuildScriptCode });
+    expect(active[0].id).toBe(invalidScriptId);
     await expect(storage.db.select().from(runsTable)).resolves.toHaveLength(1);
-    await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
   });
 
-  it('keeps active scripts and stored items when replacement routing fails', async () => {
+  it('activates an unchecked replacement and retains stored items', async () => {
     temporaryDb = await createTemporaryDb();
     const start = vi.fn().mockResolvedValue({
       status: 'success',
@@ -246,13 +236,12 @@ describe('DataService', () => {
         },
       ],
     });
-    await expect(service.build()).rejects.toThrow('matched 0 scripts');
+    await service.build();
     expect(
       (await Script.findActiveForDataService(context, service.id!)).map((script) => script.id)
-    ).toEqual([active.id]);
+    ).not.toEqual([active.id]);
     expect(await temporaryDb.storage.db.select().from(itemsTable)).toEqual(before);
     expect(await temporaryDb.storage.db.select().from(runsTable)).toHaveLength(1);
-    expect(await temporaryDb.storage.db.select().from(resultsTable)).toHaveLength(1);
   });
 
   it('lists items from active and inactive scripts, including totals and pagination', async () => {
@@ -426,7 +415,7 @@ describe('DataService', () => {
     await expect(service.detail('missing')).resolves.toBeNull();
   });
 
-  it('deduplicates and persists DataService results, runs, and current items', async () => {
+  it('deduplicates extracted items and persists runs and items', async () => {
     temporaryDb = await createTemporaryDb();
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
@@ -461,15 +450,10 @@ describe('DataService', () => {
     expect(result).toMatchObject({
       created: [{ data: { value: 'scraped' } }],
       updated: [],
-      removed: [],
       outcome: { success: [{ url: source.url }], unhandled: [], errors: [] },
     });
     const [dataSource] = await storage.db.select().from(dataSourcesTable);
     const [run] = await storage.db.select().from(runsTable);
-    const [storedResult] = await storage.db
-      .select()
-      .from(resultsTable)
-      .where(eq(resultsTable.runId, run.id));
     const [item] = await storage.db.select().from(itemsTable);
 
     expect(dataSource).toMatchObject({ url: source.url });
@@ -478,8 +462,6 @@ describe('DataService', () => {
       scriptId: script.id,
       status: 'done',
     });
-    await expect(storage.db.select().from(resultsTable)).resolves.toHaveLength(1);
-    expect(storedResult).toMatchObject({ data: { value: 'scraped' }, runId: run.id });
     expect(item).toMatchObject({
       createdAt: expect.any(String),
       data: { value: 'scraped' },
@@ -548,31 +530,11 @@ describe('DataService', () => {
       await service.sync([source.url]);
 
       const runs = await storage.db.select().from(runsTable);
-      const results = await storage.db.select().from(resultsTable);
       const items = await storage.db.select().from(itemsTable).orderBy(itemsTable.uniqueId);
 
       expect(runs).toHaveLength(2);
-      expect(results).toHaveLength(5);
-      expect(results).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            data: { id: 'json-gadget', name: 'JSON Gadget', price: 36 },
-          }),
-          expect.objectContaining({
-            data: { id: 'json-widget', name: 'JSON Widget', price: 24 },
-          }),
-          expect.objectContaining({
-            data: { id: 'json-new', name: 'JSON New Product', price: 42 },
-          }),
-          expect.objectContaining({
-            data: { id: 'json-other', name: 'JSON Other Product', price: 64 },
-          }),
-          expect.objectContaining({
-            data: { id: 'json-widget', name: 'JSON Widget Plus', price: 28 },
-          }),
-        ])
-      );
       expect(items).toMatchObject([
+        { data: { id: 'json-gadget', name: 'JSON Gadget', price: 36 }, uniqueId: 'json-gadget' },
         { data: { id: 'json-new', name: 'JSON New Product', price: 42 }, uniqueId: 'json-new' },
         {
           data: { id: 'json-other', name: 'JSON Other Product', price: 64 },
@@ -583,7 +545,12 @@ describe('DataService', () => {
           uniqueId: 'json-widget',
         },
       ]);
-      expect(items.map((item) => item.sourceScriptId)).toEqual([script.id, script.id, script.id]);
+      expect(items.map((item) => item.sourceScriptId)).toEqual([
+        script.id,
+        script.id,
+        script.id,
+        script.id,
+      ]);
       expect(items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -631,7 +598,6 @@ describe('DataService', () => {
     await expect(service.sync([source.url])).resolves.toEqual({
       created: [],
       updated: [],
-      removed: [],
       outcome: {
         success: [],
         unhandled: [],
@@ -644,10 +610,9 @@ describe('DataService', () => {
       error: { message: expect.any(String), name: 'ZodError' },
       status: 'error',
     });
-    await expect(storage.db.select().from(resultsTable)).resolves.toEqual([]);
   });
 
-  it('completes an empty run and removes stale current items', async () => {
+  it('completes an empty run and retains previously seen items', async () => {
     temporaryDb = await createTemporaryDb();
     const mastra = { listTools: () => ({}) } as unknown as Mastra;
     const storage = temporaryDb.storage;
@@ -688,14 +653,14 @@ describe('DataService', () => {
     expect(result).toMatchObject({
       created: [],
       updated: [],
-      removed: [{ data: { value: 'stale' }, id: expect.any(String) }],
       outcome: { success: [{ url: source.url }], unhandled: [], errors: [] },
     });
     const runs = await storage.db.select().from(runsTable);
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({ input: { url: source.url }, status: 'done' });
-    await expect(storage.db.select().from(resultsTable)).resolves.toEqual([]);
-    await expect(storage.db.select().from(itemsTable)).resolves.toEqual([]);
+    await expect(storage.db.select().from(itemsTable)).resolves.toMatchObject([
+      { data: { value: 'stale' } },
+    ]);
   });
 
   it('allows the same data source URL for multiple services', async () => {
@@ -772,7 +737,6 @@ describe('DataService', () => {
         { data: { value: 'people:/people/ada-lovelace' } },
       ],
       updated: [],
-      removed: [],
       outcome: { success: urls.map((url) => ({ url })), unhandled: [], errors: [] },
     });
 
@@ -795,7 +759,7 @@ describe('DataService', () => {
     await expect(temporaryDb.storage.db.select().from(itemsTable)).resolves.toHaveLength(2);
   });
 
-  it('rejects ambiguous seed routing before activating scripts', async () => {
+  it('defers ambiguous seed routing validation until healing', async () => {
     temporaryDb = await createTemporaryDb();
     const url = 'https://example.test/catalog/widget';
     const workflowStart = vi.fn(async () => ({
@@ -828,8 +792,8 @@ describe('DataService', () => {
       sources: [new DataSource({ url })],
     });
 
-    await expect(service.build()).rejects.toThrow('matched 2 scripts');
-    expect(await Script.findActiveForDataService(context, service.id!)).toEqual([]);
+    await expect(service.build()).resolves.toBeUndefined();
+    await expect(Script.findActiveForDataService(context, service.id!)).resolves.toHaveLength(2);
     await expect(temporaryDb.storage.db.select().from(runsTable)).resolves.toEqual([]);
   });
 
@@ -868,7 +832,6 @@ describe('DataService', () => {
     await expect(syncUrls(service, [unhandledUrl])).resolves.toEqual({
       created: [],
       updated: [],
-      removed: [],
       outcome: { success: [], unhandled: [{ url: unhandledUrl }], errors: [] },
     });
     await expect(temporaryDb.storage.db.select().from(runsTable)).resolves.toEqual([]);
@@ -895,7 +858,6 @@ describe('DataService', () => {
     await expect(service.sync(['https://example.test/missing'])).resolves.toEqual({
       created: [],
       updated: [],
-      removed: [],
       outcome: { success: [], unhandled: [{ url: 'https://example.test/missing' }], errors: [] },
     });
   });

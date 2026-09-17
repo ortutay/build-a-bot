@@ -2,6 +2,7 @@ import type { Mastra } from '@mastra/core';
 import { and, asc, eq } from 'drizzle-orm';
 import type { GlobalContext } from '../context/index.js';
 import { UsesContext, type UsesContextOptions } from '../context/UsesContext.js';
+import { log } from '../logger.js';
 import type { StorageTransaction } from '../storage/Storage.js';
 import { scriptsTable } from '../storage/db/schema.js';
 import { findById } from '../storage/helpers.js';
@@ -120,15 +121,13 @@ export class Script extends UsesContext {
     );
     const compiler = new Compiler();
 
-    return new Bot(
-      await compiler.compile(this.code, {
-        additionalContext: {
-          ...vmContext,
-          ...modules,
-          tools: toContextTools(tools),
-        },
-      })
-    );
+    return compiler.compileBot(this.code, {
+      additionalContext: {
+        ...vmContext,
+        ...modules,
+        tools: toContextTools(tools),
+      },
+    });
   }
 
   async save(tx?: StorageTransaction): Promise<void> {
@@ -151,6 +150,7 @@ export class Script extends UsesContext {
         vmContext: this.vmContext,
       };
       if (this.id) {
+        log.info(`Updating script id=${this.id}`);
         const [script] = await tx
           .update(scriptsTable)
           .set(vals)
@@ -162,6 +162,7 @@ export class Script extends UsesContext {
         throw new Error(`Could not update script: ${this.id}`);
       }
 
+      log.info('Creating new script');
       const [script] = await tx.insert(scriptsTable).values(vals).returning();
       if (!script) {
         throw new Error(`Could not save script: ${this.name}`);

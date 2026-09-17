@@ -11,16 +11,15 @@ import {
   type DocumentId,
   type DocumentListQuery,
   type DocumentLibrary,
+  type DocumentSummary,
 } from '../../../documents/index.js';
 import { addInstruments, markAvailableTool, runtimeInstrument } from '../../instruments/index.js';
 
 const prefix = (str: string): string => 'documentTools_' + str;
 
-type GetDocumentInput = Required<DocumentGetInput>;
+type GetDocumentInput = z.input<typeof getDocumentInputSchema>;
 
-type GetManyDocumentsInput = {
-  documents: GetDocumentInput[];
-};
+type GetManyDocumentsInput = z.input<typeof getManyInputSchema>;
 
 const getDocumentInputSchema = z.object({
   documentId: z.string().describe('Document ID returned by a document-producing tool.'),
@@ -42,7 +41,7 @@ Guidelines:
   - For HTML, use collapse when it provides enough detail, to reduce context use.
   - For JSON, use collapse when it provides enough detail, to reduce context use.
 `),
-});
+}) satisfies z.ZodType<DocumentGetInput>;
 
 const documentSummarySchema = z.object({
   id: z.string(),
@@ -51,11 +50,16 @@ const documentSummarySchema = z.object({
   contentType: z.enum(documentContentTypes),
   status: z.number().int().nonnegative().nullable(),
   bytes: z.number().int().nonnegative(),
-});
+}) satisfies z.ZodType<DocumentSummary>;
 
 const documentSchema = documentSummarySchema.extend({
   headers: z.record(z.string(), z.string()),
   request: z.object({
+    cursorId: z.string().optional(),
+    captureId: z.string().optional(),
+    method: z.string().optional(),
+    body: z.string().nullable().optional(),
+    frameUrl: z.string().nullable().optional(),
     timestamp: z.string(),
     headers: z.record(z.string(), z.string()),
     proxy: z.string().nullable(),
@@ -64,6 +68,31 @@ const documentSchema = documentSummarySchema.extend({
   format: z.enum(documentFormats),
   transform: z.enum(documentTransforms),
   content: z.string(),
+}) satisfies z.ZodType<Document>;
+
+const listInputSchema = z.object({
+  captureId: z.string().optional().describe('Scope to a browserTools_networkTool captureId'),
+  documentIds: z.array(z.string()).optional(),
+  origin: z
+    .enum(documentOrigins)
+    .optional()
+    .describe('Use navigation for original page loads; use dynamic for XHR/fetch requests.'),
+  contentType: z.enum(documentContentTypes).optional(),
+  urlPrefix: z.string().optional(),
+  offset: z.number().int().nonnegative().optional(),
+  limit: z.number().int().nonnegative().max(50).optional(),
+}) satisfies z.ZodType<DocumentListQuery>;
+
+const listOutputSchema = z.object({
+  documents: z.array(documentSummarySchema),
+});
+
+const getManyInputSchema = z.object({
+  documents: z.array(getDocumentInputSchema),
+});
+
+const getManyOutputSchema = z.object({
+  documents: z.array(documentSchema),
 });
 
 const requireDocument = (document: Document | null, documentId: DocumentId): Document => {
@@ -72,14 +101,21 @@ const requireDocument = (document: Document | null, documentId: DocumentId): Doc
 };
 
 export const executors: Record<string, any> = {
-  listTool: async (documentLibrary: DocumentLibrary, query: DocumentListQuery) => ({
+  listTool: async (
+    documentLibrary: DocumentLibrary,
+    query: DocumentListQuery
+  ): Promise<z.infer<typeof listOutputSchema>> => ({
     documents: documentLibrary.list(query),
   }),
   getTool: async (
     documentLibrary: DocumentLibrary,
     { documentId, format, transform }: GetDocumentInput
-  ) => requireDocument(documentLibrary.get({ documentId, format, transform }), documentId),
-  getManyTool: async (documentLibrary: DocumentLibrary, { documents }: GetManyDocumentsInput) => ({
+  ): Promise<Document> =>
+    requireDocument(documentLibrary.get({ documentId, format, transform }), documentId),
+  getManyTool: async (
+    documentLibrary: DocumentLibrary,
+    { documents }: GetManyDocumentsInput
+  ): Promise<z.infer<typeof getManyOutputSchema>> => ({
     documents: documentLibrary
       .getMany(documents)
       .map((document, index) => requireDocument(document, documents[index].documentId)),
@@ -91,20 +127,8 @@ const createListTool = (documentLibrary: DocumentLibrary): any => {
     id: prefix('listTool'),
     description:
       'List saved documents and their metadata without returning document content. Browser navigation captures initial XHR/fetch JSON responses as dynamic documents, which you can list here.',
-    inputSchema: z.object({
-      documentIds: z.array(z.string()).optional(),
-      origin: z
-        .enum(documentOrigins)
-        .optional()
-        .describe('Use navigation for original page loads; use dynamic for XHR/fetch requests.'),
-      contentType: z.enum(documentContentTypes).optional(),
-      urlPrefix: z.string().optional(),
-      offset: z.number().int().nonnegative().optional(),
-      limit: z.number().int().nonnegative().max(50).optional(),
-    }),
-    outputSchema: z.object({
-      documents: z.array(documentSummarySchema),
-    }),
+    inputSchema: listInputSchema,
+    outputSchema: listOutputSchema,
     execute: (...args) => executors.listTool(documentLibrary, ...args),
   });
   return tool;
@@ -131,12 +155,8 @@ const createGetManyTool = (documentLibrary: DocumentLibrary): any =>
   createTool({
     id: prefix('getManyTool'),
     description: 'Get multiple saved documents in selected formats and transforms.',
-    inputSchema: z.object({
-      documents: z.array(getDocumentInputSchema),
-    }),
-    outputSchema: z.object({
-      documents: z.array(documentSchema),
-    }),
+    inputSchema: getManyInputSchema,
+    outputSchema: getManyOutputSchema,
     execute: (...args) => executors.getManyTool(documentLibrary, ...args),
   });
 

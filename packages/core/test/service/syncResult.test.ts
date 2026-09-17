@@ -12,12 +12,7 @@ import { DataService } from '../../src/service/DataService.js';
 import { DataSource } from '../../src/service/DataSource.js';
 import { Item } from '../../src/service/Item.js';
 import { type IdentityConfig, entityId } from '../../src/service/identity.js';
-import {
-  dataServicesTable,
-  itemsTable,
-  resultsTable,
-  runsTable,
-} from '../../src/storage/db/schema.js';
+import { dataServicesTable, itemsTable, runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 const a = 'https://example.test/a';
@@ -38,13 +33,13 @@ const code = (check = "new URL(url).hostname === 'example.test'") => `
 const empty = () => ({
   created: [],
   updated: [],
-  removed: [],
   outcome: { success: [], unhandled: [], errors: [] },
 });
 
 describe('sync change reporting', () => {
   let db: TemporaryDb;
   afterEach(async () => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     await db?.dispose();
   });
@@ -90,6 +85,59 @@ describe('sync change reporting', () => {
     return { service, data, fixture, addScript, script, trace };
   };
 
+  it('refreshes lastSeenAt only for successfully seen items without reporting unchanged data', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const firstTime = '2026-09-15T01:00:00.000Z';
+    vi.setSystemTime(new Date(firstTime));
+    const { service, data, fixture } = await setup();
+    data.set(a, [
+      { key: 'keep', text: 'Before' },
+      { key: 'missing', text: 'Retained' },
+    ]);
+    data.set(b, [{ key: 'other', text: 'Other source' }]);
+    const first = await service.sync([a, b]);
+    expect(first.created.every((item) => item.lastSeenAt === firstTime)).toBe(true);
+    const rows = async () => db.storage.db.select().from(itemsTable).orderBy(itemsTable.uniqueId);
+    const find = async (key: string) => (await rows()).find((item) => item.uniqueId === key)!;
+
+    const secondTime = '2026-09-15T02:00:00.000Z';
+    vi.setSystemTime(new Date(secondTime));
+    data.set(a, [{ key: 'keep', text: 'Before' }]);
+    const repeated = await service.sync([a]);
+    expect(repeated.created).toEqual([]);
+    expect(repeated.updated).toEqual([]);
+    expect(repeated).not.toHaveProperty('removed');
+    expect(await find('keep')).toMatchObject({ lastSeenAt: secondTime, updatedAt: firstTime });
+    expect((await find('missing')).lastSeenAt).toBe(firstTime);
+    expect((await find('other')).lastSeenAt).toBe(firstTime);
+
+    const thirdTime = '2026-09-15T03:00:00.000Z';
+    vi.setSystemTime(new Date(thirdTime));
+    data.set(a, [{ key: 'keep', text: 'After' }]);
+    const changed = await service.sync([a]);
+    expect(changed.updated[0].before.lastSeenAt).toBe(secondTime);
+    expect(changed.updated[0].after.lastSeenAt).toBe(thirdTime);
+    expect((await find('keep')).updatedAt).toBe(thirdTime);
+    const previous = await rows();
+
+    vi.setSystemTime(new Date('2026-09-15T04:00:00.000Z'));
+    fixture.mockRejectedValueOnce(new Error('Unavailable'));
+    expect((await service.sync([a])).outcome.errors).toHaveLength(1);
+    expect(await rows()).toEqual(previous);
+    data.set(a, []);
+    expect((await service.sync([a])).outcome.errors).toEqual([]);
+    expect(await rows()).toEqual(previous);
+
+    data.set(a, [{ key: 'missing', text: 'Retained' }]);
+    const reappeared = await service.sync([a]);
+    expect(reappeared.created).toEqual([]);
+    expect(reappeared.updated).toEqual([]);
+    expect(await find('missing')).toMatchObject({
+      id: first.created.find((item) => item.uniqueId === 'missing')!.id,
+      lastSeenAt: '2026-09-15T04:00:00.000Z',
+    });
+  });
+
   it('reports returned tool errors per URL and preserves previous source items', async () => {
     const { service, data, fixture } = await setup();
     data.set(a, [{ key: 'a', text: 'Before' }]);
@@ -100,9 +148,8 @@ describe('sync change reporting', () => {
         : [{ key: 'b', text: 'Working' }]
     );
     const changes = await service.sync([a, b]);
-    expect(changes.outcome.errors).toEqual([{ url: a, error: 'fixture: Tool validation failed' }]);
+    expect(changes.outcome.errors).toEqual([{ url: a, error: 'Tool validation failed' }]);
     expect(changes.outcome.success).toEqual([{ url: b }]);
-    expect(changes.removed).toEqual([]);
     expect((await service.list()).results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'a', text: 'Before' }),
@@ -111,7 +158,7 @@ describe('sync change reporting', () => {
     );
   });
 
-  it('reports creates, updates and removals using script IDs and full data, with stable repeats', async () => {
+  it('reports creates and updates while retaining unseen items', async () => {
     const { service, data } = await setup();
     data.set(a, [
       { key: 'keep', text: 'Before' },
@@ -134,15 +181,19 @@ describe('sync change reporting', () => {
     ]);
     const changes = await service.sync([a]);
     expect(changes.created.map((item) => item.uniqueId)).toEqual(['new']);
-    expect(changes.removed[0]).toEqual(first.created[1]);
+    expect(changes).not.toHaveProperty('removed');
+    expect(await service.detail('gone')).toEqual({ key: 'gone', text: 'Gone' });
     expect(changes.updated).toHaveLength(1);
-    expect(changes.updated[0].before).toEqual(first.created[0]);
+    expect(changes.updated[0].before).toMatchObject({
+      ...first.created[0],
+      lastSeenAt: expect.any(String),
+    });
     expect(changes.updated[0].after).toMatchObject({
       id: first.created[0].id,
       uniqueId: 'keep',
       data: { key: 'keep', text: 'Before ' },
     });
-    expect((await service.list()).total).toBe(2);
+    expect((await service.list()).total).toBe(3);
   });
 
   it('isolates invalid inputs and execution failures, deduplicates URLs, and retains failed-source data', async () => {
@@ -170,7 +221,6 @@ describe('sync change reporting', () => {
       errors: [{ url: a, error: 'Source unavailable' }],
     });
     expect(changes.created).toHaveLength(1);
-    expect(changes.removed).toEqual([]);
     expect((await service.list()).results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'old' }),
@@ -212,7 +262,7 @@ describe('sync change reporting', () => {
     expect(changes.created).toHaveLength(1);
   });
 
-  it('rolls back changes and run results on a write failure while continuing later sources', async () => {
+  it('rolls back item changes and run completion on a write failure while continuing later sources', async () => {
     const { service, data } = await setup();
     data.set(a, [
       { key: 'keep', text: 'Before' },
@@ -235,11 +285,9 @@ describe('sync change reporting', () => {
     const changes = await service.sync([a, b]);
     expect(changes.created.map((item) => item.uniqueId)).toEqual(['ok']);
     expect(changes.updated).toEqual([]);
-    expect(changes.removed).toEqual([]);
     expect(changes.outcome.errors).toEqual([{ url: a, error: 'Write failed' }]);
     const items = await db.storage.db.select().from(itemsTable);
     expect(items.filter((item) => item.sourceUrl === a)).toEqual(before);
-    expect(await db.storage.db.select().from(resultsTable)).toHaveLength(3);
     const runs = await db.storage.db.select().from(runsTable);
     expect(runs.filter((run) => run.status === 'error')).toHaveLength(1);
   });
@@ -271,17 +319,17 @@ describe('sync change reporting', () => {
     expect(runs.map((run) => run.input)).toEqual([{ url: a }, { url: b }]);
   });
 
-  it('clears an explicitly empty source while retaining another source', async () => {
+  it('retains items when a source becomes empty', async () => {
     const { service, data } = await setup();
     data.set(a, [{ key: 'old', text: 'Remove' }]);
     data.set(b, [{ key: 'keep', text: 'Keep' }]);
     await service.sync([a, b]);
     data.set(a, []);
     const changes = await service.sync([a, b]);
-    expect(changes.removed.map((item) => item.uniqueId)).toEqual(['old']);
+    expect(changes).not.toHaveProperty('removed');
     expect(changes.created).toEqual([]);
     expect(changes.outcome.success).toEqual([{ url: a }, { url: b }]);
-    expect((await service.list()).total).toBe(1);
+    expect((await service.list()).total).toBe(2);
   });
 
   it.each([
@@ -301,7 +349,6 @@ describe('sync change reporting', () => {
     const changes = await service.sync([a, b]);
     expect(changes.outcome.success).toEqual([{ url: b }]);
     expect(changes.outcome.errors).toEqual([{ url: a, error: expect.any(String) }]);
-    expect(changes.removed).toEqual([]);
     expect(changes.created.map((item) => item.uniqueId)).toEqual(['ok']);
     expect((await service.list()).results).toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'old' })])
@@ -370,13 +417,13 @@ describe('sync change reporting', () => {
       first.created.find((item) => item.uniqueId === 'keep')!.id
     );
     expect(changes.created.map((item) => item.uniqueId)).toEqual(['new']);
-    expect(changes.removed.map((item) => item.uniqueId)).toEqual(['gone']);
+    expect(await service.detail('gone')).toEqual({ key: 'gone', text: 'Remove' });
     expect(await service.detail('other-url')).toEqual({ key: 'other-url', text: 'Untouched' });
     expect(await otherService.list()).toEqual(otherBefore);
-    expect((await service.list()).total).toBe(3);
+    expect((await service.list()).total).toBe(4);
   });
 
-  it('reconciles duplicate source items left by older script versions', async () => {
+  it('retains duplicate source items left by older script versions', async () => {
     const { service, data, script, addScript } = await setup();
     data.set(a, [{ key: 'same', text: 'Before' }]);
     await service.sync([a]);
@@ -394,10 +441,10 @@ describe('sync change reporting', () => {
     const changes = await service.sync([a]);
     expect(changes.updated).toHaveLength(1);
     expect(changes.created).toEqual([]);
-    expect(changes.removed).toEqual([]);
-    expect((await service.list()).total).toBe(1);
+    expect((await service.list()).total).toBe(2);
     data.set(a, []);
-    expect((await service.sync([a])).removed).toHaveLength(1);
+    await service.sync([a]);
+    expect((await service.list()).total).toBe(2);
   });
   it.each([undefined, { fields: [{ path: 'key' }] }])(
     'warns on conflicting duplicates and retains the first item',
@@ -450,7 +497,6 @@ describe('sync change reporting', () => {
     expect(changes.updated[0].after.id).toBe(first.created[0].id);
     expect(changes.updated[0].after.uniqueId).toBe(first.created[0].uniqueId);
     expect(changes.created).toEqual([]);
-    expect(changes.removed).toEqual([]);
     data.set(a, [{ key: '', text: 'Missing identity' }]);
     expect((await loaded.sync([a])).outcome.errors).toHaveLength(1);
     expect((await loaded.list()).results[0]).toMatchObject({ text: 'After' });
@@ -470,7 +516,6 @@ describe('sync change reporting', () => {
     data.set(a, [{ key: '5560743089', text: 'After' }]);
     const changes = await configured.sync([a]);
     expect(changes.created).toEqual([]);
-    expect(changes.removed).toEqual([]);
     expect(changes.updated[0].after.id).toBe(first.created[0].id);
     expect(changes.updated[0].after.uniqueId).toBe(first.created[0].uniqueId);
   });

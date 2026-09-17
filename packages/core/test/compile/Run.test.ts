@@ -7,7 +7,7 @@ import { GlobalContext } from '../../src/context/index.js';
 import { DocumentLibrary, MemoryLibraryBackend } from '../../src/documents/index.js';
 import { NoProxy, ProxyRegistry } from '../../src/proxy/index.js';
 import { DataService } from '../../src/service/DataService.js';
-import { resultsTable, runsTable } from '../../src/storage/db/schema.js';
+import { runsTable } from '../../src/storage/db/schema.js';
 import { createTemporaryDb, type TemporaryDb } from '../lib/temporaryDb.js';
 
 describe('Run', () => {
@@ -18,7 +18,7 @@ describe('Run', () => {
     temporaryDb = null;
   });
 
-  it('persists a Bot run and its results', async () => {
+  it('persists Bot run status and timestamps', async () => {
     temporaryDb = await createTemporaryDb();
     const storage = temporaryDb.storage;
     const context = new GlobalContext({
@@ -59,17 +59,15 @@ describe('Run', () => {
     await expect(bot.check(input.url)).resolves.toBe(true);
     await expect(bot.run(input.url, run.id!)).resolves.toEqual(output);
     expect(bot.getLogs(run.id!)).toEqual(logs);
-    await run.complete(storage, output);
+    await run.complete(storage);
 
     const [storedRun] = await storage.db.select().from(runsTable);
-    const [storedResult] = await storage.db.select().from(resultsTable);
 
     expect(storedRun).toMatchObject({
       input,
       scriptId: script.id,
       status: 'done',
+      endTime: expect.any(String),
     });
-    expect(storedResult.id).toHaveLength(10);
-    expect(storedResult).toMatchObject({ data: { value: 'scraped' }, runId: storedRun.id });
   });
 });

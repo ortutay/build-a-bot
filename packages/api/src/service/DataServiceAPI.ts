@@ -1,8 +1,15 @@
-import { DataService, defaultListLimit } from '@build-a-bot/core';
 import { type Express } from 'express';
 import { z } from 'zod';
+import { DataService, defaultListLimit } from '@build-a-bot/core';
 
 export type DataServiceAPIOptions = { dataService: DataService };
+
+const syncSchema = z.object({ urls: z.array(z.string()) });
+const errorSchema = {
+  type: 'object',
+  properties: { error: { type: 'string' } },
+  required: ['error'],
+};
 
 const parsePositiveInteger = (val: unknown, defaultVal: number): number | null => {
   if (val === undefined) {
@@ -35,6 +42,34 @@ export class DataServiceAPI {
         id: { type: 'string', description: 'The item unique ID' },
       },
       required: [...new Set([...(itemSchema.required ?? []), 'id'])],
+    };
+    const storedItemSchema = {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The stored item row ID' },
+        uniqueId: { type: 'string', description: 'The item identity' },
+        createdAt: { type: ['string', 'null'] },
+        updatedAt: { type: ['string', 'null'] },
+        lastSeenAt: { type: ['string', 'null'] },
+        data: itemSchema,
+        sourceUrl: { type: 'string' },
+        sourceScriptId: { type: 'string' },
+      },
+      required: [
+        'id',
+        'uniqueId',
+        'createdAt',
+        'updatedAt',
+        'lastSeenAt',
+        'data',
+        'sourceUrl',
+        'sourceScriptId',
+      ],
+    };
+    const urlSchema = {
+      type: 'object',
+      properties: { url: { type: 'string' } },
+      required: ['url'],
     };
     const { name } = this.dataService;
     const basePath = `/local/${name}`;
@@ -80,11 +115,13 @@ export class DataServiceAPI {
                   schema: {
                     type: 'object',
                     properties: {
-                      count: { type: 'integer', minimum: 0 },
                       total: { type: 'integer', minimum: 0 },
+                      count: { type: 'integer', minimum: 0 },
+                      next: { type: ['string', 'null'], format: 'uri' },
+                      prev: { type: ['string', 'null'], format: 'uri' },
                       results: { type: 'array', items: listItemSchema },
                     },
-                    required: ['results', 'count', 'total'],
+                    required: ['total', 'count', 'next', 'prev', 'results'],
                   },
                 },
               },
@@ -115,8 +152,62 @@ export class DataServiceAPI {
       },
       [`${basePath}/sync`]: {
         post: {
+          description:
+            'Sync the supplied URLs using existing scripts. Returns created and updated items ' +
+            'and per-URL outcomes; individual run failures do not abort other URLs. ' +
+            'Unchanged items refresh lastSeenAt without appearing in updated. Items are never removed.',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: z.toJSONSchema(syncSchema) } },
+          },
           responses: {
-            200: { description: 'Service synchronization result' },
+            200: {
+              description: 'Item changes and URL outcomes, including partial failures',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      created: { type: 'array', items: storedItemSchema },
+                      updated: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: { before: storedItemSchema, after: storedItemSchema },
+                          required: ['before', 'after'],
+                        },
+                      },
+                      outcome: {
+                        type: 'object',
+                        properties: {
+                          success: { type: 'array', items: urlSchema },
+                          unhandled: { type: 'array', items: urlSchema },
+                          errors: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: { url: { type: 'string' }, error: { type: 'string' } },
+                              required: ['url', 'error'],
+                            },
+                          },
+                        },
+                        required: ['success', 'unhandled', 'errors'],
+                      },
+                    },
+                    required: ['created', 'updated', 'outcome'],
+                  },
+                },
+              },
+            },
+            400: {
+              description:
+                'Invalid JSON body; expected an object containing a urls array of strings',
+              content: { 'application/json': { schema: errorSchema } },
+            },
+            500: {
+              description: 'Service-level failure',
+              content: { 'application/json': { schema: errorSchema } },
+            },
           },
         },
       },
@@ -139,7 +230,19 @@ export class DataServiceAPI {
       }
 
       try {
-        resp.json(await this.dataService.list({ limit, page }));
+        const { total, count, results } = await this.dataService.list({ limit, page });
+        const pageUrl = (page: number): string => {
+          const url = new URL(req.originalUrl, `${req.protocol}://${req.get('host')}`);
+          url.searchParams.set('page', String(page));
+          return url.href;
+        };
+        resp.json({
+          total,
+          count,
+          next: page * limit < total ? pageUrl(page + 1) : null,
+          prev: page > 1 ? pageUrl(page - 1) : null,
+          results,
+        });
       } catch (e) {
         next(e);
       }
@@ -157,9 +260,14 @@ export class DataServiceAPI {
         next(e);
       }
     });
-    app.post(`${basePath}/sync`, async (_req, resp, next) => {
+    app.post(`${basePath}/sync`, async (req, resp, next) => {
+      const parsed = syncSchema.safeParse(req.body);
+      if (!parsed.success) {
+        resp.status(400).json({ error: 'urls must be an array of strings' });
+        return;
+      }
       try {
-        resp.json(await this.dataService.sync());
+        resp.json(await this.dataService.sync(parsed.data.urls));
       } catch (e) {
         next(e);
       }

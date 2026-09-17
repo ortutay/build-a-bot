@@ -17,7 +17,9 @@ import {
 
 const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   const contentType = headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
-  if (!contentType) return 'text/html';
+  if (!contentType) {
+    return 'text/html';
+  }
 
   const supportedContentType = documentContentTypes.find((type) => type === contentType);
   if (!supportedContentType) {
@@ -26,24 +28,72 @@ const contentTypeFromHeaders = (headers: DocumentHeaders): ContentType => {
   return supportedContentType;
 };
 
-type FetchToolInput = {
-  url: string;
-  proxy: string;
-};
+const makeFetchInputSchema = <T extends z.ZodType<string>>(proxy: T) =>
+  z
+    .object({
+      method: z.enum(['GET', 'POST']).default('GET'),
+      headers: z
+        .record(z.string(), z.string())
+        .nullish()
+        .transform((val) => val ?? {}),
+      body: z
+        .string()
+        .max(1_000_000)
+        .nullish()
+        .transform((val) => val || undefined),
+      readOnly: z.boolean().optional(),
+      timeout: z.number().int().min(1).max(120000).default(30000),
+      url: z
+        .string()
+        .describe('URL to fetch. Include the scheme, for example https://example.com.'),
+      proxy,
+    })
+    .refine(
+      (input) => input.method !== 'POST' || input.readOnly === true,
+      'POST is only available for explicitly read-only queries'
+    )
+    .refine(
+      (input) => input.method !== 'GET' || input.body === undefined,
+      'GET cannot have a body'
+    );
+
+const fetchInputSchema = makeFetchInputSchema(z.string());
+const fetchOutputSchema = z.object({
+  documentId: z.string(),
+  url: z.string(),
+  ok: z.boolean(),
+  status: z.number(),
+  statusText: z.string(),
+  bytes: z.number(),
+});
+
+type FetchToolInput = z.input<typeof fetchInputSchema>;
+type FetchToolResult = z.infer<typeof fetchOutputSchema>;
 
 export const executors: Record<string, any> = {
   fetchTool: async (
     documentLibrary: DocumentLibrary,
     proxyRegistry: ProxyRegistry,
-    { url, proxy }: FetchToolInput
-  ) => {
+    input: FetchToolInput
+  ): Promise<FetchToolResult> => {
+    const {
+      url,
+      proxy,
+      method,
+      headers: requestHeaders,
+      body,
+      timeout,
+    } = fetchInputSchema.parse(input);
     const spec = proxyRegistry.require(proxy);
     if (!isHttpProxy(spec)) {
       throw new Error(`Proxy "${proxy}" does not support fetch().`);
     }
     const timestamp = new Date().toISOString();
-    const requestHeaders: DocumentHeaders = {};
-    const resp = await spec.fetch(url);
+    const resp = await spec.fetch(url, requestHeaders, {
+      method,
+      body,
+      signal: AbortSignal.timeout(timeout),
+    });
     const headers = Object.fromEntries(resp.headers);
     const contentType = contentTypeFromHeaders(headers);
     const content = parseResponseBody(contentType, await resp.arrayBuffer());
@@ -56,6 +106,8 @@ export const executors: Record<string, any> = {
       headers,
       request: {
         timestamp,
+        method,
+        body: body ?? null,
         headers: requestHeaders,
         proxy,
         mode: 'fetch',
@@ -81,23 +133,12 @@ const createFetchTool = ({ documentLibrary, proxyRegistry }: CreateFetchToolsOpt
     .map((proxy) => proxy.id);
   return createTool({
     id: 'fetchTool',
-    description: "Fetch a URL using Node's built-in fetch() function.",
-    inputSchema: z.object({
-      url: z
-        .string()
-        .describe('URL to fetch. Include the scheme, for example https://example.com.'),
-      proxy: z
-        .enum(proxyNames)
-        .describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`),
-    }),
-    outputSchema: z.object({
-      documentId: z.string(),
-      url: z.string(),
-      ok: z.boolean(),
-      status: z.number(),
-      statusText: z.string(),
-      bytes: z.number(),
-    }),
+    description:
+      'Fetch HTTP content or a read-only JSON/search endpoint. POST requires readOnly:true; never use for application submission or other mutations. Method, headers and body participate in cache identity.',
+    inputSchema: makeFetchInputSchema(
+      z.enum(proxyNames).describe(`One of: ${proxyNames.map((name) => `"${name}"`).join(', ')}.`)
+    ),
+    outputSchema: fetchOutputSchema,
     execute: (...args) => executors.fetchTool(documentLibrary, proxyRegistry, ...args),
   });
 };
@@ -110,13 +151,22 @@ export type CreateFetchToolsOptions = {
 export const createTools = async (
   options: CreateFetchToolsOptions
 ): Promise<Record<string, Tool>> => {
-  if (!options.proxyRegistry.list().some(isHttpProxy)) return {};
+  if (!options.proxyRegistry.list().some(isHttpProxy)) {
+    return {};
+  }
   const internal = [createFetchTool(options)];
   return Object.fromEntries(
     (
       await Promise.all(
         internal.map((tool) =>
-          addInstruments([cacheInstrument, runtimeInstrument, markAvailableTool], tool)
+          addInstruments(
+            [
+              (tool) => cacheInstrument(tool, options.documentLibrary.cacheScope),
+              runtimeInstrument,
+              markAvailableTool,
+            ],
+            tool
+          )
         )
       )
     ).map((tool) => [tool.id, tool])

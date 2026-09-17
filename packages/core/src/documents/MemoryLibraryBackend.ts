@@ -1,3 +1,4 @@
+import { log } from '../logger.js';
 import type { DocumentId, DocumentLibraryBackend, StoredDocument } from './DocumentLibrary.js';
 
 const clone = (document: StoredDocument): StoredDocument => ({
@@ -13,6 +14,7 @@ export class MemoryLibraryBackend implements DocumentLibraryBackend {
   private documents = new Map<DocumentId, StoredDocument>();
 
   save(document: StoredDocument): void {
+    log.info(`Saving document id=${document.id} backend=memory`);
     this.documents.set(document.id, clone(document));
   }
 

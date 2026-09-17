@@ -97,6 +97,16 @@ export class BrowserSession {
     }
   }
 
+  async closeCursor(cursorId: string): Promise<void> {
+    await this.resetCursor(cursorId);
+    this.cursors.delete(cursorId);
+    if (!this.cursors.size) {
+      const browser = await this.browser;
+      this.browser = undefined;
+      await browser?.close();
+    }
+  }
+
   async close(): Promise<void> {
     try {
       const results = await Promise.allSettled(

@@ -3,16 +3,23 @@ import { type DiskCache } from '../../../cache/DiskCache.js';
 import { cb } from '../../../cache/busters.js';
 import { toolCacheInput } from '../../../cache/toolCacheKey.js';
 import { log } from '../../../logger.js';
-import { hash } from '../../../util/index.js';
+import { getOrNull, hash } from '../../../util/index.js';
 import { isToolFailure } from '../../toolError.js';
 
 type CacheBackend = Pick<DiskCache, 'get' | 'set'>;
+
+const uncacheable = (step: { toolId: string; output: unknown }): boolean =>
+  isToolFailure(step.output) ||
+  getOrNull<string>(getOrNull(step.output, 'readiness'), 'state') === 'timeout';
 
 export class BrowserToolCache {
   cache: CacheBackend;
   sequences: Record<string, { toolId: string; input: any; output: any }[]>;
 
-  constructor(cache: CacheBackend) {
+  constructor(
+    cache: CacheBackend,
+    readonly cacheScope = ''
+  ) {
     this.cache = cache;
 
     this.sequences = {};
@@ -31,9 +38,9 @@ export class BrowserToolCache {
       input: it.input,
     }));
     inputs.push({ toolId, input: toolCacheInput(omit(input, ['cursorId'])) });
-    const key = hash({ cacheBuster: cb.browserToolCache, inputs });
+    const key = hash({ cacheBuster: cb.browserToolCache, cacheScope: this.cacheScope, inputs });
 
-    const cached = await this.cache.get(key);
+    const cached = sequence.some(uncacheable) ? undefined : await this.cache.get(key);
     const keyDigest = key.slice(0, 12);
 
     if (cached !== undefined) {
@@ -54,7 +61,8 @@ export class BrowserToolCache {
     cursorId: string,
     toolId: string,
     input: Record<string, any>,
-    output: unknown
+    output: unknown,
+    write = true
   ) {
     this.sequences[cursorId] ||= [];
     const sequence = this.sequences[cursorId];
@@ -65,7 +73,7 @@ export class BrowserToolCache {
     });
 
     // Keep the interaction history, but never cache results from a failed prefix.
-    if (sequence.some((step) => isToolFailure(step.output))) {
+    if (!write || sequence.some(uncacheable)) {
       return;
     }
 
@@ -73,7 +81,7 @@ export class BrowserToolCache {
       toolId: it.toolId,
       input: it.input,
     }));
-    const key = hash({ cacheBuster: cb.browserToolCache, inputs });
+    const key = hash({ cacheBuster: cb.browserToolCache, cacheScope: this.cacheScope, inputs });
     const cached = sequence.at(-1)?.output;
 
     log.debug(
